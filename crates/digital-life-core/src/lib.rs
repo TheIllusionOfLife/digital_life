@@ -1,4 +1,9 @@
 pub mod agent;
+pub mod config;
+pub mod genome;
 pub mod nn;
+pub mod organism;
+pub mod resource;
+pub mod rng;
 pub mod spatial;
 pub mod world;
