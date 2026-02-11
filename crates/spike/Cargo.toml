@@ -1,0 +1,13 @@
+[package]
+name = "digital-life-spike"
+version = "0.1.0"
+edition.workspace = true
+
+[[bin]]
+name = "spike"
+path = "src/main.rs"
+
+[dependencies]
+digital-life-core = { path = "../digital-life-core" }
+rand.workspace = true
+rand_chacha.workspace = true

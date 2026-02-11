@@ -1,0 +1,12 @@
+[package]
+name = "digital-life-core"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+rstar.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+rayon.workspace = true
+serde.workspace = true
+serde_json.workspace = true
