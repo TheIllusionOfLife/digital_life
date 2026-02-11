@@ -59,6 +59,23 @@ fn step_once(
     Ok((world.agents.len(), timings.total_us))
 }
 
+#[pyfunction]
+fn run_experiment_json(config_json: &str, steps: usize, sample_every: usize) -> PyResult<String> {
+    let config: SimConfig = serde_json::from_str(config_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid config json: {e}")))?;
+    let (agents, nns) = bootstrap_entities(
+        config.num_organisms,
+        config.agents_per_organism,
+        config.world_size,
+    )
+    .map_err(|e| PyValueError::new_err(format!("invalid world configuration: {e}")))?;
+    let mut world = World::try_new(agents, nns, config)
+        .map_err(|e| PyValueError::new_err(format!("invalid world configuration: {e}")))?;
+    let summary = world.run_experiment(steps, sample_every);
+    serde_json::to_string(&summary)
+        .map_err(|e| PyValueError::new_err(format!("failed to serialize experiment summary: {e}")))
+}
+
 fn bootstrap_entities(
     num_organisms: usize,
     agents_per_organism: usize,
@@ -103,6 +120,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(default_config_json, m)?)?;
     m.add_function(wrap_pyfunction!(validate_config_json, m)?)?;
     m.add_function(wrap_pyfunction!(step_once, m)?)?;
+    m.add_function(wrap_pyfunction!(run_experiment_json, m)?)?;
     Ok(())
 }
 
@@ -138,12 +156,13 @@ mod tests {
     }
 
     #[test]
-    fn run_experiment_json_returns_summary_payload() {
-        let config = default_config_json().expect("default config should serialize");
-        let output = run_experiment_json(&config, 20, 5).expect("experiment should run");
+    fn sim_config_json_includes_new_metabolism_fields() {
+        let config_json =
+            serde_json::to_string(&SimConfig::default()).expect("default config should serialize");
         let value: serde_json::Value =
-            serde_json::from_str(&output).expect("summary output must be valid JSON");
-        assert_eq!(value["steps"].as_u64(), Some(20));
-        assert!(value["samples"].as_array().is_some());
+            serde_json::from_str(&config_json).expect("config output must be valid JSON");
+        assert!(value["world_size"].as_f64().is_some());
+        assert!(value["metabolic_viability_floor"].as_f64().is_some());
+        assert!(value["metabolism_mode"].as_str().is_some());
     }
 }

@@ -1,9 +1,10 @@
 use crate::agent::Agent;
-use crate::config::SimConfig;
+use crate::config::{MetabolismMode, SimConfig};
 use crate::metabolism::{MetabolicState, MetabolismEngine};
 use crate::nn::NeuralNet;
 use crate::resource::ResourceField;
 use crate::spatial;
+use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 use std::time::Instant;
 use std::{error::Error, fmt};
@@ -16,6 +17,24 @@ pub struct StepTimings {
     pub total_us: u64,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StepMetrics {
+    pub step: usize,
+    pub energy_mean: f32,
+    pub waste_mean: f32,
+    pub boundary_mean: f32,
+    pub alive_count: usize,
+    pub resource_total: f32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RunSummary {
+    pub steps: usize,
+    pub sample_every: usize,
+    pub final_alive_count: usize,
+    pub samples: Vec<StepMetrics>,
+}
+
 pub struct World {
     pub agents: Vec<Agent>,
     pub nns: Vec<NeuralNet>, // one per organism
@@ -24,6 +43,8 @@ pub struct World {
     metabolic_states: Vec<MetabolicState>,
     metabolism: MetabolismEngine,
     resource_field: ResourceField,
+    boundary_integrity: Vec<f32>,
+    organism_alive: Vec<bool>,
     // Per-organism accumulators: [sin(x), cos(x), sin(y), cos(y)].
     org_toroidal_sums: Vec<[f64; 4]>,
     org_counts: Vec<usize>,
@@ -98,6 +119,12 @@ impl World {
         Self::validate_config_for_state(&agents, &nns, &config)?;
         let world_size = config.world_size;
         let num_organisms = nns.len();
+        let metabolism = match config.metabolism_mode {
+            MetabolismMode::Toy => MetabolismEngine::default(),
+            MetabolismMode::Graph => {
+                MetabolismEngine::Graph(crate::metabolism::GraphMetabolism::default())
+            }
+        };
 
         let metabolic_states = vec![MetabolicState::default(); num_organisms];
         Ok(Self {
@@ -105,8 +132,10 @@ impl World {
             nns,
             config,
             metabolic_states,
-            metabolism: MetabolismEngine::default(),
+            metabolism,
             resource_field: ResourceField::new(world_size, 1.0, 1.0),
+            boundary_integrity: vec![1.0; num_organisms],
+            organism_alive: vec![true; num_organisms],
             org_toroidal_sums: vec![[0.0, 0.0, 0.0, 0.0]; num_organisms],
             org_counts: vec![0; num_organisms],
         })
@@ -179,11 +208,20 @@ impl World {
     }
 
     pub fn set_config(&mut self, config: SimConfig) -> Result<(), WorldInitError> {
+        let mode_changed = self.config.metabolism_mode != config.metabolism_mode;
         Self::validate_config_for_state(&self.agents, &self.nns, &config)?;
         if (self.config.world_size - config.world_size).abs() > f64::EPSILON {
             self.resource_field = ResourceField::new(config.world_size, 1.0, 1.0);
         }
         self.config = config;
+        if mode_changed {
+            self.metabolism = match self.config.metabolism_mode {
+                MetabolismMode::Toy => MetabolismEngine::default(),
+                MetabolismMode::Graph => {
+                    MetabolismEngine::Graph(crate::metabolism::GraphMetabolism::default())
+                }
+            };
+        }
         Ok(())
     }
 
@@ -204,6 +242,43 @@ impl World {
         self.metabolic_states.get(organism_id)
     }
 
+    fn alive_count(&self) -> usize {
+        self.organism_alive.iter().filter(|alive| **alive).count()
+    }
+
+    fn collect_step_metrics(&self, step: usize) -> StepMetrics {
+        let orgs = self.metabolic_states.len().max(1) as f32;
+        let energy_mean = self.metabolic_states.iter().map(|s| s.energy).sum::<f32>() / orgs;
+        let waste_mean = self.metabolic_states.iter().map(|s| s.waste).sum::<f32>() / orgs;
+        let boundary_mean = self.boundary_integrity.iter().sum::<f32>() / orgs;
+        let resource_total = self.resource_field.data().iter().copied().sum::<f32>();
+        StepMetrics {
+            step,
+            energy_mean,
+            waste_mean,
+            boundary_mean,
+            alive_count: self.alive_count(),
+            resource_total,
+        }
+    }
+
+    pub fn run_experiment(&mut self, steps: usize, sample_every: usize) -> RunSummary {
+        let interval = sample_every.max(1);
+        let mut samples = Vec::new();
+        for step in 1..=steps {
+            self.step();
+            if step % interval == 0 || step == steps {
+                samples.push(self.collect_step_metrics(step));
+            }
+        }
+        RunSummary {
+            steps,
+            sample_every: interval,
+            final_alive_count: self.alive_count(),
+            samples,
+        }
+    }
+
     pub fn step(&mut self) -> StepTimings {
         let total_start = Instant::now();
 
@@ -216,6 +291,10 @@ impl World {
         let t1 = Instant::now();
         let mut deltas: Vec<[f32; 4]> = Vec::with_capacity(self.agents.len());
         for agent in &self.agents {
+            if !self.organism_alive[agent.organism_id as usize] {
+                deltas.push([0.0; 4]);
+                continue;
+            }
             let neighbor_count = spatial::count_neighbors(
                 &tree,
                 agent.position,
@@ -246,6 +325,10 @@ impl World {
         // 3. Apply updates
         let t2 = Instant::now();
         for (agent, delta) in self.agents.iter_mut().zip(deltas.iter()) {
+            if !self.organism_alive[agent.organism_id as usize] {
+                agent.velocity = [0.0, 0.0];
+                continue;
+            }
             // Velocity update
             agent.velocity[0] += delta[0] as f64 * self.config.dt;
             agent.velocity[1] += delta[1] as f64 * self.config.dt;
@@ -273,9 +356,29 @@ impl World {
         }
 
         if self.config.enable_boundary_maintenance {
+            let dt = self.config.dt as f32;
+            for org_id in 0..self.metabolic_states.len() {
+                if !self.organism_alive[org_id] {
+                    self.boundary_integrity[org_id] = 0.0;
+                    continue;
+                }
+                let state = &self.metabolic_states[org_id];
+                let energy_deficit =
+                    (self.config.metabolic_viability_floor - state.energy).max(0.0);
+                let decay = self.config.boundary_decay_base_rate
+                    + self.config.boundary_decay_energy_scale
+                        * (energy_deficit + state.waste * 0.5);
+                let repair = (state.energy - state.waste * 0.2).max(0.0) * 0.01;
+                self.boundary_integrity[org_id] =
+                    (self.boundary_integrity[org_id] - decay * dt + repair * dt).clamp(0.0, 1.0);
+                if self.boundary_integrity[org_id] <= 0.05 {
+                    self.organism_alive[org_id] = false;
+                    self.boundary_integrity[org_id] = 0.0;
+                }
+            }
             for agent in &mut self.agents {
-                agent.internal_state[2] =
-                    (agent.internal_state[2] - (self.config.dt as f32 * 0.001)).clamp(0.0, 1.0);
+                let boundary = self.boundary_integrity[agent.organism_id as usize];
+                agent.internal_state[2] = boundary;
             }
         }
 
@@ -296,6 +399,9 @@ impl World {
             }
 
             for (org_id, state) in self.metabolic_states.iter_mut().enumerate() {
+                if !self.organism_alive[org_id] {
+                    continue;
+                }
                 let center = if self.org_counts[org_id] > 0 {
                     [
                         Self::toroidal_mean_coord(
@@ -319,6 +425,10 @@ impl World {
                         .resource_field
                         .take(center[0], center[1], flux.consumed_external);
                 }
+                if state.energy <= 0.0 && self.boundary_integrity[org_id] <= 0.1 {
+                    self.organism_alive[org_id] = false;
+                    self.boundary_integrity[org_id] = 0.0;
+                }
             }
         }
         let state_update_us = t2.elapsed().as_micros() as u64;
@@ -335,7 +445,8 @@ impl World {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::SimConfig;
+    use crate::config::{MetabolismMode, SimConfig};
+    use crate::metabolism::MetabolismEngine;
     use crate::nn::NeuralNet;
 
     fn make_world(num_agents: usize, world_size: f64) -> World {
@@ -586,5 +697,43 @@ mod tests {
         assert_eq!(summary.steps, 50);
         assert!(!summary.samples.is_empty());
         assert!(summary.final_alive_count <= world.config().num_organisms);
+    }
+
+    #[test]
+    fn low_energy_org_decays_boundary_faster() {
+        let mut low = make_world(10, 100.0);
+        let mut high = make_world(10, 100.0);
+        low.config.enable_metabolism = false;
+        high.config.enable_metabolism = false;
+        low.config.metabolic_viability_floor = 0.8;
+        high.config.metabolic_viability_floor = 0.8;
+        low.config.boundary_decay_energy_scale = 0.08;
+        high.config.boundary_decay_energy_scale = 0.08;
+        low.metabolic_states[0].energy = 0.0;
+        high.metabolic_states[0].energy = 1.0;
+        low.metabolic_states[0].waste = 0.8;
+        high.metabolic_states[0].waste = 0.0;
+
+        low.step();
+        high.step();
+
+        assert!(
+            low.boundary_integrity[0] < high.boundary_integrity[0],
+            "low-energy high-waste organism should lose boundary integrity faster"
+        );
+    }
+
+    #[test]
+    fn graph_mode_selects_graph_engine() {
+        let agents = vec![Agent::new(0, 0, [0.0, 0.0])];
+        let nn = NeuralNet::from_weights(std::iter::repeat_n(0.0f32, NeuralNet::WEIGHT_COUNT));
+        let config = SimConfig {
+            num_organisms: 1,
+            agents_per_organism: 1,
+            metabolism_mode: MetabolismMode::Graph,
+            ..SimConfig::default()
+        };
+        let world = World::new(agents, vec![nn], config);
+        assert!(matches!(world.metabolism, MetabolismEngine::Graph(_)));
     }
 }

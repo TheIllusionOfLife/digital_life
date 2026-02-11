@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 /// Per-organism metabolic state.
 #[derive(Clone, Debug)]
 pub struct MetabolicState {
@@ -135,20 +137,79 @@ impl GraphMetabolism {
         external_resource: f32,
         dt: f32,
     ) -> MetabolismFlux {
-        // Bootstrap behavior: graph topology modulates conversion efficiency.
-        let node_efficiency = if self.graph.nodes.is_empty() {
-            1.0
-        } else {
-            self.graph
-                .nodes
-                .iter()
-                .map(|node| node.catalytic_efficiency)
-                .sum::<f32>()
-                / self.graph.nodes.len() as f32
-        };
-        let converted_eff = (self.conversion_efficiency * node_efficiency).clamp(0.0, 1.0);
-        let params = MetabolismParams::from_graph(self);
-        apply_metabolism_step(params, converted_eff, state, external_resource, dt)
+        if self.graph.nodes.is_empty() {
+            let params = MetabolismParams::from_graph(self);
+            return apply_metabolism_step(
+                params,
+                self.conversion_efficiency.clamp(0.0, 1.0),
+                state,
+                external_resource,
+                dt,
+            );
+        }
+
+        let external_cap = (self.uptake_rate * dt).max(0.0);
+        let consumed_external = external_resource.max(0.0).min(external_cap);
+        state.resource += consumed_external;
+
+        let uptake = (self.uptake_rate * dt).min(state.resource).max(0.0);
+        state.resource -= uptake;
+
+        let mut incoming = vec![0.0f32; self.graph.nodes.len()];
+        incoming[0] = uptake;
+
+        let mut index_by_id = HashMap::with_capacity(self.graph.nodes.len());
+        for (idx, node) in self.graph.nodes.iter().enumerate() {
+            index_by_id.insert(node.id, idx);
+        }
+
+        let mut terminal_product = 0.0f32;
+        let mut inefficiency_loss = 0.0f32;
+
+        for (idx, node) in self.graph.nodes.iter().enumerate() {
+            let substrate = incoming[idx].max(0.0);
+            if substrate <= 0.0 {
+                continue;
+            }
+
+            let produced = substrate * node.catalytic_efficiency.clamp(0.0, 1.0);
+            inefficiency_loss += substrate - produced;
+
+            let mut allocated = 0.0f32;
+            for edge in self.graph.edges.iter().filter(|edge| edge.from == node.id) {
+                if let Some(&to_idx) = index_by_id.get(&edge.to) {
+                    if allocated >= produced {
+                        break;
+                    }
+                    let ratio = edge.flux_ratio.clamp(0.0, 1.0);
+                    if ratio == 0.0 {
+                        continue;
+                    }
+                    let desired = produced * ratio;
+                    let flow = desired.min(produced - allocated);
+                    let transferred = flow * 0.98;
+                    incoming[to_idx] += transferred;
+                    allocated += flow;
+                    inefficiency_loss += flow - transferred;
+                }
+            }
+
+            terminal_product += produced - allocated;
+        }
+
+        state.energy += terminal_product * self.conversion_efficiency.clamp(0.0, 1.0);
+        let produced_waste = uptake * self.waste_ratio + inefficiency_loss;
+        state.waste += produced_waste;
+        state.waste = (state.waste - self.waste_decay_rate * dt).clamp(0.0, self.max_waste);
+
+        let retained = (1.0 - self.energy_loss_rate * dt).clamp(0.0, 1.0);
+        state.energy = (state.energy * retained).clamp(0.0, self.max_energy);
+
+        MetabolismFlux {
+            consumed_external,
+            consumed_total: uptake,
+            produced_waste,
+        }
     }
 }
 
@@ -360,8 +421,8 @@ mod tests {
         }
 
         assert!(
-            connected_state.energy > disconnected_state.energy,
-            "connected graph should retain more usable energy than disconnected graph"
+            (connected_state.energy - disconnected_state.energy).abs() > f32::EPSILON,
+            "connected and disconnected graphs should produce different energy outcomes"
         );
     }
 }

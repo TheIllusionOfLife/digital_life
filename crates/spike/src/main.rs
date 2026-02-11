@@ -1,5 +1,5 @@
 use digital_life_core::agent::Agent;
-use digital_life_core::config::SimConfig;
+use digital_life_core::config::{MetabolismMode, SimConfig};
 use digital_life_core::nn::NeuralNet;
 use digital_life_core::world::World;
 use rand::Rng;
@@ -11,7 +11,12 @@ const WARMUP_STEPS: usize = 10;
 const BENCHMARK_STEPS: usize = 200;
 const TARGET_SPS: f64 = 100.0;
 
-fn run_benchmark(num_organisms: usize, agents_per_organism: usize, seed: u64) {
+fn run_benchmark(
+    num_organisms: usize,
+    agents_per_organism: usize,
+    seed: u64,
+    metabolism_mode: MetabolismMode,
+) {
     let total_agents = num_organisms * agents_per_organism;
     let mut rng = ChaCha12Rng::seed_from_u64(seed);
 
@@ -40,6 +45,7 @@ fn run_benchmark(num_organisms: usize, agents_per_organism: usize, seed: u64) {
         world_size: WORLD_SIZE,
         num_organisms,
         agents_per_organism,
+        metabolism_mode,
         ..SimConfig::default()
     };
     let mut world = World::new(agents, nns, config);
@@ -83,6 +89,11 @@ fn run_benchmark(num_organisms: usize, agents_per_organism: usize, seed: u64) {
         "NO-GO"
     };
     println!("  Verdict:       {verdict} (target: >={TARGET_SPS} steps/sec)");
+    let summary = world.run_experiment(100, 100);
+    println!(
+        "  Alive orgs:    {}/{}",
+        summary.final_alive_count, num_organisms
+    );
     println!();
 }
 
@@ -105,7 +116,11 @@ fn main() {
         (50, 100), // 5000 agents (stress test)
     ];
 
-    for (orgs, apg) in configs {
-        run_benchmark(orgs, apg, 42);
+    let modes = [MetabolismMode::Toy, MetabolismMode::Graph];
+    for mode in modes {
+        println!("=== Mode: {:?} ===", mode);
+        for (orgs, apg) in configs {
+            run_benchmark(orgs, apg, 42, mode);
+        }
     }
 }

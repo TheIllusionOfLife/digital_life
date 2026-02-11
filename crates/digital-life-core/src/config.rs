@@ -1,5 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MetabolismMode {
+    #[default]
+    Toy,
+    Graph,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SimConfig {
     /// Deterministic seed for reproducible simulation runs.
@@ -22,6 +30,14 @@ pub struct SimConfig {
     pub enable_metabolism: bool,
     /// Criterion-ablation toggle for boundary maintenance updates.
     pub enable_boundary_maintenance: bool,
+    /// Minimum energy required for stable boundary maintenance.
+    pub metabolic_viability_floor: f32,
+    /// Baseline per-step boundary integrity decay rate.
+    pub boundary_decay_base_rate: f32,
+    /// Additional boundary decay scale from low energy and waste pressure.
+    pub boundary_decay_energy_scale: f32,
+    /// Selects metabolism engine behavior.
+    pub metabolism_mode: MetabolismMode,
 }
 
 impl Default for SimConfig {
@@ -37,6 +53,10 @@ impl Default for SimConfig {
             neighbor_norm: 50.0,
             enable_metabolism: true,
             enable_boundary_maintenance: true,
+            metabolic_viability_floor: 0.2,
+            boundary_decay_base_rate: 0.003,
+            boundary_decay_energy_scale: 0.02,
+            metabolism_mode: MetabolismMode::Toy,
         }
     }
 }
