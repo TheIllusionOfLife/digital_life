@@ -31,7 +31,7 @@ pub fn build_index(agents: &[Agent]) -> RTree<AgentLocation> {
 
 /// Build an R*-tree from only active organisms.
 pub fn build_index_active(agents: &[Agent], organism_alive: &[bool]) -> RTree<AgentLocation> {
-    let locations: Vec<AgentLocation> = agents
+    let active_count = agents
         .iter()
         .filter(|a| {
             organism_alive
@@ -39,11 +39,20 @@ pub fn build_index_active(agents: &[Agent], organism_alive: &[bool]) -> RTree<Ag
                 .copied()
                 .unwrap_or(false)
         })
-        .map(|a| AgentLocation {
-            id: a.id,
-            position: a.position,
-        })
-        .collect();
+        .count();
+    let mut locations = Vec::with_capacity(active_count);
+    for a in agents {
+        if organism_alive
+            .get(a.organism_id as usize)
+            .copied()
+            .unwrap_or(false)
+        {
+            locations.push(AgentLocation {
+                id: a.id,
+                position: a.position,
+            });
+        }
+    }
     RTree::bulk_load(locations)
 }
 

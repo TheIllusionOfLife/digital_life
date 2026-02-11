@@ -7,7 +7,7 @@ pub struct ResourceField {
     height: usize,
     cell_size: f64,
     data: Vec<f32>,
-    total: f32,
+    total: f64,
 }
 
 impl ResourceField {
@@ -18,7 +18,7 @@ impl ResourceField {
         let width = (world_size / cell_size).ceil() as usize;
         let height = width;
         let data = vec![initial_value; width * height];
-        let total = initial_value * (width * height) as f32;
+        let total = initial_value as f64 * (width * height) as f64;
         Self {
             width,
             height,
@@ -40,7 +40,7 @@ impl ResourceField {
         let idx = cy * self.width + cx;
         let old = self.data[idx];
         self.data[idx] = value;
-        self.total += value - old;
+        self.total += (value - old) as f64;
     }
 
     /// Remove up to `amount` resource from the addressed cell and return actual amount withdrawn.
@@ -49,7 +49,7 @@ impl ResourceField {
         let idx = cy * self.width + cx;
         let removed = self.data[idx].min(amount.max(0.0));
         self.data[idx] -= removed;
-        self.total -= removed;
+        self.total -= removed as f64;
         removed
     }
 
@@ -69,7 +69,7 @@ impl ResourceField {
         &self.data
     }
 
-    pub fn total(&self) -> f32 {
+    pub fn total(&self) -> f64 {
         self.total
     }
 

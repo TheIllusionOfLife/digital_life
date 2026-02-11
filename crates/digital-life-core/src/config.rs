@@ -39,6 +39,8 @@ pub struct SimConfig {
     pub boundary_decay_energy_scale: f32,
     /// Weight applied to waste when computing boundary maintenance pressure.
     pub boundary_waste_pressure_scale: f32,
+    /// Additional waste penalty multiplier used in boundary repair effectiveness.
+    pub boundary_repair_waste_penalty_scale: f32,
     /// Per-step boundary repair multiplier from available energy.
     pub boundary_repair_rate: f32,
     /// Boundary threshold below which the organism is considered collapsed.
@@ -68,6 +70,7 @@ impl Default for SimConfig {
             boundary_decay_base_rate: 0.003,
             boundary_decay_energy_scale: 0.02,
             boundary_waste_pressure_scale: 0.5,
+            boundary_repair_waste_penalty_scale: 0.4,
             boundary_repair_rate: 0.01,
             boundary_collapse_threshold: 0.05,
             death_energy_threshold: 0.0,

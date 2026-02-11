@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::OnceLock;
 
 /// Per-organism metabolic state.
 #[derive(Clone, Debug)]
@@ -7,6 +6,8 @@ pub struct MetabolicState {
     pub energy: f32,
     pub resource: f32,
     pub waste: f32,
+    // Per-organism carry-over pool for graph intermediates between simulation steps.
+    pub graph_pool: Vec<f32>,
 }
 
 impl Default for MetabolicState {
@@ -15,6 +16,7 @@ impl Default for MetabolicState {
             energy: 0.5,
             resource: 5.0,
             waste: 0.0,
+            graph_pool: Vec::new(),
         }
     }
 }
@@ -103,9 +105,12 @@ impl ToyMetabolism {
     }
 }
 
-#[derive(Debug)]
+const DEFAULT_EDGE_TRANSFER_EFFICIENCY: f32 = 0.98;
+
+#[derive(Clone, Debug)]
 pub struct GraphMetabolism {
     pub graph: MetabolicGraph,
+    pub entry_node_id: u16,
     pub uptake_rate: f32,
     pub conversion_efficiency: f32,
     pub waste_ratio: f32,
@@ -113,14 +118,7 @@ pub struct GraphMetabolism {
     pub max_energy: f32,
     pub waste_decay_rate: f32,
     pub max_waste: f32,
-    cache: OnceLock<std::sync::Mutex<GraphExecutionCache>>,
-}
-
-#[derive(Clone, Debug, Default)]
-struct GraphExecutionCache {
-    node_id_fingerprint: u64,
-    node_index_by_id: HashMap<u16, usize>,
-    incoming: Vec<f32>,
+    pub edge_transfer_efficiency: f32,
 }
 
 impl Default for GraphMetabolism {
@@ -128,6 +126,7 @@ impl Default for GraphMetabolism {
         let toy = ToyMetabolism::default();
         Self {
             graph: MetabolicGraph::bootstrap_single_path(),
+            entry_node_id: 0,
             uptake_rate: toy.uptake_rate,
             conversion_efficiency: toy.conversion_efficiency,
             waste_ratio: toy.waste_ratio,
@@ -135,35 +134,19 @@ impl Default for GraphMetabolism {
             max_energy: toy.max_energy,
             waste_decay_rate: toy.waste_decay_rate,
             max_waste: toy.max_waste,
-            cache: OnceLock::new(),
-        }
-    }
-}
-
-impl Clone for GraphMetabolism {
-    fn clone(&self) -> Self {
-        Self {
-            graph: self.graph.clone(),
-            uptake_rate: self.uptake_rate,
-            conversion_efficiency: self.conversion_efficiency,
-            waste_ratio: self.waste_ratio,
-            energy_loss_rate: self.energy_loss_rate,
-            max_energy: self.max_energy,
-            waste_decay_rate: self.waste_decay_rate,
-            max_waste: self.max_waste,
-            cache: OnceLock::new(),
+            edge_transfer_efficiency: DEFAULT_EDGE_TRANSFER_EFFICIENCY,
         }
     }
 }
 
 impl GraphMetabolism {
-    fn node_fingerprint(&self) -> u64 {
+    fn node_index_by_id(&self) -> HashMap<u16, usize> {
         self.graph
             .nodes
             .iter()
-            .fold(1469598103934665603u64, |acc, node| {
-                acc.wrapping_mul(1099511628211).wrapping_add(node.id as u64)
-            })
+            .enumerate()
+            .map(|(idx, node)| (node.id, idx))
+            .collect()
     }
 }
 
@@ -192,32 +175,24 @@ impl GraphMetabolism {
         let uptake = (self.uptake_rate * dt).min(state.resource).max(0.0);
         state.resource -= uptake;
 
-        let cache = self
-            .cache
-            .get_or_init(|| std::sync::Mutex::new(GraphExecutionCache::default()));
-        let mut cache = cache.lock().expect("graph cache mutex poisoned");
-        let fingerprint = self.node_fingerprint();
-        if cache.node_id_fingerprint != fingerprint
-            || cache.node_index_by_id.len() != self.graph.nodes.len()
-        {
-            cache.node_index_by_id.clear();
-            cache.node_index_by_id.reserve(self.graph.nodes.len());
-            for (idx, node) in self.graph.nodes.iter().enumerate() {
-                cache.node_index_by_id.insert(node.id, idx);
-            }
-            cache.node_id_fingerprint = fingerprint;
+        let node_count = self.graph.nodes.len();
+        if state.graph_pool.len() != node_count {
+            state.graph_pool = vec![0.0; node_count];
         }
-        if cache.incoming.len() != self.graph.nodes.len() {
-            cache.incoming.resize(self.graph.nodes.len(), 0.0);
-        }
-        cache.incoming.fill(0.0);
-        cache.incoming[0] = uptake;
+        let node_index_by_id = self.node_index_by_id();
+        let entry_idx = node_index_by_id
+            .get(&self.entry_node_id)
+            .copied()
+            .unwrap_or(0);
+        state.graph_pool[entry_idx] += uptake;
+        let current = std::mem::take(&mut state.graph_pool);
+        let mut next = vec![0.0f32; node_count];
 
         let mut terminal_product = 0.0f32;
         let mut inefficiency_loss = 0.0f32;
 
         for (idx, node) in self.graph.nodes.iter().enumerate() {
-            let substrate = cache.incoming[idx].max(0.0);
+            let substrate = current[idx].max(0.0);
             if substrate <= 0.0 {
                 continue;
             }
@@ -227,7 +202,7 @@ impl GraphMetabolism {
 
             let mut allocated = 0.0f32;
             for edge in self.graph.edges.iter().filter(|edge| edge.from == node.id) {
-                if let Some(&to_idx) = cache.node_index_by_id.get(&edge.to) {
+                if let Some(&to_idx) = node_index_by_id.get(&edge.to) {
                     if allocated >= produced {
                         break;
                     }
@@ -237,8 +212,8 @@ impl GraphMetabolism {
                     }
                     let desired = produced * ratio;
                     let flow = desired.min(produced - allocated);
-                    let transferred = flow * 0.98;
-                    cache.incoming[to_idx] += transferred;
+                    let transferred = flow * self.edge_transfer_efficiency.clamp(0.0, 1.0);
+                    next[to_idx] += transferred;
                     allocated += flow;
                     inefficiency_loss += flow - transferred;
                 }
@@ -246,6 +221,10 @@ impl GraphMetabolism {
 
             terminal_product += produced - allocated;
         }
+
+        let retained_intermediate = next.iter().sum::<f32>();
+        state.resource += retained_intermediate;
+        state.graph_pool = next;
 
         state.energy += terminal_product * self.conversion_efficiency.clamp(0.0, 1.0);
         let produced_waste = uptake * self.waste_ratio + inefficiency_loss;
@@ -518,7 +497,10 @@ mod tests {
             ..GraphMetabolism::default()
         };
         let _ = metabolism.step(&mut state, 1.0, 1.0);
-        assert!(state.resource > 0.0, "cycle intermediates should be retained, not lost");
+        assert!(
+            state.resource > 0.0,
+            "cycle intermediates should be retained, not lost"
+        );
     }
 
     #[test]
@@ -552,6 +534,9 @@ mod tests {
             ..GraphMetabolism::default()
         };
         let _ = metabolism.step(&mut state, 1.0, 1.0);
-        assert!(state.energy > 0.0, "entry node id should control external resource injection");
+        assert!(
+            state.energy > 0.0,
+            "entry node id should control external resource injection"
+        );
     }
 }

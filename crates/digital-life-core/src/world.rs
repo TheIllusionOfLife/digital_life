@@ -24,7 +24,7 @@ pub struct StepMetrics {
     pub waste_mean: f32,
     pub boundary_mean: f32,
     pub alive_count: usize,
-    pub resource_total: f32,
+    pub resource_total: f64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -61,6 +61,7 @@ pub enum WorldInitError {
     InvalidBoundaryDecayBaseRate,
     InvalidBoundaryDecayEnergyScale,
     InvalidBoundaryWastePressureScale,
+    InvalidBoundaryRepairWastePenaltyScale,
     InvalidBoundaryRepairRate,
     InvalidBoundaryCollapseThreshold,
     InvalidDeathEnergyThreshold,
@@ -96,6 +97,12 @@ impl fmt::Display for WorldInitError {
             }
             WorldInitError::InvalidBoundaryWastePressureScale => {
                 write!(f, "boundary_waste_pressure_scale must be finite and non-negative")
+            }
+            WorldInitError::InvalidBoundaryRepairWastePenaltyScale => {
+                write!(
+                    f,
+                    "boundary_repair_waste_penalty_scale must be finite and non-negative"
+                )
             }
             WorldInitError::InvalidBoundaryRepairRate => {
                 write!(f, "boundary_repair_rate must be finite and non-negative")
@@ -253,6 +260,11 @@ impl World {
             && config.boundary_waste_pressure_scale >= 0.0)
         {
             return Err(WorldInitError::InvalidBoundaryWastePressureScale);
+        }
+        if !(config.boundary_repair_waste_penalty_scale.is_finite()
+            && config.boundary_repair_waste_penalty_scale >= 0.0)
+        {
+            return Err(WorldInitError::InvalidBoundaryRepairWastePenaltyScale);
         }
         if !(config.boundary_repair_rate.is_finite() && config.boundary_repair_rate >= 0.0) {
             return Err(WorldInitError::InvalidBoundaryRepairRate);
@@ -494,7 +506,9 @@ impl World {
                         * (energy_deficit
                             + state.waste * self.config.boundary_waste_pressure_scale);
                 let repair = (state.energy
-                    - state.waste * self.config.boundary_waste_pressure_scale * 0.4)
+                    - state.waste
+                        * self.config.boundary_waste_pressure_scale
+                        * self.config.boundary_repair_waste_penalty_scale)
                     .max(0.0)
                     * self.config.boundary_repair_rate;
                 self.boundary_integrity[org_id] =
@@ -557,7 +571,7 @@ impl World {
                         .take(center[0], center[1], flux.consumed_external);
                 }
                 if state.energy <= self.config.death_energy_threshold
-                    && self.boundary_integrity[org_id] <= self.config.death_boundary_threshold
+                    || self.boundary_integrity[org_id] <= self.config.death_boundary_threshold
                 {
                     self.organism_alive[org_id] = false;
                     self.boundary_integrity[org_id] = 0.0;
