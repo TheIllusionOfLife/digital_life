@@ -81,7 +81,7 @@ fn run_benchmark(num_organisms: usize, agents_per_organism: usize, seed: u64) {
 fn main() {
     println!("=== Digital Life Feasibility Spike ===");
     println!("Warmup: {WARMUP_STEPS} steps, Benchmark: {BENCHMARK_STEPS} steps");
-    println!("Target: >{TARGET_SPS} steps/sec for 2500 agents");
+    println!("Target: >={TARGET_SPS} steps/sec for 2500 agents");
     println!();
 
     // Multiple configurations

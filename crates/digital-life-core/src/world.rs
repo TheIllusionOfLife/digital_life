@@ -29,6 +29,12 @@ impl World {
         world_size: f64,
         num_organisms: usize,
     ) -> Self {
+        debug_assert!(
+            agents
+                .iter()
+                .all(|a| (a.organism_id as usize) < nns.len()),
+            "all agent organism_ids must be valid indices into nns"
+        );
         Self {
             agents,
             nns,

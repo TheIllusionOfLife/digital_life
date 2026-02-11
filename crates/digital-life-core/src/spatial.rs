@@ -6,7 +6,7 @@ pub fn build_index(agents: &[Agent]) -> RTree<Agent> {
     RTree::bulk_load(agents.to_vec())
 }
 
-/// Query neighbors within `radius` of `center`, returning their indices in the original slice.
+/// Query neighbors within `radius` of `center`, returning their agent IDs.
 /// Uses AABB envelope query then filters by Euclidean distance.
 pub fn query_neighbors(
     tree: &RTree<Agent>,

@@ -1,5 +1,5 @@
 /// Trivial feedforward neural network: 8 inputs → 16 hidden (tanh) → 4 outputs (tanh).
-/// Stack-allocated, no heap. ~196 weights total.
+/// Stack-allocated, no heap. 212 weights total.
 ///
 /// Inputs:  position(2) + velocity(2) + internal_state(4) = 8
 /// Outputs: velocity_delta(2) + state_delta(2) = 4
@@ -19,9 +19,13 @@ pub struct NeuralNet {
 }
 
 impl NeuralNet {
-    /// Create a NN with random weights from an iterator of f32 values.
+    /// Create a NN from an iterator of f32 values. Panics if fewer than WEIGHT_COUNT values.
     pub fn from_weights(mut weights: impl Iterator<Item = f32>) -> Self {
-        let mut next = || weights.next().unwrap_or(0.0);
+        let mut next = || {
+            weights
+                .next()
+                .expect("insufficient weights: need WEIGHT_COUNT (212) elements")
+        };
 
         let mut w_ih = [[0.0f32; HIDDEN_SIZE]; INPUT_SIZE];
         for row in &mut w_ih {
