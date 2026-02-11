@@ -1116,6 +1116,25 @@ mod tests {
     }
 
     #[test]
+    fn step_respects_config_dt_for_position_update() {
+        let mut world = make_world(1, 100.0);
+        world.agents[0].position = [50.0, 50.0];
+        world.agents[0].velocity = [1.0, 0.0];
+        world.organisms[0].nn =
+            NeuralNet::from_weights(std::iter::repeat_n(0.0f32, NeuralNet::WEIGHT_COUNT));
+        let mut config = world.config().clone();
+        config.dt = 0.5;
+        world
+            .set_config(config)
+            .expect("config with positive dt should be valid");
+        world.step();
+        assert!(
+            (world.agents[0].position[0] - 50.5).abs() < 1e-6,
+            "expected x to advance by dt-scaled velocity"
+        );
+    }
+
+    #[test]
     fn toy_metabolism_sustains_energy_for_1000_steps() {
         let mut world = make_world(10, 100.0);
         world.config.enable_boundary_maintenance = false;
@@ -1229,6 +1248,30 @@ mod tests {
         assert_eq!(summary.steps, 50);
         assert!(!summary.samples.is_empty());
         assert!(summary.final_alive_count <= world.organism_count());
+    }
+
+    #[test]
+    fn low_energy_org_decays_boundary_faster() {
+        let mut low = make_world(10, 100.0);
+        let mut high = make_world(10, 100.0);
+        low.config.enable_metabolism = false;
+        high.config.enable_metabolism = false;
+        low.config.metabolic_viability_floor = 0.8;
+        high.config.metabolic_viability_floor = 0.8;
+        low.config.boundary_decay_energy_scale = 0.08;
+        high.config.boundary_decay_energy_scale = 0.08;
+        low.organisms[0].metabolic_state.energy = 0.0;
+        high.organisms[0].metabolic_state.energy = 1.0;
+        low.organisms[0].metabolic_state.waste = 0.8;
+        high.organisms[0].metabolic_state.waste = 0.0;
+
+        low.step();
+        high.step();
+
+        assert!(
+            low.organisms[0].boundary_integrity < high.organisms[0].boundary_integrity,
+            "low-energy high-waste organism should lose boundary integrity faster"
+        );
     }
 
     #[test]
