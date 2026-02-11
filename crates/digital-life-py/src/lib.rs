@@ -4,6 +4,7 @@ use digital_life_core::nn::NeuralNet;
 use digital_life_core::world::World;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use serde_json::json;
 
 /// Minimal PyO3 module exposing digital-life-core to Python.
 #[pyfunction]
@@ -62,9 +63,8 @@ fn run_evolution_experiment_json(
     steps: usize,
     sample_every: usize,
 ) -> PyResult<String> {
-    // Alias current experiment runner while the evolution-specific parameter surface
-    // is still converging in the Rust core.
-    run_experiment_json_impl(config_json, steps, sample_every).map_err(PyValueError::new_err)
+    run_evolution_experiment_json_impl(config_json, steps, sample_every)
+        .map_err(PyValueError::new_err)
 }
 
 fn run_experiment_json_impl(
@@ -84,6 +84,44 @@ fn run_experiment_json_impl(
         .map_err(|e| format!("invalid experiment parameters: {e}"))?;
     serde_json::to_string(&summary)
         .map_err(|e| format!("failed to serialize experiment summary: {e}"))
+}
+
+fn run_evolution_experiment_json_impl(
+    config_json: &str,
+    steps: usize,
+    sample_every: usize,
+) -> Result<String, String> {
+    let mut world = world_from_config_json(config_json)?;
+    let summary = world
+        .try_run_experiment(steps, sample_every)
+        .map_err(|e| format!("invalid experiment parameters: {e}"))?;
+    let stats = world.population_stats();
+    let config = world.config();
+    let payload = json!({
+        "kind": "evolution_v1",
+        "summary": summary,
+        "final_population": stats,
+        "effective_parameters": {
+            "reproduction_min_energy": config.reproduction_min_energy,
+            "reproduction_min_boundary": config.reproduction_min_boundary,
+            "reproduction_energy_cost": config.reproduction_energy_cost,
+            "reproduction_child_min_agents": config.reproduction_child_min_agents,
+            "reproduction_spawn_radius": config.reproduction_spawn_radius,
+            "crowding_neighbor_threshold": config.crowding_neighbor_threshold,
+            "crowding_boundary_decay": config.crowding_boundary_decay,
+            "max_organism_age_steps": config.max_organism_age_steps,
+            "compaction_interval_steps": config.compaction_interval_steps,
+            "mutation_point_rate": config.mutation_point_rate,
+            "mutation_point_scale": config.mutation_point_scale,
+            "mutation_reset_rate": config.mutation_reset_rate,
+            "mutation_scale_rate": config.mutation_scale_rate,
+            "mutation_scale_min": config.mutation_scale_min,
+            "mutation_scale_max": config.mutation_scale_max,
+            "mutation_value_limit": config.mutation_value_limit,
+        }
+    });
+    serde_json::to_string(&payload)
+        .map_err(|e| format!("failed to serialize evolution experiment summary: {e}"))
 }
 
 fn world_from_config_json(config_json: &str) -> Result<World, String> {
@@ -187,6 +225,9 @@ mod tests {
         assert!(value["world_size"].as_f64().is_some());
         assert!(value["metabolic_viability_floor"].as_f64().is_some());
         assert!(value["metabolism_mode"].as_str().is_some());
+        assert!(value["reproduction_min_energy"].as_f64().is_some());
+        assert!(value["max_organism_age_steps"].as_u64().is_some());
+        assert!(value["mutation_point_rate"].as_f64().is_some());
     }
 
     #[test]
@@ -226,6 +267,25 @@ mod tests {
         let sample = &payload["samples"][0];
         assert!(sample["birth_count"].is_number());
         assert!(sample["mean_generation"].is_number());
+    }
+
+    #[test]
+    fn run_evolution_experiment_json_impl_returns_v1_payload() {
+        let config_json = serde_json::to_string(&SimConfig {
+            num_organisms: 1,
+            agents_per_organism: 8,
+            ..SimConfig::default()
+        })
+        .expect("config should serialize");
+        let output =
+            run_evolution_experiment_json_impl(&config_json, 5, 1).expect("experiment should run");
+        let payload: serde_json::Value =
+            serde_json::from_str(&output).expect("output should be valid json");
+        assert_eq!(payload["kind"].as_str(), Some("evolution_v1"));
+        assert!(payload["summary"]["samples"].is_array());
+        assert!(payload["final_population"]["alive_count"].is_number());
+        assert!(payload["effective_parameters"]["reproduction_min_energy"].is_number());
+        assert!(payload["effective_parameters"]["mutation_point_rate"].is_number());
     }
 
     #[test]

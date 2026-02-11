@@ -51,6 +51,38 @@ pub struct SimConfig {
     pub death_boundary_threshold: f32,
     /// Selects metabolism engine behavior.
     pub metabolism_mode: MetabolismMode,
+    /// Minimum energy required before an organism can reproduce.
+    pub reproduction_min_energy: f32,
+    /// Minimum boundary integrity required before an organism can reproduce.
+    pub reproduction_min_boundary: f32,
+    /// Energy deducted from parent during reproduction and seeded into child.
+    pub reproduction_energy_cost: f32,
+    /// Minimum number of agents assigned to a newly reproduced child organism.
+    pub reproduction_child_min_agents: usize,
+    /// Maximum radius used when spawning child agents around the parent center.
+    pub reproduction_spawn_radius: f64,
+    /// Neighbor-density threshold where crowding damage starts.
+    pub crowding_neighbor_threshold: f32,
+    /// Per-step boundary decay scale induced by crowding.
+    pub crowding_boundary_decay: f32,
+    /// Maximum age in simulation steps before forced organism death.
+    pub max_organism_age_steps: usize,
+    /// Step interval used for pruning dead entities.
+    pub compaction_interval_steps: usize,
+    /// Per-gene point mutation probability.
+    pub mutation_point_rate: f32,
+    /// Magnitude bound for additive point mutation deltas.
+    pub mutation_point_scale: f32,
+    /// Per-gene reset-to-zero mutation probability.
+    pub mutation_reset_rate: f32,
+    /// Per-gene multiplicative scale mutation probability.
+    pub mutation_scale_rate: f32,
+    /// Minimum multiplicative factor used by scale mutation.
+    pub mutation_scale_min: f32,
+    /// Maximum multiplicative factor used by scale mutation.
+    pub mutation_scale_max: f32,
+    /// Absolute clamp used for mutated genome values.
+    pub mutation_value_limit: f32,
 }
 
 impl Default for SimConfig {
@@ -76,6 +108,22 @@ impl Default for SimConfig {
             death_energy_threshold: 0.0,
             death_boundary_threshold: 0.1,
             metabolism_mode: MetabolismMode::Toy,
+            reproduction_min_energy: 0.85,
+            reproduction_min_boundary: 0.70,
+            reproduction_energy_cost: 0.30,
+            reproduction_child_min_agents: 4,
+            reproduction_spawn_radius: 1.0,
+            crowding_neighbor_threshold: 8.0,
+            crowding_boundary_decay: 0.0015,
+            max_organism_age_steps: 20_000,
+            compaction_interval_steps: 64,
+            mutation_point_rate: 0.02,
+            mutation_point_scale: 0.15,
+            mutation_reset_rate: 0.002,
+            mutation_scale_rate: 0.002,
+            mutation_scale_min: 0.8,
+            mutation_scale_max: 1.2,
+            mutation_value_limit: 2.0,
         }
     }
 }
@@ -101,5 +149,9 @@ mod tests {
         let cfg: SimConfig = serde_json::from_str(legacy_json).expect("legacy config should parse");
         assert_eq!(cfg.metabolism_mode, MetabolismMode::Toy);
         assert!(cfg.boundary_decay_base_rate > 0.0);
+        assert!(cfg.reproduction_min_energy > 0.0);
+        assert!(cfg.max_organism_age_steps > 0);
+        assert!(cfg.compaction_interval_steps > 0);
+        assert!(cfg.mutation_value_limit > 0.0);
     }
 }

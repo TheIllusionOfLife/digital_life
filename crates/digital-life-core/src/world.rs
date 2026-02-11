@@ -14,16 +14,6 @@ use std::f64::consts::PI;
 use std::time::Instant;
 use std::{error::Error, fmt};
 
-const REPRODUCTION_MIN_ENERGY: f32 = 0.85;
-const REPRODUCTION_MIN_BOUNDARY: f32 = 0.70;
-const REPRODUCTION_ENERGY_COST: f32 = 0.30;
-const REPRODUCTION_CHILD_MIN_AGENTS: usize = 4;
-const REPRODUCTION_SPAWN_RADIUS: f64 = 1.0;
-const CROWDING_NEIGHBOR_THRESHOLD: f32 = 8.0;
-const CROWDING_BOUNDARY_DECAY: f32 = 0.0015;
-const MAX_ORGANISM_AGE: usize = 20_000;
-const COMPACTION_INTERVAL_STEPS: usize = 64;
-
 #[derive(Clone, Debug)]
 pub struct StepTimings {
     pub spatial_build_us: u64,
@@ -103,6 +93,22 @@ pub enum WorldInitError {
     InvalidBoundaryCollapseThreshold,
     InvalidDeathEnergyThreshold,
     InvalidDeathBoundaryThreshold,
+    InvalidReproductionMinEnergy,
+    InvalidReproductionMinBoundary,
+    InvalidReproductionEnergyCost,
+    InvalidReproductionChildMinAgents,
+    InvalidReproductionSpawnRadius,
+    InvalidCrowdingNeighborThreshold,
+    InvalidCrowdingBoundaryDecay,
+    InvalidMaxOrganismAgeSteps,
+    InvalidCompactionIntervalSteps,
+    InvalidMutationPointRate,
+    InvalidMutationPointScale,
+    InvalidMutationResetRate,
+    InvalidMutationScaleRate,
+    InvalidMutationScaleBounds,
+    InvalidMutationValueLimit,
+    InvalidMutationProbabilityBudget,
     WorldSizeTooLarge { max: f64, actual: f64 },
     AgentCountOverflow,
     TooManyAgents { max: usize, actual: usize },
@@ -152,6 +158,60 @@ impl fmt::Display for WorldInitError {
             }
             WorldInitError::InvalidDeathBoundaryThreshold => {
                 write!(f, "death_boundary_threshold must be finite and within [0,1]")
+            }
+            WorldInitError::InvalidReproductionMinEnergy => {
+                write!(f, "reproduction_min_energy must be finite and non-negative")
+            }
+            WorldInitError::InvalidReproductionMinBoundary => {
+                write!(f, "reproduction_min_boundary must be finite and within [0,1]")
+            }
+            WorldInitError::InvalidReproductionEnergyCost => {
+                write!(f, "reproduction_energy_cost must be finite and positive")
+            }
+            WorldInitError::InvalidReproductionChildMinAgents => {
+                write!(f, "reproduction_child_min_agents must be positive")
+            }
+            WorldInitError::InvalidReproductionSpawnRadius => {
+                write!(f, "reproduction_spawn_radius must be finite and non-negative")
+            }
+            WorldInitError::InvalidCrowdingNeighborThreshold => {
+                write!(f, "crowding_neighbor_threshold must be finite and non-negative")
+            }
+            WorldInitError::InvalidCrowdingBoundaryDecay => {
+                write!(f, "crowding_boundary_decay must be finite and non-negative")
+            }
+            WorldInitError::InvalidMaxOrganismAgeSteps => {
+                write!(f, "max_organism_age_steps must be positive")
+            }
+            WorldInitError::InvalidCompactionIntervalSteps => {
+                write!(f, "compaction_interval_steps must be positive")
+            }
+            WorldInitError::InvalidMutationPointRate => {
+                write!(f, "mutation_point_rate must be finite and within [0,1]")
+            }
+            WorldInitError::InvalidMutationPointScale => {
+                write!(f, "mutation_point_scale must be finite and non-negative")
+            }
+            WorldInitError::InvalidMutationResetRate => {
+                write!(f, "mutation_reset_rate must be finite and within [0,1]")
+            }
+            WorldInitError::InvalidMutationScaleRate => {
+                write!(f, "mutation_scale_rate must be finite and within [0,1]")
+            }
+            WorldInitError::InvalidMutationScaleBounds => {
+                write!(
+                    f,
+                    "mutation_scale_min/mutation_scale_max must be finite, positive, and ordered"
+                )
+            }
+            WorldInitError::InvalidMutationValueLimit => {
+                write!(f, "mutation_value_limit must be finite and positive")
+            }
+            WorldInitError::InvalidMutationProbabilityBudget => {
+                write!(
+                    f,
+                    "mutation_point_rate + mutation_reset_rate + mutation_scale_rate must be <= 1.0"
+                )
             }
             WorldInitError::WorldSizeTooLarge { max, actual } => {
                 write!(f, "world_size ({actual}) exceeds supported maximum ({max})")
@@ -300,11 +360,23 @@ impl World {
             deaths_last_step: 0,
             total_births: 0,
             total_deaths: 0,
-            mutation_rates: MutationRates::default(),
+            mutation_rates: Self::mutation_rates_from_config(&config),
             next_organism_stable_id,
             agent_id_exhaustions_last_step: 0,
             total_agent_id_exhaustions: 0,
         })
+    }
+
+    fn mutation_rates_from_config(config: &SimConfig) -> MutationRates {
+        MutationRates {
+            point_rate: config.mutation_point_rate,
+            point_scale: config.mutation_point_scale,
+            reset_rate: config.mutation_reset_rate,
+            scale_rate: config.mutation_scale_rate,
+            scale_min: config.mutation_scale_min,
+            scale_max: config.mutation_scale_max,
+            value_limit: config.mutation_value_limit,
+        }
     }
 
     fn validate_config_common(config: &SimConfig) -> Result<(), WorldInitError> {
@@ -369,6 +441,76 @@ impl World {
         {
             return Err(WorldInitError::InvalidDeathBoundaryThreshold);
         }
+        if !(config.reproduction_min_energy.is_finite() && config.reproduction_min_energy >= 0.0) {
+            return Err(WorldInitError::InvalidReproductionMinEnergy);
+        }
+        if !(config.reproduction_min_boundary.is_finite()
+            && (0.0..=1.0).contains(&config.reproduction_min_boundary))
+        {
+            return Err(WorldInitError::InvalidReproductionMinBoundary);
+        }
+        if !(config.reproduction_energy_cost.is_finite() && config.reproduction_energy_cost > 0.0) {
+            return Err(WorldInitError::InvalidReproductionEnergyCost);
+        }
+        if config.reproduction_min_energy < config.reproduction_energy_cost {
+            return Err(WorldInitError::InvalidReproductionMinEnergy);
+        }
+        if config.reproduction_child_min_agents == 0 {
+            return Err(WorldInitError::InvalidReproductionChildMinAgents);
+        }
+        if !(config.reproduction_spawn_radius.is_finite()
+            && config.reproduction_spawn_radius >= 0.0)
+        {
+            return Err(WorldInitError::InvalidReproductionSpawnRadius);
+        }
+        if !(config.crowding_neighbor_threshold.is_finite()
+            && config.crowding_neighbor_threshold >= 0.0)
+        {
+            return Err(WorldInitError::InvalidCrowdingNeighborThreshold);
+        }
+        if !(config.crowding_boundary_decay.is_finite() && config.crowding_boundary_decay >= 0.0) {
+            return Err(WorldInitError::InvalidCrowdingBoundaryDecay);
+        }
+        if config.max_organism_age_steps == 0 {
+            return Err(WorldInitError::InvalidMaxOrganismAgeSteps);
+        }
+        if config.compaction_interval_steps == 0 {
+            return Err(WorldInitError::InvalidCompactionIntervalSteps);
+        }
+        if !(config.mutation_point_rate.is_finite()
+            && (0.0..=1.0).contains(&config.mutation_point_rate))
+        {
+            return Err(WorldInitError::InvalidMutationPointRate);
+        }
+        if !(config.mutation_point_scale.is_finite() && config.mutation_point_scale >= 0.0) {
+            return Err(WorldInitError::InvalidMutationPointScale);
+        }
+        if !(config.mutation_reset_rate.is_finite()
+            && (0.0..=1.0).contains(&config.mutation_reset_rate))
+        {
+            return Err(WorldInitError::InvalidMutationResetRate);
+        }
+        if !(config.mutation_scale_rate.is_finite()
+            && (0.0..=1.0).contains(&config.mutation_scale_rate))
+        {
+            return Err(WorldInitError::InvalidMutationScaleRate);
+        }
+        if !(config.mutation_scale_min.is_finite()
+            && config.mutation_scale_max.is_finite()
+            && config.mutation_scale_min > 0.0
+            && config.mutation_scale_max > 0.0
+            && config.mutation_scale_min <= config.mutation_scale_max)
+        {
+            return Err(WorldInitError::InvalidMutationScaleBounds);
+        }
+        if !(config.mutation_value_limit.is_finite() && config.mutation_value_limit > 0.0) {
+            return Err(WorldInitError::InvalidMutationValueLimit);
+        }
+        let mutation_budget =
+            config.mutation_point_rate + config.mutation_reset_rate + config.mutation_scale_rate;
+        if mutation_budget > 1.0 + f32::EPSILON {
+            return Err(WorldInitError::InvalidMutationProbabilityBudget);
+        }
         Ok(())
     }
 
@@ -399,6 +541,7 @@ impl World {
             self.resource_field = ResourceField::new(config.world_size, 1.0, 1.0);
         }
         self.config = config;
+        self.mutation_rates = Self::mutation_rates_from_config(&self.config);
         if mode_changed {
             self.metabolism = match self.config.metabolism_mode {
                 MetabolismMode::Toy => MetabolismEngine::default(),
@@ -672,15 +815,16 @@ impl World {
     }
 
     fn maybe_reproduce(&mut self) {
-        let child_agents = (self.config.agents_per_organism / 2).max(REPRODUCTION_CHILD_MIN_AGENTS);
+        let child_agents =
+            (self.config.agents_per_organism / 2).max(self.config.reproduction_child_min_agents);
         let parent_indices: Vec<usize> = self
             .organisms
             .iter()
             .enumerate()
             .filter_map(|(idx, org)| {
                 (org.alive
-                    && org.metabolic_state.energy >= REPRODUCTION_MIN_ENERGY
-                    && org.boundary_integrity >= REPRODUCTION_MIN_BOUNDARY)
+                    && org.metabolic_state.energy >= self.config.reproduction_min_energy
+                    && org.boundary_integrity >= self.config.reproduction_min_boundary)
                     .then_some(idx)
             })
             .collect();
@@ -710,32 +854,28 @@ impl World {
                 .get(parent_idx)
                 .and_then(|c| *c)
                 .unwrap_or([0.0, 0.0]);
-            let (parent_generation, parent_ancestor, parent_nn_weights, mut child_genome) = {
+            let (parent_generation, parent_ancestor, mut child_genome) = {
                 let parent = &self.organisms[parent_idx];
-                if !parent.alive || parent.metabolic_state.energy < REPRODUCTION_ENERGY_COST {
+                if !parent.alive
+                    || parent.metabolic_state.energy < self.config.reproduction_energy_cost
+                {
                     continue;
                 }
                 (
                     parent.generation,
                     parent.ancestor_genome.clone(),
-                    parent.nn.to_weight_vec(),
                     parent.genome.clone(),
                 )
             };
 
-            {
-                let parent = &mut self.organisms[parent_idx];
-                if !parent.alive || parent.metabolic_state.energy < REPRODUCTION_ENERGY_COST {
-                    continue;
-                }
-                parent.metabolic_state.energy -= REPRODUCTION_ENERGY_COST;
-            }
+            self.organisms[parent_idx].metabolic_state.energy -=
+                self.config.reproduction_energy_cost;
 
             child_genome.mutate(&mut self.rng, &self.mutation_rates);
             let child_weights = if child_genome.nn_weights().len() == NeuralNet::WEIGHT_COUNT {
                 child_genome.nn_weights().to_vec()
             } else {
-                parent_nn_weights
+                self.organisms[parent_idx].nn.to_weight_vec()
             };
             let child_nn = NeuralNet::from_weights(child_weights.into_iter());
             let child_id = match u16::try_from(self.organisms.len()) {
@@ -746,7 +886,8 @@ impl World {
 
             for _ in 0..child_agents {
                 let theta = self.rng.random::<f64>() * 2.0 * PI;
-                let radius = self.rng.random::<f64>().sqrt() * REPRODUCTION_SPAWN_RADIUS;
+                let radius =
+                    self.rng.random::<f64>().sqrt() * self.config.reproduction_spawn_radius;
                 let pos = [
                     (center[0] + radius * theta.cos()).rem_euclid(self.config.world_size),
                     (center[1] + radius * theta.sin()).rem_euclid(self.config.world_size),
@@ -764,7 +905,7 @@ impl World {
             }
 
             let metabolic_state = MetabolicState {
-                energy: REPRODUCTION_ENERGY_COST,
+                energy: self.config.reproduction_energy_cost,
                 ..MetabolicState::default()
             };
             let child = OrganismRuntime {
@@ -980,7 +1121,7 @@ impl World {
                 continue;
             }
             org.age_steps = org.age_steps.saturating_add(1);
-            if org.age_steps > MAX_ORGANISM_AGE {
+            if org.age_steps > self.config.max_organism_age_steps {
                 to_kill.push(org_idx);
                 continue;
             }
@@ -990,10 +1131,10 @@ impl World {
             } else {
                 0.0
             };
-            if avg_neighbors > CROWDING_NEIGHBOR_THRESHOLD {
-                let excess = avg_neighbors - CROWDING_NEIGHBOR_THRESHOLD;
+            if avg_neighbors > self.config.crowding_neighbor_threshold {
+                let excess = avg_neighbors - self.config.crowding_neighbor_threshold;
                 org.boundary_integrity = (org.boundary_integrity
-                    - excess * CROWDING_BOUNDARY_DECAY * self.config.dt as f32)
+                    - excess * self.config.crowding_boundary_decay * self.config.dt as f32)
                     .clamp(0.0, 1.0);
             }
             if org.boundary_integrity <= boundary_terminal_threshold {
@@ -1007,7 +1148,9 @@ impl World {
         self.maybe_reproduce();
         let dead_count = self.organisms.iter().filter(|o| !o.alive).count();
         if dead_count > 0
-            && (self.step_index.is_multiple_of(COMPACTION_INTERVAL_STEPS)
+            && (self
+                .step_index
+                .is_multiple_of(self.config.compaction_interval_steps)
                 || dead_count * 4 >= self.organisms.len().max(1))
         {
             self.prune_dead_entities();
@@ -1306,6 +1449,43 @@ mod tests {
     }
 
     #[test]
+    fn try_new_rejects_invalid_mutation_probability_budget() {
+        let agents = vec![Agent::new(0, 0, [0.0, 0.0])];
+        let nn = NeuralNet::from_weights(std::iter::repeat_n(0.0f32, NeuralNet::WEIGHT_COUNT));
+        let cfg = SimConfig {
+            num_organisms: 1,
+            agents_per_organism: 1,
+            mutation_point_rate: 0.8,
+            mutation_reset_rate: 0.3,
+            mutation_scale_rate: 0.1,
+            ..SimConfig::default()
+        };
+        let result = World::try_new(agents, vec![nn], cfg);
+        assert!(matches!(
+            result,
+            Err(WorldInitError::InvalidMutationProbabilityBudget)
+        ));
+    }
+
+    #[test]
+    fn try_new_rejects_reproduction_min_energy_below_cost() {
+        let agents = vec![Agent::new(0, 0, [0.0, 0.0])];
+        let nn = NeuralNet::from_weights(std::iter::repeat_n(0.0f32, NeuralNet::WEIGHT_COUNT));
+        let cfg = SimConfig {
+            num_organisms: 1,
+            agents_per_organism: 1,
+            reproduction_min_energy: 0.1,
+            reproduction_energy_cost: 0.3,
+            ..SimConfig::default()
+        };
+        let result = World::try_new(agents, vec![nn], cfg);
+        assert!(matches!(
+            result,
+            Err(WorldInitError::InvalidReproductionMinEnergy)
+        ));
+    }
+
+    #[test]
     fn try_run_experiment_rejects_too_many_steps() {
         let mut world = make_world(1, 100.0);
         let result = world.try_run_experiment(World::MAX_EXPERIMENT_STEPS + 1, 1);
@@ -1321,6 +1501,37 @@ mod tests {
         world.step();
         assert!(world.organism_count() > before);
         assert!(world.population_stats().total_births >= 1);
+    }
+
+    #[test]
+    fn reproduction_obeys_configured_thresholds() {
+        let mut world = make_world(10, 100.0);
+        world.config.reproduction_min_energy = 1.1;
+        world.config.reproduction_min_boundary = 0.95;
+        world.organisms[0].metabolic_state.energy = 1.0;
+        world.organisms[0].boundary_integrity = 0.9;
+        let before = world.organism_count();
+        world.step();
+        assert_eq!(world.organism_count(), before);
+        assert_eq!(world.population_stats().total_births, 0);
+    }
+
+    #[test]
+    fn max_organism_age_steps_is_configurable() {
+        let mut world = make_world(10, 100.0);
+        world.config.enable_metabolism = false;
+        world.config.enable_boundary_maintenance = false;
+        world.config.max_organism_age_steps = 1;
+        world.config.reproduction_min_energy = 10.0;
+        world.config.reproduction_min_boundary = 1.0;
+        world.config.death_boundary_threshold = 0.0;
+        world.config.boundary_collapse_threshold = 0.0;
+        world.config.death_energy_threshold = 0.0;
+        world.organisms[0].metabolic_state.energy = 1.0;
+        world.step();
+        assert_eq!(world.organism_count(), 1);
+        world.step();
+        assert_eq!(world.organism_count(), 0);
     }
 
     #[test]
