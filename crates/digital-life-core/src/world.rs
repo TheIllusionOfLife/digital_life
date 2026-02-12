@@ -865,7 +865,7 @@ impl World {
             .iter()
             .enumerate()
             .filter_map(|(idx, org)| {
-                let mature_enough = !self.config.enable_growth || org.maturity >= 1.0;
+                let mature_enough = org.maturity >= 1.0;
                 (org.alive
                     && org.metabolic_state.energy >= self.config.reproduction_min_energy
                     && org.boundary_integrity >= self.config.reproduction_min_boundary
@@ -1176,7 +1176,7 @@ impl World {
                     self.metabolism
                         .step(&mut org.metabolic_state, external, self.config.dt as f32);
                 // Growth: immature organisms have reduced metabolic efficiency
-                if self.config.enable_growth {
+                {
                     let growth_factor = self.config.growth_immature_metabolic_efficiency
                         + org.maturity * (1.0 - self.config.growth_immature_metabolic_efficiency);
                     let energy_gain = (org.metabolic_state.energy - pre_energy).max(0.0);
@@ -1915,10 +1915,8 @@ mod tests {
 
     #[test]
     fn immature_organism_has_reduced_metabolic_efficiency() {
-        // With growth enabled: immature organism gains less energy
+        // Maturity always modulates metabolic efficiency regardless of enable_growth
         let mut world_immature = make_world(10, 100.0);
-        world_immature.config.enable_growth = true;
-        world_immature.config.growth_maturation_steps = 10000; // very slow maturation
         world_immature.config.growth_immature_metabolic_efficiency = 0.3;
         world_immature.config.enable_boundary_maintenance = false;
         world_immature.config.death_boundary_threshold = 0.0;
@@ -1929,8 +1927,6 @@ mod tests {
         world_immature.organisms[0].metabolic_state.energy = 0.5;
 
         let mut world_mature = make_world(10, 100.0);
-        world_mature.config.enable_growth = true;
-        world_mature.config.growth_maturation_steps = 10000;
         world_mature.config.growth_immature_metabolic_efficiency = 0.3;
         world_mature.config.enable_boundary_maintenance = false;
         world_mature.config.death_boundary_threshold = 0.0;
@@ -1954,8 +1950,6 @@ mod tests {
     #[test]
     fn immature_organism_cannot_reproduce() {
         let mut world = make_world(10, 100.0);
-        world.config.enable_growth = true;
-        world.config.growth_maturation_steps = 10000;
         world.config.enable_metabolism = false;
         world.config.enable_boundary_maintenance = false;
         world.config.death_boundary_threshold = 0.0;
