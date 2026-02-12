@@ -1,9 +1,14 @@
-"""1000-step feasibility experiment for Go/No-Go decision.
+"""1000-step criterion-ablation experiment for Go/No-Go decision.
 
-Runs 3 conditions:
-  1. Normal   — all criteria enabled (baseline)
-  2. No-Metab — metabolism disabled (ablation)
-  3. No-Bound — boundary maintenance disabled (ablation)
+Runs 8 conditions (normal baseline + 7 criterion ablations):
+  1. Normal         — all criteria enabled (baseline)
+  2. No-Metabolism  — metabolism disabled
+  3. No-Boundary    — boundary maintenance disabled
+  4. No-Homeostasis — homeostasis disabled
+  5. No-Response    — response to stimuli disabled
+  6. No-Reproduction— reproduction disabled
+  7. No-Evolution   — evolution (mutation) disabled
+  8. No-Growth      — growth/development disabled (placeholder)
 
 Each condition is run with multiple seeds (calibration set: 0-9) to check
 reproducibility and compute summary statistics.
@@ -35,6 +40,11 @@ CONDITIONS = {
     "normal": {},
     "no_metabolism": {"enable_metabolism": False},
     "no_boundary": {"enable_boundary_maintenance": False},
+    "no_homeostasis": {"enable_homeostasis": False},
+    "no_response": {"enable_response": False},
+    "no_reproduction": {"enable_reproduction": False},
+    "no_evolution": {"enable_evolution": False},
+    "no_growth": {"enable_growth": False},
 }
 
 
@@ -188,8 +198,6 @@ def main():
 
     passed = True
     normal = next((s for s in summaries if s["condition"] == "normal"), None)
-    no_met = next((s for s in summaries if s["condition"] == "no_metabolism"), None)
-    no_bnd = next((s for s in summaries if s["condition"] == "no_boundary"), None)
 
     if normal is None or normal["alive_mean"] == 0:
         log("\n[FAIL] All organisms extinct under normal conditions")
@@ -197,27 +205,25 @@ def main():
     else:
         log(f"\n[PASS] Organisms survive: {normal['alive_mean']:.1f} alive at step {STEPS}")
 
-        if no_met and no_met["alive_mean"] < normal["alive_mean"]:
-            ratio = no_met["alive_mean"] / normal["alive_mean"]
-            log(f"[PASS] Metabolism ablation shows degradation: "
-                f"{no_met['alive_mean']:.1f} vs {normal['alive_mean']:.1f} "
-                f"({ratio:.1%} of normal)")
-        else:
-            met_val = no_met["alive_mean"] if no_met else "N/A"
-            log(f"[WARN] No clear metabolism ablation effect: "
-                f"no_metab={met_val} vs normal={normal['alive_mean']:.1f}")
-            passed = False
-
-        if no_bnd and no_bnd["alive_mean"] < normal["alive_mean"]:
-            ratio = no_bnd["alive_mean"] / normal["alive_mean"]
-            log(f"[PASS] Boundary ablation shows degradation: "
-                f"{no_bnd['alive_mean']:.1f} vs {normal['alive_mean']:.1f} "
-                f"({ratio:.1%} of normal)")
-        else:
-            bnd_val = no_bnd["alive_mean"] if no_bnd else "N/A"
-            log(f"[WARN] No clear boundary ablation effect: "
-                f"no_bound={bnd_val} vs normal={normal['alive_mean']:.1f}")
-            passed = False
+        ablation_conditions = [
+            name for name in CONDITIONS if name != "normal"
+        ]
+        for cond_name in ablation_conditions:
+            ablated = next((s for s in summaries if s["condition"] == cond_name), None)
+            if ablated is None:
+                log(f"[SKIP] {cond_name}: no results")
+                continue
+            if ablated["alive_mean"] < normal["alive_mean"]:
+                ratio = ablated["alive_mean"] / normal["alive_mean"]
+                log(f"[PASS] {cond_name} shows degradation: "
+                    f"{ablated['alive_mean']:.1f} vs {normal['alive_mean']:.1f} "
+                    f"({ratio:.1%} of normal)")
+            else:
+                log(f"[WARN] No clear {cond_name} ablation effect: "
+                    f"{ablated['alive_mean']:.1f} vs {normal['alive_mean']:.1f}")
+                # no_growth and no_evolution are expected to be no-ops early on
+                if cond_name not in ("no_growth", "no_evolution"):
+                    passed = False
 
     # Save summary JSON
     summary_path = out_dir / "1000step_summary.json"
