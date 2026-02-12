@@ -63,6 +63,8 @@ version = "0.1.0"
 dependencies = [
  "digital-life-core",
  "pyo3",
+ "rand",
+ "rand_chacha",
  "serde_json",
 ]
 

@@ -22,6 +22,10 @@ build/
 /python/digital_life/*.so
 /python/digital_life/*.dylib
 
+# Experiment output data
+/experiments/*.json
+/experiments/*.tsv
+
 # IDE/editor
 .idea/
 .vscode/

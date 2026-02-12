@@ -4,6 +4,9 @@ use digital_life_core::nn::NeuralNet;
 use digital_life_core::world::World;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use rand::Rng;
+use rand::SeedableRng;
+use rand_chacha::ChaCha12Rng;
 use serde_json::json;
 
 /// Minimal PyO3 module exposing digital-life-core to Python.
@@ -38,14 +41,20 @@ fn step_once(
         )));
     }
 
-    let (agents, nns) = bootstrap_entities(num_organisms, agents_per_organism, world_size)
-        .map_err(PyValueError::new_err)?;
     let config = SimConfig {
         num_organisms,
         agents_per_organism,
         world_size,
         ..SimConfig::default()
     };
+    let (agents, nns) = bootstrap_entities(
+        num_organisms,
+        agents_per_organism,
+        world_size,
+        config.seed,
+        config.sensing_radius,
+    )
+    .map_err(PyValueError::new_err)?;
     let mut world = World::try_new(agents, nns, config)
         .map_err(|e| PyValueError::new_err(format!("invalid world configuration: {e}")))?;
     let timings = world.step();
@@ -131,6 +140,8 @@ fn world_from_config_json(config_json: &str) -> Result<World, String> {
         config.num_organisms,
         config.agents_per_organism,
         config.world_size,
+        config.seed,
+        config.sensing_radius,
     )
     .map_err(|e| format!("invalid world configuration: {e}"))?;
     World::try_new(agents, nns, config).map_err(|e| format!("invalid world configuration: {e}"))
@@ -140,17 +151,33 @@ fn bootstrap_entities(
     num_organisms: usize,
     agents_per_organism: usize,
     world_size: f64,
+    seed: u64,
+    sensing_radius: f64,
 ) -> Result<(Vec<Agent>, Vec<NeuralNet>), String> {
     let total_agents = checked_total_agents(num_organisms, agents_per_organism)?;
-    let wrapped_origin = 0.0f64.rem_euclid(world_size.max(1.0));
-    let agents = (0..total_agents)
-        .map(|i| {
-            let organism_id = (i / agents_per_organism.max(1)) as u16;
-            Agent::new(i as u32, organism_id, [wrapped_origin, wrapped_origin])
-        })
-        .collect();
+    let mut rng = ChaCha12Rng::seed_from_u64(seed);
+    let cluster_radius = sensing_radius.min(world_size / 4.0);
+
+    let mut agents = Vec::with_capacity(total_agents);
+    for org in 0..num_organisms {
+        let cx: f64 = rng.random::<f64>() * world_size;
+        let cy: f64 = rng.random::<f64>() * world_size;
+        for a in 0..agents_per_organism {
+            let global_id = org * agents_per_organism + a;
+            let dx = (rng.random::<f64>() - 0.5) * 2.0 * cluster_radius;
+            let dy = (rng.random::<f64>() - 0.5) * 2.0 * cluster_radius;
+            let px = (cx + dx).rem_euclid(world_size);
+            let py = (cy + dy).rem_euclid(world_size);
+            agents.push(Agent::new(global_id as u32, org as u16, [px, py]));
+        }
+    }
+
     let nns = (0..num_organisms)
-        .map(|_| NeuralNet::from_weights(std::iter::repeat_n(0.0f32, NeuralNet::WEIGHT_COUNT)))
+        .map(|_| {
+            NeuralNet::from_weights(
+                (0..NeuralNet::WEIGHT_COUNT).map(|_| rng.random::<f32>() * 2.0 - 1.0),
+            )
+        })
         .collect();
     Ok((agents, nns))
 }
