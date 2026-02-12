@@ -93,6 +93,14 @@ pub struct SimConfig {
     pub mutation_scale_max: f32,
     /// Absolute clamp used for mutated genome values.
     pub mutation_value_limit: f32,
+    /// Per-step decay rate for internal state (homeostatic entropy).
+    pub homeostasis_decay_rate: f32,
+    /// Number of simulation steps for a child organism to reach full maturity.
+    pub growth_maturation_steps: usize,
+    /// Metabolic efficiency multiplier for fully immature organisms (maturity=0).
+    pub growth_immature_metabolic_efficiency: f32,
+    /// Per-step resource regeneration rate per cell.
+    pub resource_regeneration_rate: f32,
 }
 
 impl Default for SimConfig {
@@ -139,6 +147,10 @@ impl Default for SimConfig {
             mutation_scale_min: 0.8,
             mutation_scale_max: 1.2,
             mutation_value_limit: 2.0,
+            homeostasis_decay_rate: 0.01,
+            growth_maturation_steps: 200,
+            growth_immature_metabolic_efficiency: 0.3,
+            resource_regeneration_rate: 0.01,
         }
     }
 }

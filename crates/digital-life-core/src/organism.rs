@@ -67,4 +67,6 @@ pub struct OrganismRuntime {
     pub ancestor_genome: Genome,
     pub nn: NeuralNet,
     pub agent_ids: Vec<u32>,
+    /// Maturation level: 0.0 (seed) → 1.0 (fully mature).
+    pub maturity: f32,
 }

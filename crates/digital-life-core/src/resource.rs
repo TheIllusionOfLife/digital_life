@@ -8,6 +8,7 @@ pub struct ResourceField {
     cell_size: f64,
     data: Vec<f32>,
     total: f64,
+    initial_value: f32,
 }
 
 impl ResourceField {
@@ -25,6 +26,16 @@ impl ResourceField {
             cell_size,
             data,
             total,
+            initial_value,
+        }
+    }
+
+    /// Regenerate resources toward the initial value at the given rate per step.
+    pub fn regenerate(&mut self, rate: f32) {
+        for cell in &mut self.data {
+            let before = *cell;
+            *cell = (*cell + rate).min(self.initial_value);
+            self.total += (*cell - before) as f64;
         }
     }
 
@@ -117,5 +128,30 @@ mod tests {
         assert!((field.total() - (initial + 1.0)).abs() < 1e-6);
         let _ = field.take(0.0, 0.0, 0.5);
         assert!((field.total() - (initial + 0.5)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn regenerate_restores_depleted_cells() {
+        let mut field = ResourceField::new(10.0, 1.0, 1.0);
+        field.set(3.0, 3.0, 0.0);
+        field.regenerate(0.25);
+        assert!((field.get(3.0, 3.0) - 0.25).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn regenerate_caps_at_initial_value() {
+        let mut field = ResourceField::new(10.0, 1.0, 1.0);
+        field.regenerate(0.5);
+        // Already at 1.0 (initial), should stay at 1.0
+        assert!((field.get(0.0, 0.0) - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn resource_total_tracks_regeneration() {
+        let mut field = ResourceField::new(10.0, 1.0, 1.0);
+        field.set(0.0, 0.0, 0.0);
+        let before = field.total();
+        field.regenerate(0.5);
+        assert!(field.total() > before);
     }
 }
