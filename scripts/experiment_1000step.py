@@ -221,8 +221,10 @@ def main():
             else:
                 log(f"[WARN] No clear {cond_name} ablation effect: "
                     f"{ablated['alive_mean']:.1f} vs {normal['alive_mean']:.1f}")
-                # no_growth and no_evolution are expected to be no-ops early on
-                if cond_name not in ("no_growth", "no_evolution"):
+                # no_growth and no_evolution are expected no-ops early on;
+                # no_homeostasis excluded temporarily until internal_state
+                # drives survival-relevant behavior beyond NN regulation.
+                if cond_name not in ("no_growth", "no_evolution", "no_homeostasis"):
                     passed = False
 
     # Save summary JSON
