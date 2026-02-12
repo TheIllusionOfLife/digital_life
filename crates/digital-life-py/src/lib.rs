@@ -160,12 +160,12 @@ fn bootstrap_entities(
 
     let mut agents = Vec::with_capacity(total_agents);
     for org in 0..num_organisms {
-        let cx: f64 = rng.random::<f64>() * world_size;
-        let cy: f64 = rng.random::<f64>() * world_size;
+        let cx: f64 = rng.random_range(0.0..world_size);
+        let cy: f64 = rng.random_range(0.0..world_size);
         for a in 0..agents_per_organism {
             let global_id = org * agents_per_organism + a;
-            let dx = (rng.random::<f64>() - 0.5) * 2.0 * cluster_radius;
-            let dy = (rng.random::<f64>() - 0.5) * 2.0 * cluster_radius;
+            let dx = rng.random_range(-cluster_radius..cluster_radius);
+            let dy = rng.random_range(-cluster_radius..cluster_radius);
             let px = (cx + dx).rem_euclid(world_size);
             let py = (cy + dy).rem_euclid(world_size);
             agents.push(Agent::new(global_id as u32, org as u16, [px, py]));
@@ -175,7 +175,7 @@ fn bootstrap_entities(
     let nns = (0..num_organisms)
         .map(|_| {
             NeuralNet::from_weights(
-                (0..NeuralNet::WEIGHT_COUNT).map(|_| rng.random::<f32>() * 2.0 - 1.0),
+                (0..NeuralNet::WEIGHT_COUNT).map(|_| rng.random_range(-1.0f32..1.0)),
             )
         })
         .collect();
@@ -319,5 +319,60 @@ mod tests {
     fn world_from_config_json_rejects_invalid_payload() {
         let result = world_from_config_json("{\"world_size\": \"bad\"}");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn bootstrap_is_deterministic_for_same_seed() {
+        let (agents_a, nns_a) = bootstrap_entities(2, 3, 50.0, 42, 5.0).unwrap();
+        let (agents_b, nns_b) = bootstrap_entities(2, 3, 50.0, 42, 5.0).unwrap();
+        for (a, b) in agents_a.iter().zip(&agents_b) {
+            assert_eq!(a.position, b.position);
+            assert_eq!(a.organism_id, b.organism_id);
+        }
+        for (a, b) in nns_a.iter().zip(&nns_b) {
+            assert_eq!(a.to_weight_vec(), b.to_weight_vec());
+        }
+    }
+
+    #[test]
+    fn bootstrap_positions_within_world_bounds() {
+        let world_size = 80.0;
+        let (agents, _) = bootstrap_entities(5, 10, world_size, 7, 5.0).unwrap();
+        for agent in &agents {
+            assert!(
+                (0.0..world_size).contains(&agent.position[0]),
+                "x={} out of [0, {world_size})",
+                agent.position[0]
+            );
+            assert!(
+                (0.0..world_size).contains(&agent.position[1]),
+                "y={} out of [0, {world_size})",
+                agent.position[1]
+            );
+        }
+    }
+
+    #[test]
+    fn bootstrap_nn_weights_within_range() {
+        let (_, nns) = bootstrap_entities(3, 2, 50.0, 99, 5.0).unwrap();
+        for nn in &nns {
+            for &w in &nn.to_weight_vec() {
+                assert!((-1.0..1.0).contains(&w), "weight {w} outside [-1, 1)");
+            }
+        }
+    }
+
+    #[test]
+    fn bootstrap_different_seeds_produce_different_positions() {
+        let (agents_a, _) = bootstrap_entities(2, 5, 50.0, 0, 5.0).unwrap();
+        let (agents_b, _) = bootstrap_entities(2, 5, 50.0, 1, 5.0).unwrap();
+        let differs = agents_a
+            .iter()
+            .zip(&agents_b)
+            .any(|(a, b)| a.position != b.position);
+        assert!(
+            differs,
+            "different seeds should produce different positions"
+        );
     }
 }
