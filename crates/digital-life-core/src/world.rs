@@ -865,9 +865,11 @@ impl World {
             .iter()
             .enumerate()
             .filter_map(|(idx, org)| {
+                let mature_enough = !self.config.enable_growth || org.maturity >= 1.0;
                 (org.alive
                     && org.metabolic_state.energy >= self.config.reproduction_min_energy
-                    && org.boundary_integrity >= self.config.reproduction_min_boundary)
+                    && org.boundary_integrity >= self.config.reproduction_min_boundary
+                    && mature_enough)
                     .then_some(idx)
             })
             .collect();
@@ -1057,6 +1059,11 @@ impl World {
             agent.position[1] = (agent.position[1] + agent.velocity[1] * self.config.dt)
                 .rem_euclid(self.config.world_size);
 
+            // Homeostatic entropy: internal state decays toward 0 each step
+            let h_decay = self.config.homeostasis_decay_rate * self.config.dt as f32;
+            agent.internal_state[0] = (agent.internal_state[0] - h_decay).max(0.0);
+            agent.internal_state[1] = (agent.internal_state[1] - h_decay).max(0.0);
+
             if self.config.enable_homeostasis {
                 agent.internal_state[0] =
                     (agent.internal_state[0] + delta[2] * self.config.dt as f32).clamp(0.0, 1.0);
@@ -1066,6 +1073,23 @@ impl World {
         }
 
         if self.config.enable_boundary_maintenance {
+            // Pre-collect average internal_state[0] per organism for homeostasis coupling
+            let homeostasis_factors: Vec<f32> = {
+                let mut sums = vec![0.0f32; self.organisms.len()];
+                let mut counts = vec![0usize; self.organisms.len()];
+                for agent in &self.agents {
+                    let idx = agent.organism_id as usize;
+                    if self.organisms[idx].alive {
+                        sums[idx] += agent.internal_state[0];
+                        counts[idx] += 1;
+                    }
+                }
+                sums.iter()
+                    .zip(counts.iter())
+                    .map(|(&s, &c)| if c > 0 { s / c as f32 } else { 0.5 })
+                    .collect()
+            };
+
             let dt = self.config.dt as f32;
             let mut to_kill = Vec::new();
             for (org_idx, org) in self.organisms.iter_mut().enumerate() {
@@ -1081,12 +1105,14 @@ impl World {
                         * (energy_deficit
                             + org.metabolic_state.waste
                                 * self.config.boundary_waste_pressure_scale);
+                let homeostasis_factor = homeostasis_factors[org_idx];
                 let repair = (org.metabolic_state.energy
                     - org.metabolic_state.waste
                         * self.config.boundary_waste_pressure_scale
                         * self.config.boundary_repair_waste_penalty_scale)
                     .max(0.0)
-                    * self.config.boundary_repair_rate;
+                    * self.config.boundary_repair_rate
+                    * homeostasis_factor;
                 org.boundary_integrity =
                     (org.boundary_integrity - decay * dt + repair * dt).clamp(0.0, 1.0);
                 if org.boundary_integrity <= boundary_terminal_threshold {
@@ -1145,9 +1171,17 @@ impl World {
                     [0.0, 0.0]
                 };
                 let external = self.resource_field.get(center[0], center[1]);
+                let pre_energy = org.metabolic_state.energy;
                 let flux =
                     self.metabolism
                         .step(&mut org.metabolic_state, external, self.config.dt as f32);
+                // Growth: immature organisms have reduced metabolic efficiency
+                if self.config.enable_growth {
+                    let growth_factor = self.config.growth_immature_metabolic_efficiency
+                        + org.maturity * (1.0 - self.config.growth_immature_metabolic_efficiency);
+                    let energy_gain = (org.metabolic_state.energy - pre_energy).max(0.0);
+                    org.metabolic_state.energy = pre_energy + energy_gain * growth_factor;
+                }
                 if flux.consumed_external > 0.0 {
                     let _ = self
                         .resource_field
@@ -1174,6 +1208,12 @@ impl World {
             if org.age_steps > self.config.max_organism_age_steps {
                 to_kill.push(org_idx);
                 continue;
+            }
+
+            // Growth: advance maturation
+            if self.config.enable_growth && org.maturity < 1.0 {
+                org.maturity =
+                    (org.maturity + 1.0 / self.config.growth_maturation_steps as f32).min(1.0);
             }
 
             let avg_neighbors = if neighbor_counts[org_idx] > 0 {
@@ -1207,6 +1247,12 @@ impl World {
         {
             self.prune_dead_entities();
         }
+
+        if self.config.resource_regeneration_rate > 0.0 {
+            self.resource_field
+                .regenerate(self.config.resource_regeneration_rate * self.config.dt as f32);
+        }
+
         let state_update_us = t2.elapsed().as_micros() as u64;
 
         StepTimings {
@@ -1425,6 +1471,7 @@ mod tests {
     #[test]
     fn toroidal_center_uses_wrapped_mean_for_resource_sampling() {
         let mut world = make_world(2, 100.0);
+        world.config.resource_regeneration_rate = 0.0;
         world.agents[0].position = [0.1, 50.0];
         world.agents[1].position = [99.9, 50.0];
         world.resource_field_mut().set(0.0, 50.0, 2.0);
