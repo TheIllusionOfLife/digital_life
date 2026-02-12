@@ -31,6 +31,16 @@ pub struct SimConfig {
     pub enable_metabolism: bool,
     /// Criterion-ablation toggle for boundary maintenance updates.
     pub enable_boundary_maintenance: bool,
+    /// Criterion-ablation toggle for homeostasis (internal state regulation).
+    pub enable_homeostasis: bool,
+    /// Criterion-ablation toggle for response to stimuli (velocity from NN).
+    pub enable_response: bool,
+    /// Criterion-ablation toggle for reproduction.
+    pub enable_reproduction: bool,
+    /// Criterion-ablation toggle for evolution (genome mutation during reproduction).
+    pub enable_evolution: bool,
+    /// Criterion-ablation toggle for growth/development (placeholder until developmental program).
+    pub enable_growth: bool,
     /// Minimum energy required for stable boundary maintenance.
     pub metabolic_viability_floor: f32,
     /// Baseline per-step boundary integrity decay rate.
@@ -98,6 +108,11 @@ impl Default for SimConfig {
             neighbor_norm: 50.0,
             enable_metabolism: true,
             enable_boundary_maintenance: true,
+            enable_homeostasis: true,
+            enable_response: true,
+            enable_reproduction: true,
+            enable_evolution: true,
+            enable_growth: true,
             metabolic_viability_floor: 0.2,
             boundary_decay_base_rate: 0.003,
             boundary_decay_energy_scale: 0.02,

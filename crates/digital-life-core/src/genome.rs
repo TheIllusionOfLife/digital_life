@@ -18,8 +18,14 @@ impl Genome {
     /// Create a genome with only NN weights active (segment 0).
     pub fn with_nn_weights(nn_weights: Vec<f32>) -> Self {
         let nn_len = nn_weights.len();
-        // Reserve placeholder segments for future criteria
-        let placeholder_sizes = [0, 0, 0, 0, 0, 0]; // criteria 2-7
+        // Segment sizes for criteria 1-6 (segment 0 = NN weights, handled above):
+        // 1: Metabolic network params (graph node/edge encoding)
+        // 2: Homeostasis params (set-points, gain values)
+        // 3: Developmental program (growth schedule)
+        // 4: Reproduction params (thresholds)
+        // 5: Sensory params (sensitivity weights)
+        // 6: Evolution/mutation rate params (self-referential)
+        let placeholder_sizes = [16, 8, 8, 4, 4, 4];
 
         let total_len: usize = nn_len + placeholder_sizes.iter().sum::<usize>();
         let mut data = Vec::with_capacity(total_len);
@@ -135,5 +141,45 @@ mod tests {
             .data()
             .iter()
             .all(|v| v.is_finite() && (-rates.value_limit..=rates.value_limit).contains(v)));
+    }
+
+    #[test]
+    fn segment_layout_has_correct_sizes() {
+        let nn_len = 212;
+        let g = Genome::with_nn_weights(vec![0.0; nn_len]);
+        let segs = g.segments();
+        assert_eq!(segs[0], (0, 212), "segment 0: NN weights");
+        assert_eq!(segs[1], (212, 16), "segment 1: metabolic network");
+        assert_eq!(segs[2], (228, 8), "segment 2: homeostasis");
+        assert_eq!(segs[3], (236, 8), "segment 3: developmental program");
+        assert_eq!(segs[4], (244, 4), "segment 4: reproduction");
+        assert_eq!(segs[5], (248, 4), "segment 5: sensory");
+        assert_eq!(segs[6], (252, 4), "segment 6: evolution/mutation");
+        assert_eq!(g.data().len(), 256, "total genome length");
+    }
+
+    #[test]
+    fn segment_data_returns_correct_slices() {
+        let g = Genome::with_nn_weights(vec![1.0; 212]);
+        assert_eq!(g.segment_data(1).len(), 16);
+        assert!(
+            g.segment_data(1).iter().all(|&v| v == 0.0),
+            "non-NN segments zero-initialized"
+        );
+        assert_eq!(g.segment_data(4).len(), 4);
+    }
+
+    #[test]
+    fn mutation_covers_all_segments() {
+        let mut g = Genome::with_nn_weights(vec![0.0; 212]);
+        let mut rng = ChaCha12Rng::seed_from_u64(99);
+        let rates = MutationRates {
+            point_rate: 0.5,
+            point_scale: 1.0,
+            ..MutationRates::default()
+        };
+        g.mutate(&mut rng, &rates);
+        let non_nn_changed = g.data()[212..].iter().any(|&v| v != 0.0);
+        assert!(non_nn_changed, "mutation should affect non-NN segments too");
     }
 }

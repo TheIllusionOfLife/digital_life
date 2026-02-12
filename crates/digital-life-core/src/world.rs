@@ -878,7 +878,9 @@ impl World {
             self.organisms[parent_idx].metabolic_state.energy -=
                 self.config.reproduction_energy_cost;
 
-            child_genome.mutate(&mut self.rng, &self.mutation_rates);
+            if self.config.enable_evolution {
+                child_genome.mutate(&mut self.rng, &self.mutation_rates);
+            }
             let child_weights = if child_genome.nn_weights().len() == NeuralNet::WEIGHT_COUNT {
                 child_genome.nn_weights().to_vec()
             } else {
@@ -1000,8 +1002,10 @@ impl World {
                 continue;
             }
 
-            agent.velocity[0] += delta[0] as f64 * self.config.dt;
-            agent.velocity[1] += delta[1] as f64 * self.config.dt;
+            if self.config.enable_response {
+                agent.velocity[0] += delta[0] as f64 * self.config.dt;
+                agent.velocity[1] += delta[1] as f64 * self.config.dt;
+            }
 
             let speed_sq =
                 agent.velocity[0] * agent.velocity[0] + agent.velocity[1] * agent.velocity[1];
@@ -1016,10 +1020,12 @@ impl World {
             agent.position[1] = (agent.position[1] + agent.velocity[1] * self.config.dt)
                 .rem_euclid(self.config.world_size);
 
-            agent.internal_state[0] =
-                (agent.internal_state[0] + delta[2] * self.config.dt as f32).clamp(0.0, 1.0);
-            agent.internal_state[1] =
-                (agent.internal_state[1] + delta[3] * self.config.dt as f32).clamp(0.0, 1.0);
+            if self.config.enable_homeostasis {
+                agent.internal_state[0] =
+                    (agent.internal_state[0] + delta[2] * self.config.dt as f32).clamp(0.0, 1.0);
+                agent.internal_state[1] =
+                    (agent.internal_state[1] + delta[3] * self.config.dt as f32).clamp(0.0, 1.0);
+            }
         }
 
         if self.config.enable_boundary_maintenance {
@@ -1152,7 +1158,9 @@ impl World {
             self.mark_dead(org_idx);
         }
 
-        self.maybe_reproduce();
+        if self.config.enable_reproduction {
+            self.maybe_reproduce();
+        }
         let dead_count = self.organisms.iter().filter(|o| !o.alive).count();
         if dead_count > 0
             && (self
@@ -1597,5 +1605,79 @@ mod tests {
         world.organisms[0].boundary_integrity = 0.08;
         world.step();
         assert_eq!(world.organism_count(), 0);
+    }
+
+    #[test]
+    fn disable_homeostasis_freezes_internal_state() {
+        let mut world = make_world(10, 100.0);
+        world.config.enable_homeostasis = false;
+        let before = world.agents[0].internal_state;
+        for _ in 0..50 {
+            world.step();
+        }
+        assert_eq!(
+            world.agents[0].internal_state[0], before[0],
+            "internal_state[0] should not change when homeostasis is disabled"
+        );
+        assert_eq!(
+            world.agents[0].internal_state[1], before[1],
+            "internal_state[1] should not change when homeostasis is disabled"
+        );
+    }
+
+    #[test]
+    fn disable_response_freezes_velocity() {
+        let mut world = make_world(10, 100.0);
+        world.config.enable_response = false;
+        world.agents[0].velocity = [0.0, 0.0];
+        world.step();
+        assert_eq!(
+            world.agents[0].velocity,
+            [0.0, 0.0],
+            "velocity should remain zero when response is disabled"
+        );
+    }
+
+    #[test]
+    fn disable_reproduction_prevents_births() {
+        let mut world = make_world(10, 100.0);
+        world.config.enable_reproduction = false;
+        world.organisms[0].metabolic_state.energy = 1.0;
+        world.organisms[0].boundary_integrity = 1.0;
+        let before = world.organism_count();
+        for _ in 0..10 {
+            world.step();
+        }
+        assert_eq!(
+            world.population_stats().total_births,
+            0,
+            "birth_count should be 0 when reproduction is disabled"
+        );
+        assert_eq!(world.organism_count(), before);
+    }
+
+    #[test]
+    fn disable_evolution_copies_genome_exactly() {
+        let mut world = make_world(10, 100.0);
+        world.config.enable_evolution = false;
+        world.organisms[0].metabolic_state.energy = 1.0;
+        world.organisms[0].boundary_integrity = 1.0;
+        let parent_weights = world.organisms[0].genome.nn_weights().to_vec();
+        world.step();
+        assert!(
+            world.organism_count() > 1,
+            "reproduction should still happen with evolution disabled"
+        );
+        let child_weights = world.organisms[1].genome.nn_weights().to_vec();
+        assert_eq!(
+            parent_weights, child_weights,
+            "child genome should be exact copy when evolution is disabled"
+        );
+    }
+
+    #[test]
+    fn enable_growth_default_is_true() {
+        let config = SimConfig::default();
+        assert!(config.enable_growth, "enable_growth should default to true");
     }
 }
