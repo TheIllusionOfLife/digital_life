@@ -1611,10 +1611,21 @@ mod tests {
     fn disable_homeostasis_freezes_internal_state() {
         let mut world = make_world(10, 100.0);
         world.config.enable_homeostasis = false;
+        // Disable metabolism and boundary to ensure organism survives all steps
+        world.config.enable_metabolism = false;
+        world.config.enable_boundary_maintenance = false;
+        world.config.death_boundary_threshold = 0.0;
+        world.config.boundary_collapse_threshold = 0.0;
+        world.config.death_energy_threshold = 0.0;
+        world.config.enable_reproduction = false;
         let before = world.agents[0].internal_state;
         for _ in 0..50 {
             world.step();
         }
+        assert!(
+            world.organisms[0].alive,
+            "organism must survive for valid test"
+        );
         assert_eq!(
             world.agents[0].internal_state[0], before[0],
             "internal_state[0] should not change when homeostasis is disabled"
@@ -1642,12 +1653,22 @@ mod tests {
     fn disable_reproduction_prevents_births() {
         let mut world = make_world(10, 100.0);
         world.config.enable_reproduction = false;
+        // Disable death mechanisms to ensure the organism survives
+        world.config.enable_metabolism = false;
+        world.config.enable_boundary_maintenance = false;
+        world.config.death_boundary_threshold = 0.0;
+        world.config.boundary_collapse_threshold = 0.0;
+        world.config.death_energy_threshold = 0.0;
         world.organisms[0].metabolic_state.energy = 1.0;
         world.organisms[0].boundary_integrity = 1.0;
         let before = world.organism_count();
         for _ in 0..10 {
             world.step();
         }
+        assert!(
+            world.organisms[0].alive,
+            "organism must survive for valid test"
+        );
         assert_eq!(
             world.population_stats().total_births,
             0,
@@ -1660,15 +1681,25 @@ mod tests {
     fn disable_evolution_copies_genome_exactly() {
         let mut world = make_world(10, 100.0);
         world.config.enable_evolution = false;
+        // Disable death mechanisms so parent and child survive for inspection
+        world.config.death_energy_threshold = 0.0;
+        world.config.death_boundary_threshold = 0.0;
+        world.config.boundary_collapse_threshold = 0.0;
         world.organisms[0].metabolic_state.energy = 1.0;
         world.organisms[0].boundary_integrity = 1.0;
         let parent_weights = world.organisms[0].genome.nn_weights().to_vec();
         world.step();
         assert!(
-            world.organism_count() > 1,
+            world.population_stats().total_births >= 1,
             "reproduction should still happen with evolution disabled"
         );
-        let child_weights = world.organisms[1].genome.nn_weights().to_vec();
+        // Find the child: it will be the last organism (pushed during maybe_reproduce)
+        let child = world
+            .organisms
+            .iter()
+            .find(|o| o.generation == 1)
+            .expect("child organism with generation=1 should exist");
+        let child_weights = child.genome.nn_weights().to_vec();
         assert_eq!(
             parent_weights, child_weights,
             "child genome should be exact copy when evolution is disabled"
@@ -1679,5 +1710,31 @@ mod tests {
     fn enable_growth_default_is_true() {
         let config = SimConfig::default();
         assert!(config.enable_growth, "enable_growth should default to true");
+    }
+
+    #[test]
+    fn disable_growth_is_noop() {
+        // Growth toggle is a placeholder — disabling it should produce identical results
+        let agents_a: Vec<Agent> = (0..20)
+            .map(|i| Agent::new(i as u32, 0, [50.0, 50.0]))
+            .collect();
+        let nn = NeuralNet::from_weights(std::iter::repeat_n(0.1f32, NeuralNet::WEIGHT_COUNT));
+        let config = SimConfig {
+            seed: 42,
+            num_organisms: 1,
+            agents_per_organism: 20,
+            ..SimConfig::default()
+        };
+        let mut with_growth = World::new(agents_a.clone(), vec![nn.clone()], config.clone());
+        let mut cfg_no_growth = config;
+        cfg_no_growth.enable_growth = false;
+        let mut without_growth = World::new(agents_a, vec![nn], cfg_no_growth);
+
+        let ra = with_growth.run_experiment(30, 1);
+        let rb = without_growth.run_experiment(30, 1);
+
+        let alive_a: Vec<usize> = ra.samples.iter().map(|s| s.alive_count).collect();
+        let alive_b: Vec<usize> = rb.samples.iter().map(|s| s.alive_count).collect();
+        assert_eq!(alive_a, alive_b, "disable_growth should be a no-op");
     }
 }

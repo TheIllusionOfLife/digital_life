@@ -168,5 +168,11 @@ mod tests {
         assert!(cfg.max_organism_age_steps > 0);
         assert!(cfg.compaction_interval_steps > 0);
         assert!(cfg.mutation_value_limit > 0.0);
+        // New ablation toggles must default to true for backward compatibility
+        assert!(cfg.enable_homeostasis);
+        assert!(cfg.enable_response);
+        assert!(cfg.enable_reproduction);
+        assert!(cfg.enable_evolution);
+        assert!(cfg.enable_growth);
     }
 }
