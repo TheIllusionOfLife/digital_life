@@ -15,17 +15,26 @@ pub struct Genome {
 }
 
 impl Genome {
+    pub const METABOLIC_SIZE: usize = 16;
+    pub const HOMEOSTASIS_SIZE: usize = 8;
+    pub const DEVELOPMENTAL_SIZE: usize = 8;
+    pub const REPRODUCTION_SIZE: usize = 4;
+    pub const SENSORY_SIZE: usize = 4;
+    pub const EVOLUTION_SIZE: usize = 4;
+
+    const SEGMENT_SIZES: [usize; 6] = [
+        Self::METABOLIC_SIZE,
+        Self::HOMEOSTASIS_SIZE,
+        Self::DEVELOPMENTAL_SIZE,
+        Self::REPRODUCTION_SIZE,
+        Self::SENSORY_SIZE,
+        Self::EVOLUTION_SIZE,
+    ];
+
     /// Create a genome with only NN weights active (segment 0).
     pub fn with_nn_weights(nn_weights: Vec<f32>) -> Self {
         let nn_len = nn_weights.len();
-        // Segment sizes for criteria 1-6 (segment 0 = NN weights, handled above):
-        // 1: Metabolic network params (graph node/edge encoding)
-        // 2: Homeostasis params (set-points, gain values)
-        // 3: Developmental program (growth schedule)
-        // 4: Reproduction params (thresholds)
-        // 5: Sensory params (sensitivity weights)
-        // 6: Evolution/mutation rate params (self-referential)
-        let placeholder_sizes = [16, 8, 8, 4, 4, 4];
+        let placeholder_sizes = Self::SEGMENT_SIZES;
 
         let total_len: usize = nn_len + placeholder_sizes.iter().sum::<usize>();
         let mut data = Vec::with_capacity(total_len);
@@ -148,14 +157,22 @@ mod tests {
         let nn_len = 212;
         let g = Genome::with_nn_weights(vec![0.0; nn_len]);
         let segs = g.segments();
-        assert_eq!(segs[0], (0, 212), "segment 0: NN weights");
-        assert_eq!(segs[1], (212, 16), "segment 1: metabolic network");
-        assert_eq!(segs[2], (228, 8), "segment 2: homeostasis");
-        assert_eq!(segs[3], (236, 8), "segment 3: developmental program");
-        assert_eq!(segs[4], (244, 4), "segment 4: reproduction");
-        assert_eq!(segs[5], (248, 4), "segment 5: sensory");
-        assert_eq!(segs[6], (252, 4), "segment 6: evolution/mutation");
-        assert_eq!(g.data().len(), 256, "total genome length");
+
+        let expected_sizes = [
+            nn_len,
+            Genome::METABOLIC_SIZE,
+            Genome::HOMEOSTASIS_SIZE,
+            Genome::DEVELOPMENTAL_SIZE,
+            Genome::REPRODUCTION_SIZE,
+            Genome::SENSORY_SIZE,
+            Genome::EVOLUTION_SIZE,
+        ];
+        let mut offset = 0;
+        for (i, &size) in expected_sizes.iter().enumerate() {
+            assert_eq!(segs[i], (offset, size), "segment {i}");
+            offset += size;
+        }
+        assert_eq!(g.data().len(), offset, "total genome length");
     }
 
     #[test]

@@ -1687,7 +1687,7 @@ mod tests {
         world.config.boundary_collapse_threshold = 0.0;
         world.organisms[0].metabolic_state.energy = 1.0;
         world.organisms[0].boundary_integrity = 1.0;
-        let parent_weights = world.organisms[0].genome.nn_weights().to_vec();
+        let parent_data = world.organisms[0].genome.data().to_vec();
         world.step();
         assert!(
             world.population_stats().total_births >= 1,
@@ -1699,9 +1699,9 @@ mod tests {
             .iter()
             .find(|o| o.generation == 1)
             .expect("child organism with generation=1 should exist");
-        let child_weights = child.genome.nn_weights().to_vec();
+        let child_data = child.genome.data().to_vec();
         assert_eq!(
-            parent_weights, child_weights,
+            parent_data, child_data,
             "child genome should be exact copy when evolution is disabled"
         );
     }
