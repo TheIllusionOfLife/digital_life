@@ -1,5 +1,5 @@
 use crate::genome::Genome;
-use crate::metabolism::MetabolicState;
+use crate::metabolism::{MetabolicState, MetabolismEngine};
 use crate::nn::NeuralNet;
 
 #[derive(Clone, Debug)]
@@ -69,4 +69,6 @@ pub struct OrganismRuntime {
     pub agent_ids: Vec<u32>,
     /// Maturation level: 0.0 (seed) → 1.0 (fully mature).
     pub maturity: f32,
+    /// Per-organism metabolism engine (Some when Graph mode, None when Toy).
+    pub metabolism_engine: Option<MetabolismEngine>,
 }

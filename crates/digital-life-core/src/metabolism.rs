@@ -128,7 +128,7 @@ pub fn decode_entry_node_id(segment: &[f32], node_count: usize) -> u16 {
 ///   abs(x)>0.3 → edge exists; sign → direction; clamp(abs(x),0.1,1.0) → flux_ratio
 /// - [12]: edge transfer efficiency → sigmoid(x)*0.3+0.7 → [0.7, 1.0]
 /// - [13]: conversion efficiency → sigmoid(x)*0.7+0.3 → [0.3, 1.0]
-/// - [14-15]: reserved
+/// - 14-15: reserved
 pub fn decode_metabolic_graph(segment: &[f32]) -> MetabolicGraph {
     debug_assert!(segment.len() >= 16);
 
@@ -659,7 +659,9 @@ mod tests {
 
     #[test]
     fn decode_is_deterministic() {
-        let segment = [0.1, -0.5, 0.3, 0.7, -0.2, 0.9, 0.4, -0.6, 0.8, -0.1, 0.5, -0.3, 0.2, 0.6, 0.0, 0.0];
+        let segment = [
+            0.1, -0.5, 0.3, 0.7, -0.2, 0.9, 0.4, -0.6, 0.8, -0.1, 0.5, -0.3, 0.2, 0.6, 0.0, 0.0,
+        ];
         let a = decode_metabolic_graph(&segment);
         let b = decode_metabolic_graph(&segment);
         assert_eq!(a.nodes.len(), b.nodes.len());
@@ -678,9 +680,10 @@ mod tests {
     #[test]
     fn decode_clamps_values() {
         // Extreme values should produce valid clamped ranges
-        let segment = [100.0, -100.0, 50.0, -50.0, 99.0, -99.0,
-                       10.0, -10.0, 5.0, -5.0, 3.0, -3.0,
-                       100.0, -100.0, 0.0, 0.0];
+        let segment = [
+            100.0, -100.0, 50.0, -50.0, 99.0, -99.0, 10.0, -10.0, 5.0, -5.0, 3.0, -3.0, 100.0,
+            -100.0, 0.0, 0.0,
+        ];
         let graph = decode_metabolic_graph(&segment);
         assert!((2..=4).contains(&graph.nodes.len()));
         for node in &graph.nodes {
@@ -734,7 +737,10 @@ mod tests {
         let mut state = MetabolicState::default();
         let flux = gm.step(&mut state, 1.0, 1.0);
         // Should produce energy from external resource
-        assert!(flux.consumed_external > 0.0, "should consume external resource");
+        assert!(
+            flux.consumed_external > 0.0,
+            "should consume external resource"
+        );
     }
 
     // ── validate_metabolic_graph tests ──
@@ -749,9 +755,9 @@ mod tests {
 
     #[test]
     fn validate_accepts_decoded_random_genome() {
-        let segment: [f32; 16] = [0.5, -0.3, 0.7, 0.2, -0.8, 0.1,
-                                   0.9, -0.5, 0.4, -0.7, 0.6, -0.2,
-                                   0.3, 0.8, 0.0, 0.0];
+        let segment: [f32; 16] = [
+            0.5, -0.3, 0.7, 0.2, -0.8, 0.1, 0.9, -0.5, 0.4, -0.7, 0.6, -0.2, 0.3, 0.8, 0.0, 0.0,
+        ];
         let graph = decode_metabolic_graph(&segment);
         let entry = decode_entry_node_id(&segment, graph.nodes.len());
         assert!(validate_metabolic_graph(&graph, entry));
@@ -769,8 +775,15 @@ mod tests {
     #[test]
     fn validate_rejects_dangling_edge() {
         let graph = MetabolicGraph {
-            nodes: vec![MetabolicNode { id: 0, catalytic_efficiency: 1.0 }],
-            edges: vec![MetabolicEdge { from: 0, to: 99, flux_ratio: 0.5 }],
+            nodes: vec![MetabolicNode {
+                id: 0,
+                catalytic_efficiency: 1.0,
+            }],
+            edges: vec![MetabolicEdge {
+                from: 0,
+                to: 99,
+                flux_ratio: 0.5,
+            }],
         };
         assert!(!validate_metabolic_graph(&graph, 0));
     }

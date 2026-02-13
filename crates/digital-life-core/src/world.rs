@@ -351,6 +351,7 @@ impl World {
                     nn,
                     agent_ids: Vec::new(),
                     maturity: 1.0,
+                    metabolism_engine: None,
                 }
             })
             .collect();
@@ -359,6 +360,21 @@ impl World {
             organisms[agent.organism_id as usize]
                 .agent_ids
                 .push(agent.id);
+        }
+
+        // Graph mode: initialize each organism's metabolic genome segment with
+        // small random values, then decode into per-organism metabolism engines.
+        let mut init_rng = ChaCha12Rng::seed_from_u64(config.seed.wrapping_add(1));
+        if config.metabolism_mode == MetabolismMode::Graph {
+            for org in &mut organisms {
+                let mut seg = [0.0f32; 16];
+                for v in &mut seg {
+                    *v = init_rng.random_range(-0.5f32..0.5);
+                }
+                org.genome.set_segment_data(1, &seg);
+                let gm = crate::metabolism::decode_graph_metabolism(org.genome.segment_data(1));
+                org.metabolism_engine = Some(MetabolismEngine::Graph(gm));
+            }
         }
 
         let max_agent_id = agents.iter().map(|a| a.id).max().unwrap_or(0);
@@ -955,6 +971,12 @@ impl World {
                 energy: self.config.reproduction_energy_cost,
                 ..MetabolicState::default()
             };
+            let child_metabolism_engine = if self.config.metabolism_mode == MetabolismMode::Graph {
+                let gm = crate::metabolism::decode_graph_metabolism(child_genome.segment_data(1));
+                Some(MetabolismEngine::Graph(gm))
+            } else {
+                None
+            };
             let child = OrganismRuntime {
                 id: child_id,
                 stable_id: self.next_organism_stable_id,
@@ -968,6 +990,7 @@ impl World {
                 nn: child_nn,
                 agent_ids: child_agent_ids,
                 maturity: 0.0,
+                metabolism_engine: child_metabolism_engine,
             };
             self.next_organism_stable_id = self.next_organism_stable_id.saturating_add(1);
             self.organisms.push(child);
@@ -1172,9 +1195,8 @@ impl World {
                 };
                 let external = self.resource_field.get(center[0], center[1]);
                 let pre_energy = org.metabolic_state.energy;
-                let flux =
-                    self.metabolism
-                        .step(&mut org.metabolic_state, external, self.config.dt as f32);
+                let engine = org.metabolism_engine.as_ref().unwrap_or(&self.metabolism);
+                let flux = engine.step(&mut org.metabolic_state, external, self.config.dt as f32);
                 // Growth: immature organisms have reduced metabolic efficiency (gains only)
                 {
                     let energy_delta = org.metabolic_state.energy - pre_energy;
@@ -2030,5 +2052,110 @@ mod tests {
             world.organisms[0].maturity < f32::EPSILON,
             "maturity should stay at 0.0 when growth is disabled"
         );
+    }
+
+    fn make_graph_world(num_agents: usize, world_size: f64) -> World {
+        let agents: Vec<Agent> = (0..num_agents)
+            .map(|i| Agent::new(i as u32, 0, [50.0, 50.0]))
+            .collect();
+        let nn = NeuralNet::from_weights(std::iter::repeat_n(0.1f32, NeuralNet::WEIGHT_COUNT));
+        let config = SimConfig {
+            world_size,
+            num_organisms: 1,
+            agents_per_organism: num_agents,
+            metabolism_mode: MetabolismMode::Graph,
+            ..SimConfig::default()
+        };
+        World::new(agents, vec![nn], config)
+    }
+
+    #[test]
+    fn graph_mode_organisms_have_individual_engines() {
+        let agents: Vec<Agent> = (0..20)
+            .map(|i| Agent::new(i as u32, i as u16 / 10, [50.0, 50.0]))
+            .collect();
+        let nn = NeuralNet::from_weights(std::iter::repeat_n(0.1f32, NeuralNet::WEIGHT_COUNT));
+        let config = SimConfig {
+            world_size: 100.0,
+            num_organisms: 2,
+            agents_per_organism: 10,
+            metabolism_mode: MetabolismMode::Graph,
+            ..SimConfig::default()
+        };
+        let world = World::new(agents, vec![nn.clone(), nn], config);
+        assert!(world.organisms[0].metabolism_engine.is_some());
+        assert!(world.organisms[1].metabolism_engine.is_some());
+        // Different organisms should have different metabolic segments (seeded differently)
+        let seg0 = world.organisms[0].genome.segment_data(1);
+        let seg1 = world.organisms[1].genome.segment_data(1);
+        assert_ne!(
+            seg0, seg1,
+            "different organisms should have different metabolic segments"
+        );
+    }
+
+    #[test]
+    fn toy_mode_organisms_use_shared_engine() {
+        let world = make_world(10, 100.0);
+        assert!(world.organisms[0].metabolism_engine.is_none());
+    }
+
+    #[test]
+    fn child_inherits_then_redecodes_metabolism() {
+        let mut world = make_graph_world(10, 100.0);
+        world.config.death_energy_threshold = 0.0;
+        world.config.death_boundary_threshold = 0.0;
+        world.config.boundary_collapse_threshold = 0.0;
+        world.organisms[0].metabolic_state.energy = 1.0;
+        world.organisms[0].boundary_integrity = 1.0;
+        world.step();
+        if world.population_stats().total_births >= 1 {
+            let child = world
+                .organisms
+                .iter()
+                .find(|o| o.generation == 1)
+                .expect("child should exist");
+            assert!(
+                child.metabolism_engine.is_some(),
+                "child in Graph mode should have its own metabolism engine"
+            );
+        }
+    }
+
+    #[test]
+    fn graph_mode_mutation_changes_metabolic_topology() {
+        let agents: Vec<Agent> = (0..10)
+            .map(|i| Agent::new(i as u32, 0, [50.0, 50.0]))
+            .collect();
+        let nn = NeuralNet::from_weights(std::iter::repeat_n(0.1f32, NeuralNet::WEIGHT_COUNT));
+        let config = SimConfig {
+            world_size: 100.0,
+            num_organisms: 1,
+            agents_per_organism: 10,
+            metabolism_mode: MetabolismMode::Graph,
+            mutation_point_rate: 0.5, // aggressive mutation
+            mutation_point_scale: 1.0,
+            death_energy_threshold: 0.0,
+            death_boundary_threshold: 0.0,
+            boundary_collapse_threshold: 0.0,
+            ..SimConfig::default()
+        };
+        let mut world = World::new(agents, vec![nn], config);
+        world.organisms[0].metabolic_state.energy = 1.0;
+        world.organisms[0].boundary_integrity = 1.0;
+        let parent_seg = world.organisms[0].genome.segment_data(1).to_vec();
+        world.step();
+        if world.population_stats().total_births >= 1 {
+            let child = world
+                .organisms
+                .iter()
+                .find(|o| o.generation == 1)
+                .expect("child should exist");
+            let child_seg = child.genome.segment_data(1);
+            assert_ne!(
+                parent_seg, child_seg,
+                "child metabolic segment should differ from parent with high mutation rate"
+            );
+        }
     }
 }

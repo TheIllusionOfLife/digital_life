@@ -68,7 +68,10 @@ impl Genome {
     }
 
     pub fn set_segment_data(&mut self, criterion: usize, data: &[f32]) {
-        assert!(criterion < self.segments.len(), "criterion index out of range");
+        assert!(
+            criterion < self.segments.len(),
+            "criterion index out of range"
+        );
         let (start, len) = self.segments[criterion];
         assert_eq!(data.len(), len, "data length must match segment size");
         self.data[start..start + len].copy_from_slice(data);
@@ -196,8 +199,9 @@ mod tests {
     #[test]
     fn set_segment_data_overwrites_zeros() {
         let mut g = Genome::with_nn_weights(vec![0.0; 212]);
-        let data = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,
-                     0.9, 1.0, -0.1, -0.2, -0.3, -0.4, -0.5, -0.6];
+        let data = [
+            0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, -0.1, -0.2, -0.3, -0.4, -0.5, -0.6,
+        ];
         g.set_segment_data(1, &data);
         assert_eq!(g.segment_data(1), &data);
     }
