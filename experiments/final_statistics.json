@@ -1,0 +1,94 @@
+{
+  "experiment": "criterion_ablation",
+  "n_per_condition": 30,
+  "alpha": 0.05,
+  "correction": "holm_bonferroni",
+  "significant_count": 7,
+  "total_comparisons": 7,
+  "comparisons": [
+    {
+      "condition": "no_metabolism",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 318.6666666666667,
+      "ablation_mean": 46.03333333333333,
+      "U": 900.0,
+      "p_raw": 1.3026778478278269e-11,
+      "cohens_d": 16.133,
+      "p_corrected": 0.0,
+      "significant": true
+    },
+    {
+      "condition": "no_boundary",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 318.6666666666667,
+      "ablation_mean": 64.76666666666667,
+      "U": 900.0,
+      "p_raw": 1.4440724717918854e-11,
+      "cohens_d": 6.6809,
+      "p_corrected": 0.0,
+      "significant": true
+    },
+    {
+      "condition": "no_homeostasis",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 318.6666666666667,
+      "ablation_mean": 69.6,
+      "U": 900.0,
+      "p_raw": 1.1914507491695582e-11,
+      "cohens_d": 4.4372,
+      "p_corrected": 0.0,
+      "significant": true
+    },
+    {
+      "condition": "no_response",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 318.6666666666667,
+      "ablation_mean": 70.83333333333333,
+      "U": 900.0,
+      "p_raw": 1.4827061969475464e-11,
+      "cohens_d": 13.927,
+      "p_corrected": 0.0,
+      "significant": true
+    },
+    {
+      "condition": "no_reproduction",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 318.6666666666667,
+      "ablation_mean": 31.6,
+      "U": 900.0,
+      "p_raw": 1.4513596890874305e-11,
+      "cohens_d": 16.8672,
+      "p_corrected": 0.0,
+      "significant": true
+    },
+    {
+      "condition": "no_evolution",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 318.6666666666667,
+      "ablation_mean": 298.96666666666664,
+      "U": 624.5,
+      "p_raw": 0.005038594525555271,
+      "cohens_d": 0.661,
+      "p_corrected": 0.005039,
+      "significant": true
+    },
+    {
+      "condition": "no_growth",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 318.6666666666667,
+      "ablation_mean": 194.9,
+      "U": 900.0,
+      "p_raw": 1.4967308880266174e-11,
+      "cohens_d": 5.3596,
+      "p_corrected": 0.0,
+      "significant": true
+    }
+  ]
+}

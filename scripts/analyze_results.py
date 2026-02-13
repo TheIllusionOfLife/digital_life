@@ -136,7 +136,7 @@ def main():
     significant_count = 0
     for comp, p_corr in zip(comparisons, corrected):
         comp["p_corrected"] = round(p_corr, 6)
-        comp["significant"] = p_corr < alpha
+        comp["significant"] = bool(p_corr < alpha)
         if comp["significant"]:
             significant_count += 1
 

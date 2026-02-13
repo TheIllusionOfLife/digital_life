@@ -1,7 +1,7 @@
-"""Final criterion-ablation experiment (5000 steps, n=30, test set).
+"""Final criterion-ablation experiment (2000 steps, n=30, test set).
 
 Runs 8 conditions (normal baseline + 7 criterion ablations) with
-seeds 100-129 (test set) and 5000 steps for stronger evolution signal.
+seeds 100-129 (test set) and 2000 steps for stronger evolution signal.
 
 Output: TSV data to stdout + summary report to stderr.
         Raw JSON saved to experiments/final_{condition}.json.
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import digital_life
 
-STEPS = 5000
+STEPS = 2000
 SAMPLE_EVERY = 50
 SEEDS = list(range(100, 130))  # test set: seeds 100-129, n=30
 
