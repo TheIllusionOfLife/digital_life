@@ -3,6 +3,9 @@
 Runs 8 conditions (normal baseline + 7 criterion ablations) with
 seeds 100-129 (test set) and 2000 steps for stronger evolution signal.
 
+Usage:
+    uv run python scripts/experiment_final.py > experiments/final_data.tsv
+
 Output: TSV data to stdout + summary report to stderr.
         Raw JSON saved to experiments/final_{condition}.json.
 """

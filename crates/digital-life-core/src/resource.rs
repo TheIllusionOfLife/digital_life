@@ -31,7 +31,10 @@ impl ResourceField {
     }
 
     /// Regenerate resources toward the initial value at the given rate per step.
+    ///
+    /// Cells are capped at `initial_value`; cells already at or above it are unchanged.
     pub fn regenerate(&mut self, rate: f32) {
+        debug_assert!(rate >= 0.0, "regeneration rate cannot be negative");
         for cell in &mut self.data {
             let before = *cell;
             *cell = (*cell + rate).min(self.initial_value);

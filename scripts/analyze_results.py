@@ -40,7 +40,7 @@ def load_condition(prefix: str, condition: str) -> list[dict]:
 
 def extract_final_alive(results: list[dict]) -> np.ndarray:
     """Extract final_alive_count from each seed's result."""
-    return np.array([r["final_alive_count"] for r in results if r.get("samples")])
+    return np.array([r["final_alive_count"] for r in results if "samples" in r])
 
 
 def cohens_d(a: np.ndarray, b: np.ndarray) -> float:
@@ -134,7 +134,7 @@ def main():
     # Apply Holm-Bonferroni correction
     corrected = holm_bonferroni(raw_p_values)
     significant_count = 0
-    for comp, p_corr in zip(comparisons, corrected):
+    for comp, p_corr in zip(comparisons, corrected, strict=True):
         comp["p_corrected"] = round(p_corr, 6)
         comp["significant"] = bool(p_corr < alpha)
         if comp["significant"]:

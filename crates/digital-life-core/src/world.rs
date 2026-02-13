@@ -1175,12 +1175,16 @@ impl World {
                 let flux =
                     self.metabolism
                         .step(&mut org.metabolic_state, external, self.config.dt as f32);
-                // Growth: immature organisms have reduced metabolic efficiency
+                // Growth: immature organisms have reduced metabolic efficiency (gains only)
                 {
-                    let growth_factor = self.config.growth_immature_metabolic_efficiency
-                        + org.maturity * (1.0 - self.config.growth_immature_metabolic_efficiency);
-                    let energy_gain = (org.metabolic_state.energy - pre_energy).max(0.0);
-                    org.metabolic_state.energy = pre_energy + energy_gain * growth_factor;
+                    let energy_delta = org.metabolic_state.energy - pre_energy;
+                    if energy_delta > 0.0 {
+                        let growth_factor = self.config.growth_immature_metabolic_efficiency
+                            + org.maturity
+                                * (1.0 - self.config.growth_immature_metabolic_efficiency);
+                        org.metabolic_state.energy = pre_energy + energy_delta * growth_factor;
+                    }
+                    // energy losses from metabolism are preserved as-is
                 }
                 if flux.consumed_external > 0.0 {
                     let _ = self
@@ -1944,6 +1948,46 @@ mod tests {
             world_mature.organisms[0].metabolic_state.energy
                 > world_immature.organisms[0].metabolic_state.energy,
             "mature organism should have higher energy than immature"
+        );
+    }
+
+    #[test]
+    fn growth_factor_preserves_energy_loss() {
+        // When metabolism causes net energy loss, growth factor must NOT mask it.
+        // With the old bug (.max(0.0) on energy delta), losses were silently discarded.
+        let mut world = make_world(10, 100.0);
+        world.config.growth_immature_metabolic_efficiency = 0.3;
+        world.config.enable_boundary_maintenance = false;
+        world.config.death_boundary_threshold = 0.0;
+        world.config.boundary_collapse_threshold = 0.0;
+        world.config.death_energy_threshold = 0.0;
+        world.config.enable_reproduction = false;
+        world.config.resource_regeneration_rate = 0.0;
+        world.organisms[0].maturity = 0.0; // fully immature
+
+        // Deplete ALL resource sources: world grid, internal pool, and graph pool.
+        // This forces metabolism's energy_loss_rate to dominate → net energy decrease.
+        let w = world.resource_field.width();
+        let h = world.resource_field.height();
+        let cs = world.resource_field.cell_size();
+        for y in 0..h {
+            for x in 0..w {
+                world.resource_field.set(x as f64 * cs, y as f64 * cs, 0.0);
+            }
+        }
+        world.organisms[0].metabolic_state.resource = 0.0;
+        world.organisms[0].metabolic_state.graph_pool.clear();
+
+        let initial_energy = world.organisms[0].metabolic_state.energy;
+        for _ in 0..50 {
+            world.step();
+        }
+        assert!(
+            world.organisms[0].metabolic_state.energy < initial_energy,
+            "energy should decrease when all resources are depleted, even for immature organisms \
+             (got {} >= initial {})",
+            world.organisms[0].metabolic_state.energy,
+            initial_energy
         );
     }
 
