@@ -465,7 +465,7 @@ This ceiling effect reveals that criteria damage overlapping subsystems.
 \centering
 \caption{Pairwise ablation synergy scores ($n$=30 per condition, Graph
 metabolism). Negative synergy indicates sub-additive interaction (shared
-failure pathways). Baseline $\bar{x}$=293, consistent with
+failure pathways). Baseline $\bar{x}$=293.1, consistent with
 Table~\ref{tab:ablation}.}
 \label{tab:pairwise}
 \small
@@ -485,8 +485,8 @@ Pair & $\Delta_{AB}$ & Expected & Synergy & Ratio \\
 \end{table}
 
 \paragraph{Growth--reproduction confound.}
-The (reproduction, growth) pair confirms: $\Delta_{AB} =
-\Delta_{\text{reproduction}}$ = 290.4, so growth's effect is fully mediated
+The (reproduction, growth) pair confirms: $\Delta_{AB} \approx
+\Delta_{\text{reproduction}}$ = 261.9, so growth's effect is fully mediated
 through reproduction gating.
 This clarifies growth's role as an upstream prerequisite for reproductive
 competence rather than an independent viability mechanism.
@@ -532,7 +532,7 @@ Lines show mean across 30 seeds; shaded bands $\pm$1 SEM.}
 Figure~\ref{fig:homeostasis} shows population-mean internal state
 trajectories for Normal versus No Homeostasis conditions.
 Under normal operation, the neural-network controller actively regulates
-internal state variable~$s_0$, maintaining it near $\sim$0.99 throughout
+internal state variable~$s_0$, maintaining it near 0.99 throughout
 the simulation (Panel~A, solid line).
 When homeostasis is disabled, $s_0$ decays monotonically due to the
 passive decay term ($h_{\text{decay}} = 0.01$ per step), and the
@@ -551,7 +551,7 @@ consumption with measurable degradation upon removal.
     \centering\vspace{2em}[fig\_homeostasis.pdf --- to be generated]\vspace{2em}}}}
 \caption{Homeostatic regulation trajectories ($n$=30). (A)~Mean internal
 state variable~$s_0$ over time: Normal condition (solid) maintains
-regulation near 1.0, while No Homeostasis (dashed) shows passive decay.
+regulation near 0.99, while No Homeostasis (dashed) shows passive decay.
 (B)~Population-level standard deviation of $s_0$: disabled homeostasis
 produces higher inter-organism variance. Shaded bands show $\pm$1 SEM.}
 \label{fig:homeostasis}
