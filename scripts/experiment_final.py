@@ -74,6 +74,8 @@ def print_header():
         "alive_count", "energy_mean", "waste_mean", "boundary_mean",
         "birth_count", "death_count", "population_size",
         "mean_generation", "mean_genome_drift",
+        "energy_std", "waste_std", "boundary_std",
+        "mean_age", "genome_diversity", "max_generation",
     ]
     print("\t".join(cols))
 
@@ -91,6 +93,12 @@ def print_sample(condition: str, seed: int, s: dict):
         str(s["population_size"]),
         f"{s['mean_generation']:.2f}",
         f"{s['mean_genome_drift']:.4f}",
+        f"{s.get('energy_std', 0):.4f}",
+        f"{s.get('waste_std', 0):.4f}",
+        f"{s.get('boundary_std', 0):.4f}",
+        f"{s.get('mean_age', 0):.1f}",
+        f"{s.get('genome_diversity', 0):.4f}",
+        str(s.get("max_generation", 0)),
     ]
     print("\t".join(vals))
 

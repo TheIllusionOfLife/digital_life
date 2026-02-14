@@ -1,6 +1,7 @@
 """Statistical analysis for criterion-ablation experiments.
 
-Computes Mann-Whitney U tests, Cohen's d effect sizes, and
+Computes Mann-Whitney U tests, Cohen's d / Cliff's delta effect sizes,
+AUC (area under alive-count curve), median lifespan, and
 Holm-Bonferroni corrected p-values for each ablation condition
 vs the normal baseline.
 
@@ -43,6 +44,31 @@ def extract_final_alive(results: list[dict]) -> np.ndarray:
     return np.array([r["final_alive_count"] for r in results if "samples" in r])
 
 
+def extract_auc(results: list[dict]) -> np.ndarray:
+    """Compute AUC (area under alive-count curve) for each seed using trapezoidal rule."""
+    aucs = []
+    for r in results:
+        if "samples" not in r:
+            continue
+        steps = [s["step"] for s in r["samples"]]
+        counts = [s["alive_count"] for s in r["samples"]]
+        if len(steps) >= 2:
+            aucs.append(float(np.trapz(counts, steps)))
+        else:
+            aucs.append(0.0)
+    return np.array(aucs)
+
+
+def extract_median_lifespan(results: list[dict]) -> float:
+    """Extract median lifespan across all seeds."""
+    all_lifespans = []
+    for r in results:
+        all_lifespans.extend(r.get("lifespans", []))
+    if not all_lifespans:
+        return 0.0
+    return float(np.median(all_lifespans))
+
+
 def cohens_d(a: np.ndarray, b: np.ndarray) -> float:
     """Compute Cohen's d effect size (pooled SD)."""
     na, nb = len(a), len(b)
@@ -54,6 +80,26 @@ def cohens_d(a: np.ndarray, b: np.ndarray) -> float:
     if pooled_sd == 0:
         return 0.0
     return float((np.mean(a) - np.mean(b)) / pooled_sd)
+
+
+def cliffs_delta(a: np.ndarray, b: np.ndarray) -> float:
+    """Compute Cliff's delta (nonparametric effect size).
+
+    delta = (#{a_i > b_j} - #{a_i < b_j}) / (n_a * n_b)
+    Range: [-1, 1]. Positive means group a tends to be larger.
+    """
+    na, nb = len(a), len(b)
+    if na == 0 or nb == 0:
+        return 0.0
+    more = 0
+    less = 0
+    for ai in a:
+        for bj in b:
+            if ai > bj:
+                more += 1
+            elif ai < bj:
+                less += 1
+    return (more - less) / (na * nb)
 
 
 def holm_bonferroni(p_values: list[float]) -> list[float]:
@@ -74,6 +120,19 @@ def holm_bonferroni(p_values: list[float]) -> list[float]:
     return corrected
 
 
+def distribution_stats(arr: np.ndarray) -> dict:
+    """Compute median, IQR, mean, and SD for an array."""
+    if len(arr) == 0:
+        return {"median": 0.0, "q25": 0.0, "q75": 0.0, "mean": 0.0, "std": 0.0}
+    return {
+        "median": float(np.median(arr)),
+        "q25": float(np.percentile(arr, 25)),
+        "q75": float(np.percentile(arr, 75)),
+        "mean": float(np.mean(arr)),
+        "std": float(np.std(arr, ddof=1)) if len(arr) > 1 else 0.0,
+    }
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python scripts/analyze_results.py <prefix>", file=sys.stderr)
@@ -89,6 +148,8 @@ def main():
         print("ERROR: no normal baseline results found", file=sys.stderr)
         sys.exit(1)
     normal_alive = extract_final_alive(normal_results)
+    normal_auc = extract_auc(normal_results)
+    normal_median_lifespan = extract_median_lifespan(normal_results)
     n_normal = len(normal_alive)
     print(f"Normal baseline: n={n_normal}, mean={np.mean(normal_alive):.1f}", file=sys.stderr)
 
@@ -113,6 +174,9 @@ def main():
             normal_alive, ablated_alive, alternative="greater"
         )
         d = cohens_d(normal_alive, ablated_alive)
+        cliff_d = cliffs_delta(normal_alive, ablated_alive)
+        ablated_auc = extract_auc(results)
+        ablated_median_lifespan = extract_median_lifespan(results)
 
         comparisons.append({
             "condition": condition,
@@ -120,13 +184,21 @@ def main():
             "n_ablated": n_ablated,
             "normal_mean": float(np.mean(normal_alive)),
             "ablation_mean": float(np.mean(ablated_alive)),
+            "normal_dist": distribution_stats(normal_alive),
+            "ablation_dist": distribution_stats(ablated_alive),
             "U": float(u_stat),
             "p_raw": float(p_value),
             "cohens_d": round(d, 4),
+            "cliffs_delta": round(cliff_d, 4),
+            "normal_auc_mean": round(float(np.mean(normal_auc)), 2),
+            "ablation_auc_mean": round(float(np.mean(ablated_auc)), 2),
+            "normal_median_lifespan": round(normal_median_lifespan, 1),
+            "ablation_median_lifespan": round(ablated_median_lifespan, 1),
         })
         raw_p_values.append(p_value)
         print(
             f"  {condition}: U={u_stat:.1f}, p={p_value:.6f}, d={d:.3f}, "
+            f"cliff={cliff_d:.3f}, "
             f"normal={np.mean(normal_alive):.1f}, ablated={np.mean(ablated_alive):.1f}",
             file=sys.stderr,
         )
@@ -156,7 +228,8 @@ def main():
     for comp in comparisons:
         status = "SIG" if comp["significant"] else "n.s."
         print(
-            f"  [{status}] {comp['condition']}: p_corr={comp['p_corrected']:.6f}, d={comp['cohens_d']:.3f}",
+            f"  [{status}] {comp['condition']}: p_corr={comp['p_corrected']:.6f}, "
+            f"d={comp['cohens_d']:.3f}, cliff={comp['cliffs_delta']:.3f}",
             file=sys.stderr,
         )
 
