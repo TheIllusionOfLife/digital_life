@@ -153,3 +153,279 @@ The paper has a strong, promising idea (criteria-as-mechanisms validated by abla
 5. Do results hold under at least one materially different environment regime (e.g., patchy resources, periodic shocks)?
 6. For evolution: what is inherited (genome? controller parameters?), what mutates, and what are the heritability mechanisms?
 7. Can you show at least one adaptation result (e.g., evolving improved foraging in a changed environment) beyond persistence?
+
+---
+
+# Expanded recommendations (more detailed)
+
+This section elaborates concrete changes that, if implemented, would substantially improve the paper’s technical credibility and likelihood of acceptance by an ALife audience.
+
+## A) Define outcome variables and evaluation protocol (must-have)
+
+1. **Define organism identity and counting rules**
+   - Provide an explicit definition of organism membership over time (e.g., is it a persistent ID, a connected component of agents, or an inferred clustering?).
+   - Specify merge/split handling (two swarms collide → one organism? offspring separates → new ID?).
+   - Add a short “edge cases” paragraph; reviewers will ask.
+
+2. **Define the primary endpoint**
+   - Choose one *primary* outcome to avoid “garden of forking paths” concerns. Examples:
+     - $N_T$: population size at final time $T$,
+     - $\bar N$: mean population size over a window $[T_0, T]$,
+     - $\\tau_{ext}$: time to extinction (survival analysis),
+     - $R_0$: average lifetime reproductive output.
+   - State exactly how each run maps to a single scalar for statistical testing.
+
+3. **Add at least one individual-level viability measure**
+   - Examples: median lifespan, probability of reaching maturity, mean boundary integrity, mean energy stability (variance around setpoint), etc.
+   - This helps distinguish “population crash because reproduction is disabled” from “organism cannot maintain itself.”
+
+4. **Report environmental and compute parameters**
+   - Resource field: injection rate, diffusion constant, decay, saturation caps.
+   - World size and boundary conditions (toroidal already noted; quantify).
+   - Simulation timestep count and any early stopping.
+   - Compute: whether turning off a process changes runtime or stochastic event order.
+
+## B) Make ablations diagnostically meaningful (must-have)
+
+1. **Specify ablation operators with code-level semantics**
+   - For each criterion, state *exactly* what is changed:
+     - remove a term from an update equation,
+     - clamp a variable,
+     - freeze a controller,
+     - replace with a constant baseline, etc.
+   - Provide a compact table: criterion → operator → hypothesized failure mode → observable signature.
+
+2. **Add sham / placebo ablations**
+   - Implement at least one ablation that removes comparable computation/“energy bookkeeping” but is not expected to matter (e.g., disable a random auxiliary process).
+   - If sham ablation has small effect while criterion ablations are large, it strengthens causal attribution.
+
+3. **Add dose–response (“partial ablation”) curves**
+   - Rather than only 0/1, vary strength: 25/50/75/100% removal of metabolic efficiency, sensor gain, repair rate, etc.
+   - Report monotonicity and possible thresholds; this is strong evidence of mechanism.
+
+4. **Control for trivial impossibility**
+   - Some ablations (e.g., reproduction off) will obviously reduce long-term population. Pair these with **short-horizon** viability endpoints (e.g., survival over $T=500$ steps) so the result is not tautological.
+
+## C) Quantify feedback coupling (strongly recommended)
+
+1. **Provide an explicit coupling graph**
+   - Nodes: criteria; directed edges: measurable influence pathways.
+   - For each edge, name the mediating variable(s) and sign (positive/negative) when possible.
+
+2. **Add at least one quantitative coupling metric**
+   - Minimal: time-lagged correlation between criterion-associated variables.
+   - Better: conditional mutual information or Granger-like tests (with caveats).
+   - Even better: targeted interventions (“turn knob on metabolism; measure homeostasis response”).
+
+3. **Demonstrate coupling survives parameter variation**
+   - Show at least 2–3 alternative parameter settings where coupling claims remain true (not just a single tuned regime).
+
+## D) Criterion-by-criterion validation upgrades (strongly recommended)
+
+Below are “low overhead” validations that align with ALife expectations:
+
+1. **Cellular organization / boundary**
+   - Show boundary integrity time series and distribution across individuals.
+   - Perturbation: randomly delete/displace a fraction of swarm agents and measure recovery time.
+   - Failure signature: leakage rate (resource inflow/outflow), fragmentation probability.
+
+2. **Metabolism**
+   - Show metabolic network/steps explicitly (diagram + equations).
+   - Report flux-like measures (input uptake, intermediate transformation rates, waste).
+   - Tradeoff test: vary resource availability; show adaptive changes in metabolic allocation.
+
+3. **Homeostasis**
+   - Define setpoints and controlled variables (energy, internal concentration, boundary integrity, etc.).
+   - Perturbation: resource shock, “temperature noise,” or damage; show return-to-setpoint dynamics and overshoot.
+   - Quantify: settling time, steady-state error, variance reduction vs. non-homeostatic control.
+
+4. **Growth/development**
+   - Replace the “maturation toggle” with at least 2-stage development (juvenile → adult with distinct morphology/behavior).
+   - Show that development improves fitness (not just gates reproduction).
+
+5. **Reproduction**
+   - Distinguish copying from constructive reproduction:
+     - offspring must rebuild boundary and re-establish homeostasis rather than inherit a perfect state.
+   - Report offspring viability distributions and parent-offspring trait correlations (heritability).
+
+6. **Response to stimuli**
+   - Use a dynamic environment where response matters (moving resource gradients, predators, periodic shocks).
+   - Compare responsive agents vs. (i) frozen policy, (ii) randomized actions matched for energy.
+   - Report performance delta under non-stationarity as the key validation.
+
+7. **Evolution**
+   - Demonstrate adaptation under at least one explicit selection pressure:
+     - changing resource distribution,
+     - task-like reward shaping (carefully justified),
+     - periodic environmental shift.
+   - Show repeatability: multiple seeds converge toward improved fitness relative to ancestral baseline.
+   - If space permits, include a minimal “lineage” analysis: trait trajectories, selective sweeps, diversity metrics.
+
+## E) Improve statistical reporting and visualization (must-have)
+
+1. **Plots**
+   - For each condition: violin/box plots of the primary endpoint.
+   - Time series: mean ± bootstrap CI (or median + IQR) of population and key state variables.
+
+2. **Uncertainty**
+   - Report 95% CIs for Cliff’s $\\delta$ (or use bootstrap).
+   - Consider reporting effect sizes in more interpretable units alongside $\\delta$ (e.g., median difference).
+
+3. **Multiple comparisons**
+   - Keep Holm–Bonferroni (fine), but also state the family of hypotheses being corrected (single ablations? plus pairwise?).
+
+## F) Make the related-work rubric defensible (recommended)
+
+If you keep the rubric table:
+
+1. Provide a one-paragraph scoring rubric definition per level with examples.
+2. Add a per-system justification table (appendix) with citations supporting each score.
+3. Temper claims like “highest total score” unless the scoring is clearly validated.
+
+---
+
+# Score out of 10 (if the above recommendations are implemented)
+
+Assuming you implement the must-have items (A, B, E) and a substantial portion of the strongly recommended items (C, D, plus better evolution validation), I would rate the revised paper at approximately:
+
+**9/10** for an ALife proceedings-style venue.
+
+Rationale (brief): the work would then read as a *methodologically rigorous* demonstration of “criteria as coupled mechanisms,” with transparent measures, non-tautological validations, and convincing evidence for each criterion beyond architectural dependence.
+
+---
+
+# Expanded recommendations (more detailed)
+
+This section elaborates concrete changes that, if implemented, would substantially improve the paper’s technical credibility and likelihood of acceptance by an ALife audience.
+
+## A) Define outcome variables and evaluation protocol (must-have)
+
+1. **Define organism identity and counting rules**
+   - Provide an explicit definition of organism membership over time (e.g., is it a persistent ID, a connected component of agents, or an inferred clustering?).
+   - Specify merge/split handling (two swarms collide → one organism? offspring separates → new ID?).
+   - Add a short “edge cases” paragraph; reviewers will ask.
+
+2. **Define the primary endpoint**
+   - Choose one *primary* outcome to avoid “garden of forking paths” concerns. Examples:
+     - $N_T$: population size at final time $T$,
+     - $\bar N$: mean population size over a window $[T_0, T]$,
+     - $\\tau_{ext}$: time to extinction (survival analysis),
+     - $R_0$: average lifetime reproductive output.
+   - State exactly how each run maps to a single scalar for statistical testing.
+
+3. **Add at least one individual-level viability measure**
+   - Examples: median lifespan, probability of reaching maturity, mean boundary integrity, mean energy stability (variance around setpoint), etc.
+   - This helps distinguish “population crash because reproduction is disabled” from “organism cannot maintain itself.”
+
+4. **Report environmental and compute parameters**
+   - Resource field: injection rate, diffusion constant, decay, saturation caps.
+   - World size and boundary conditions (toroidal already noted; quantify).
+   - Simulation timestep count and any early stopping.
+   - Compute: whether turning off a process changes runtime or stochastic event order.
+
+## B) Make ablations diagnostically meaningful (must-have)
+
+1. **Specify ablation operators with code-level semantics**
+   - For each criterion, state *exactly* what is changed:
+     - remove a term from an update equation,
+     - clamp a variable,
+     - freeze a controller,
+     - replace with a constant baseline, etc.
+   - Provide a compact table: criterion → operator → hypothesized failure mode → observable signature.
+
+2. **Add sham / placebo ablations**
+   - Implement at least one ablation that removes comparable computation/“energy bookkeeping” but is not expected to matter (e.g., disable a random auxiliary process).
+   - If sham ablation has small effect while criterion ablations are large, it strengthens causal attribution.
+
+3. **Add dose–response (“partial ablation”) curves**
+   - Rather than only 0/1, vary strength: 25/50/75/100% removal of metabolic efficiency, sensor gain, repair rate, etc.
+   - Report monotonicity and possible thresholds; this is strong evidence of mechanism.
+
+4. **Control for trivial impossibility**
+   - Some ablations (e.g., reproduction off) will obviously reduce long-term population. Pair these with **short-horizon** viability endpoints (e.g., survival over $T=500$ steps) so the result is not tautological.
+
+## C) Quantify feedback coupling (strongly recommended)
+
+1. **Provide an explicit coupling graph**
+   - Nodes: criteria; directed edges: measurable influence pathways.
+   - For each edge, name the mediating variable(s) and sign (positive/negative) when possible.
+
+2. **Add at least one quantitative coupling metric**
+   - Minimal: time-lagged correlation between criterion-associated variables.
+   - Better: conditional mutual information or Granger-like tests (with caveats).
+   - Even better: targeted interventions (“turn knob on metabolism; measure homeostasis response”).
+
+3. **Demonstrate coupling survives parameter variation**
+   - Show at least 2–3 alternative parameter settings where coupling claims remain true (not just a single tuned regime).
+
+## D) Criterion-by-criterion validation upgrades (strongly recommended)
+
+Below are “low overhead” validations that align with ALife expectations:
+
+1. **Cellular organization / boundary**
+   - Show boundary integrity time series and distribution across individuals.
+   - Perturbation: randomly delete/displace a fraction of swarm agents and measure recovery time.
+   - Failure signature: leakage rate (resource inflow/outflow), fragmentation probability.
+
+2. **Metabolism**
+   - Show metabolic network/steps explicitly (diagram + equations).
+   - Report flux-like measures (input uptake, intermediate transformation rates, waste).
+   - Tradeoff test: vary resource availability; show adaptive changes in metabolic allocation.
+
+3. **Homeostasis**
+   - Define setpoints and controlled variables (energy, internal concentration, boundary integrity, etc.).
+   - Perturbation: resource shock, “temperature noise,” or damage; show return-to-setpoint dynamics and overshoot.
+   - Quantify: settling time, steady-state error, variance reduction vs. non-homeostatic control.
+
+4. **Growth/development**
+   - Replace the “maturation toggle” with at least 2-stage development (juvenile → adult with distinct morphology/behavior).
+   - Show that development improves fitness (not just gates reproduction).
+
+5. **Reproduction**
+   - Distinguish copying from constructive reproduction:
+     - offspring must rebuild boundary and re-establish homeostasis rather than inherit a perfect state.
+   - Report offspring viability distributions and parent-offspring trait correlations (heritability).
+
+6. **Response to stimuli**
+   - Use a dynamic environment where response matters (moving resource gradients, predators, periodic shocks).
+   - Compare responsive agents vs. (i) frozen policy, (ii) randomized actions matched for energy.
+   - Report performance delta under non-stationarity as the key validation.
+
+7. **Evolution**
+   - Demonstrate adaptation under at least one explicit selection pressure:
+     - changing resource distribution,
+     - task-like reward shaping (carefully justified),
+     - periodic environmental shift.
+   - Show repeatability: multiple seeds converge toward improved fitness relative to ancestral baseline.
+   - If space permits, include a minimal “lineage” analysis: trait trajectories, selective sweeps, diversity metrics.
+
+## E) Improve statistical reporting and visualization (must-have)
+
+1. **Plots**
+   - For each condition: violin/box plots of the primary endpoint.
+   - Time series: mean ± bootstrap CI (or median + IQR) of population and key state variables.
+
+2. **Uncertainty**
+   - Report 95% CIs for Cliff’s $\\delta$ (or use bootstrap).
+   - Consider reporting effect sizes in more interpretable units alongside $\\delta$ (e.g., median difference).
+
+3. **Multiple comparisons**
+   - Keep Holm–Bonferroni (fine), but also state the family of hypotheses being corrected (single ablations? plus pairwise?).
+
+## F) Make the related-work rubric defensible (recommended)
+
+If you keep the rubric table:
+
+1. Provide a one-paragraph scoring rubric definition per level with examples.
+2. Add a per-system justification table (appendix) with citations supporting each score.
+3. Temper claims like “highest total score” unless the scoring is clearly validated.
+
+---
+
+# Score out of 10 (if the above recommendations are implemented)
+
+Assuming you implement the must-have items (A, B, E) and a substantial portion of the strongly recommended items (C, D, plus better evolution validation), I would rate the revised paper at approximately:
+
+**9/10** for an ALife proceedings-style venue.
+
+Rationale (brief): the work would then read as a *methodologically rigorous* demonstration of “criteria as coupled mechanisms,” with transparent measures, non-tautological validations, and convincing evidence for each criterion beyond architectural dependence.
