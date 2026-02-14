@@ -1,0 +1,323 @@
+{
+  "experiment": "criterion_ablation",
+  "n_per_condition": 30,
+  "alpha": 0.05,
+  "correction": "holm_bonferroni",
+  "significant_count": 7,
+  "total_comparisons": 7,
+  "comparisons": [
+    {
+      "condition": "no_metabolism",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 293.1333333333333,
+      "ablation_mean": 46.03333333333333,
+      "normal_dist": {
+        "median": 294.5,
+        "q25": 281.5,
+        "q75": 309.5,
+        "mean": 293.1333333333333,
+        "std": 20.201968721634163
+      },
+      "ablation_dist": {
+        "median": 46.0,
+        "q25": 45.0,
+        "q75": 47.0,
+        "mean": 46.03333333333333,
+        "std": 1.6709141279516748
+      },
+      "U": 900.0,
+      "p_raw": 1.3001982794648954e-11,
+      "cohens_d": 17.2391,
+      "cohens_d_ci_lo": 14.0468,
+      "cohens_d_ci_hi": 20.4313,
+      "cliffs_delta": 1.0,
+      "cliffs_delta_ci_lo": 1.0,
+      "cliffs_delta_ci_hi": 1.0,
+      "normal_auc_mean": 435375.83,
+      "ablation_auc_mean": 94084.17,
+      "normal_median_lifespan": 132.0,
+      "ablation_median_lifespan": 1109.0,
+      "p_corrected": 0.0,
+      "significant": true
+    },
+    {
+      "condition": "no_boundary",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 293.1333333333333,
+      "ablation_mean": 121.76666666666667,
+      "normal_dist": {
+        "median": 294.5,
+        "q25": 281.5,
+        "q75": 309.5,
+        "mean": 293.1333333333333,
+        "std": 20.201968721634163
+      },
+      "ablation_dist": {
+        "median": 125.5,
+        "q25": 77.75,
+        "q75": 162.75,
+        "mean": 121.76666666666667,
+        "std": 51.76251028750797
+      },
+      "U": 900.0,
+      "p_raw": 1.4976701565565862e-11,
+      "cohens_d": 4.3615,
+      "cohens_d_ci_lo": 3.4116,
+      "cohens_d_ci_hi": 5.3114,
+      "cliffs_delta": 1.0,
+      "cliffs_delta_ci_lo": 1.0,
+      "cliffs_delta_ci_hi": 1.0,
+      "normal_auc_mean": 435375.83,
+      "ablation_auc_mean": 211265.83,
+      "normal_median_lifespan": 132.0,
+      "ablation_median_lifespan": 157.0,
+      "p_corrected": 0.0,
+      "significant": true
+    },
+    {
+      "condition": "no_homeostasis",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 293.1333333333333,
+      "ablation_mean": 68.26666666666667,
+      "normal_dist": {
+        "median": 294.5,
+        "q25": 281.5,
+        "q75": 309.5,
+        "mean": 293.1333333333333,
+        "std": 20.201968721634163
+      },
+      "ablation_dist": {
+        "median": 92.0,
+        "q25": 0.75,
+        "q75": 108.75,
+        "mean": 68.26666666666667,
+        "std": 61.1803063498171
+      },
+      "U": 900.0,
+      "p_raw": 1.4206189669598281e-11,
+      "cohens_d": 4.9358,
+      "cohens_d_ci_lo": 3.8963,
+      "cohens_d_ci_hi": 5.9753,
+      "cliffs_delta": 1.0,
+      "cliffs_delta_ci_lo": 1.0,
+      "cliffs_delta_ci_hi": 1.0,
+      "normal_auc_mean": 435375.83,
+      "ablation_auc_mean": 130667.5,
+      "normal_median_lifespan": 132.0,
+      "ablation_median_lifespan": 190.0,
+      "p_corrected": 0.0,
+      "significant": true
+    },
+    {
+      "condition": "no_response",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 293.1333333333333,
+      "ablation_mean": 34.1,
+      "normal_dist": {
+        "median": 294.5,
+        "q25": 281.5,
+        "q75": 309.5,
+        "mean": 293.1333333333333,
+        "std": 20.201968721634163
+      },
+      "ablation_dist": {
+        "median": 34.0,
+        "q25": 31.25,
+        "q75": 35.75,
+        "mean": 34.1,
+        "std": 3.808792006886716
+      },
+      "U": 900.0,
+      "p_raw": 1.4323019169625561e-11,
+      "cohens_d": 17.8194,
+      "cohens_d_ci_lo": 14.5225,
+      "cohens_d_ci_hi": 21.1163,
+      "cliffs_delta": 1.0,
+      "cliffs_delta_ci_lo": 1.0,
+      "cliffs_delta_ci_hi": 1.0,
+      "normal_auc_mean": 435375.83,
+      "ablation_auc_mean": 101503.33,
+      "normal_median_lifespan": 132.0,
+      "ablation_median_lifespan": 105.0,
+      "p_corrected": 0.0,
+      "significant": true
+    },
+    {
+      "condition": "no_reproduction",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 293.1333333333333,
+      "ablation_mean": 31.266666666666666,
+      "normal_dist": {
+        "median": 294.5,
+        "q25": 281.5,
+        "q75": 309.5,
+        "mean": 293.1333333333333,
+        "std": 20.201968721634163
+      },
+      "ablation_dist": {
+        "median": 31.5,
+        "q25": 29.0,
+        "q75": 33.75,
+        "mean": 31.266666666666666,
+        "std": 3.4931789033163922
+      },
+      "U": 900.0,
+      "p_raw": 1.4541010345417338e-11,
+      "cohens_d": 18.0636,
+      "cohens_d_ci_lo": 14.7226,
+      "cohens_d_ci_hi": 21.4046,
+      "cliffs_delta": 1.0,
+      "cliffs_delta_ci_lo": 1.0,
+      "cliffs_delta_ci_hi": 1.0,
+      "normal_auc_mean": 435375.83,
+      "ablation_auc_mean": 74545.0,
+      "normal_median_lifespan": 132.0,
+      "ablation_median_lifespan": 751.0,
+      "p_corrected": 0.0,
+      "significant": true
+    },
+    {
+      "condition": "no_evolution",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 293.1333333333333,
+      "ablation_mean": 278.26666666666665,
+      "normal_dist": {
+        "median": 294.5,
+        "q25": 281.5,
+        "q75": 309.5,
+        "mean": 293.1333333333333,
+        "std": 20.201968721634163
+      },
+      "ablation_dist": {
+        "median": 284.5,
+        "q25": 256.5,
+        "q75": 296.0,
+        "mean": 278.26666666666665,
+        "std": 30.799611879925095
+      },
+      "U": 596.0,
+      "p_raw": 0.01569745587541228,
+      "cohens_d": 0.5708,
+      "cohens_d_ci_lo": 0.0435,
+      "cohens_d_ci_hi": 1.0981,
+      "cliffs_delta": 0.3244,
+      "cliffs_delta_ci_lo": 0.0233,
+      "cliffs_delta_ci_hi": 0.5878,
+      "normal_auc_mean": 435375.83,
+      "ablation_auc_mean": 412517.5,
+      "normal_median_lifespan": 132.0,
+      "ablation_median_lifespan": 128.0,
+      "p_corrected": 0.015697,
+      "significant": true
+    },
+    {
+      "condition": "no_growth",
+      "n_normal": 30,
+      "n_ablated": 30,
+      "normal_mean": 293.1333333333333,
+      "ablation_mean": 185.6,
+      "normal_dist": {
+        "median": 294.5,
+        "q25": 281.5,
+        "q75": 309.5,
+        "mean": 293.1333333333333,
+        "std": 20.201968721634163
+      },
+      "ablation_dist": {
+        "median": 185.5,
+        "q25": 170.5,
+        "q75": 199.75,
+        "mean": 185.6,
+        "std": 20.075031670005508
+      },
+      "U": 900.0,
+      "p_raw": 1.4957921569259343e-11,
+      "cohens_d": 5.3397,
+      "cohens_d_ci_lo": 4.2355,
+      "cohens_d_ci_hi": 6.4438,
+      "cliffs_delta": 1.0,
+      "cliffs_delta_ci_lo": 1.0,
+      "cliffs_delta_ci_hi": 1.0,
+      "normal_auc_mean": 435375.83,
+      "ablation_auc_mean": 300252.5,
+      "normal_median_lifespan": 132.0,
+      "ablation_median_lifespan": 109.0,
+      "p_corrected": 0.0,
+      "significant": true
+    }
+  ],
+  "short_horizon": {
+    "step": 500,
+    "comparisons": [
+      {
+        "condition": "no_metabolism",
+        "normal_mean_500": 153.5,
+        "ablation_mean_500": 49.53,
+        "U": 900.0,
+        "p_raw": 4.6160993339624136e-12,
+        "p_corrected": 0.0,
+        "significant": true
+      },
+      {
+        "condition": "no_boundary",
+        "normal_mean_500": 153.5,
+        "ablation_mean_500": 94.23,
+        "U": 886.5,
+        "p_raw": 5.677576551979183e-11,
+        "p_corrected": 0.0,
+        "significant": true
+      },
+      {
+        "condition": "no_homeostasis",
+        "normal_mean_500": 153.5,
+        "ablation_mean_500": 64.87,
+        "U": 900.0,
+        "p_raw": 1.4892360640268036e-11,
+        "p_corrected": 0.0,
+        "significant": true
+      },
+      {
+        "condition": "no_response",
+        "normal_mean_500": 153.5,
+        "ablation_mean_500": 55.5,
+        "U": 900.0,
+        "p_raw": 1.467878761279976e-11,
+        "p_corrected": 0.0,
+        "significant": true
+      },
+      {
+        "condition": "no_reproduction",
+        "normal_mean_500": 153.5,
+        "ablation_mean_500": 47.73,
+        "U": 900.0,
+        "p_raw": 1.3218317493952549e-11,
+        "p_corrected": 0.0,
+        "significant": true
+      },
+      {
+        "condition": "no_evolution",
+        "normal_mean_500": 153.5,
+        "ablation_mean_500": 143.47,
+        "U": 585.5,
+        "p_raw": 0.022934815371823312,
+        "p_corrected": 0.022935,
+        "significant": true
+      },
+      {
+        "condition": "no_growth",
+        "normal_mean_500": 153.5,
+        "ablation_mean_500": 124.33,
+        "U": 798.5,
+        "p_raw": 1.319516913324296e-07,
+        "p_corrected": 0.0,
+        "significant": true
+      }
+    ]
+  }
+}

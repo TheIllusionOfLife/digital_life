@@ -1,0 +1,178 @@
+{
+  "pairs": [
+    {
+      "var_a": "energy_mean",
+      "var_b": "boundary_mean",
+      "label": "metabolism \u2192 cellular org",
+      "best_lag": 0,
+      "best_pearson_r": -0.854,
+      "best_pearson_p": 2.464227381702735e-12,
+      "correlations": [
+        {
+          "lag": 0,
+          "pearson_r": -0.854,
+          "pearson_p": 2.464227381702735e-12,
+          "spearman_r": -0.8602,
+          "spearman_p": 1.1369391504984398e-12,
+          "n": 40
+        },
+        {
+          "lag": 1,
+          "pearson_r": -0.1907,
+          "pearson_p": 0.24490854738712103,
+          "spearman_r": -0.6506,
+          "spearman_p": 7.3319156420337905e-06,
+          "n": 39
+        },
+        {
+          "lag": 2,
+          "pearson_r": 0.3835,
+          "pearson_p": 0.01745673789094352,
+          "spearman_r": -0.4853,
+          "spearman_p": 0.00201387033608064,
+          "n": 38
+        },
+        {
+          "lag": 3,
+          "pearson_r": 0.1134,
+          "pearson_p": 0.5037738559269287,
+          "spearman_r": -0.6005,
+          "spearman_p": 8.51390183534569e-05,
+          "n": 37
+        },
+        {
+          "lag": 4,
+          "pearson_r": -0.2999,
+          "pearson_p": 0.07559052925278706,
+          "spearman_r": -0.7351,
+          "spearman_p": 3.288346866455043e-07,
+          "n": 36
+        },
+        {
+          "lag": 5,
+          "pearson_r": -0.487,
+          "pearson_p": 0.0030074233668055277,
+          "spearman_r": -0.7193,
+          "spearman_p": 1.1226707556224557e-06,
+          "n": 35
+        }
+      ]
+    },
+    {
+      "var_a": "energy_mean",
+      "var_b": "internal_state_mean_0",
+      "label": "metabolism \u2192 homeostasis",
+      "best_lag": 3,
+      "best_pearson_r": 0.8125,
+      "best_pearson_p": 1.0159992041659923e-09,
+      "correlations": [
+        {
+          "lag": 0,
+          "pearson_r": 0.7477,
+          "pearson_p": 2.964634023449506e-08,
+          "spearman_r": 0.8026,
+          "spearman_p": 4.694156180149506e-10,
+          "n": 40
+        },
+        {
+          "lag": 1,
+          "pearson_r": 0.7888,
+          "pearson_p": 2.457541687276957e-09,
+          "spearman_r": 0.7962,
+          "spearman_p": 1.3650183664389172e-09,
+          "n": 39
+        },
+        {
+          "lag": 2,
+          "pearson_r": 0.8074,
+          "pearson_p": 9.070678878706539e-10,
+          "spearman_r": 0.7792,
+          "spearman_p": 8.287233968412211e-09,
+          "n": 38
+        },
+        {
+          "lag": 3,
+          "pearson_r": 0.8125,
+          "pearson_p": 1.0159992041659923e-09,
+          "spearman_r": 0.7634,
+          "spearman_p": 3.913283777869284e-08,
+          "n": 37
+        },
+        {
+          "lag": 4,
+          "pearson_r": 0.8006,
+          "pearson_p": 4.567981374828359e-09,
+          "spearman_r": 0.7601,
+          "spearman_p": 7.555704097530404e-08,
+          "n": 36
+        },
+        {
+          "lag": 5,
+          "pearson_r": 0.7816,
+          "pearson_p": 2.9743705252367614e-08,
+          "spearman_r": 0.7585,
+          "spearman_p": 1.2958086600498565e-07,
+          "n": 35
+        }
+      ]
+    },
+    {
+      "var_a": "boundary_mean",
+      "var_b": "internal_state_mean_0",
+      "label": "cellular org \u2192 homeostasis",
+      "best_lag": 3,
+      "best_pearson_r": -0.5541,
+      "best_pearson_p": 0.0003739385066839979,
+      "correlations": [
+        {
+          "lag": 0,
+          "pearson_r": -0.4519,
+          "pearson_p": 0.003417536722381081,
+          "spearman_r": -0.6529,
+          "spearman_p": 4.9649278414982995e-06,
+          "n": 40
+        },
+        {
+          "lag": 1,
+          "pearson_r": -0.508,
+          "pearson_p": 0.0009622324343979571,
+          "spearman_r": -0.6496,
+          "spearman_p": 7.658355940242218e-06,
+          "n": 39
+        },
+        {
+          "lag": 2,
+          "pearson_r": -0.5345,
+          "pearson_p": 0.0005468972000418432,
+          "spearman_r": -0.6286,
+          "spearman_p": 2.3753161790364222e-05,
+          "n": 38
+        },
+        {
+          "lag": 3,
+          "pearson_r": -0.5541,
+          "pearson_p": 0.0003739385066839979,
+          "spearman_r": -0.6107,
+          "spearman_p": 5.963480609616424e-05,
+          "n": 37
+        },
+        {
+          "lag": 4,
+          "pearson_r": -0.5451,
+          "pearson_p": 0.0005872928693787004,
+          "spearman_r": -0.6005,
+          "spearman_p": 0.00010791285558218915,
+          "n": 36
+        },
+        {
+          "lag": 5,
+          "pearson_r": -0.526,
+          "pearson_p": 0.0011718251754199052,
+          "spearman_r": -0.5961,
+          "spearman_p": 0.0001578058548577939,
+          "n": 35
+        }
+      ]
+    }
+  ]
+}
