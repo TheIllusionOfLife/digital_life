@@ -317,7 +317,7 @@ def generate_proxy() -> None:
     ax = axes[1]
     final_alive = {m: np.array([r["final_alive_count"] for r in load_json(exp_dir / f"proxy_{m}.json")])
                    for m in modes}
-    bp = ax.boxplot([final_alive[m] for m in modes], tick_labels=[m.capitalize() for m in modes],
+    bp = ax.boxplot([final_alive[m] for m in modes], labels=[m.capitalize() for m in modes],
                     patch_artist=True, widths=0.6)
     for patch, mode in zip(bp["boxes"], modes, strict=True):
         patch.set_facecolor(PROXY_COLORS[mode])
@@ -330,7 +330,7 @@ def generate_proxy() -> None:
     ax = axes[2]
     final_div = {m: np.array([r["samples"][-1].get("genome_diversity", 0) for r in load_json(exp_dir / f"proxy_{m}.json")])
                  for m in modes}
-    bp = ax.boxplot([final_div[m] for m in modes], tick_labels=[m.capitalize() for m in modes],
+    bp = ax.boxplot([final_div[m] for m in modes], labels=[m.capitalize() for m in modes],
                     patch_artist=True, widths=0.6)
     for patch, mode in zip(bp["boxes"], modes, strict=True):
         patch.set_facecolor(PROXY_COLORS[mode])

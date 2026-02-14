@@ -59,7 +59,7 @@ def main():
 
         for seed in SEEDS:
             t0 = time.perf_counter()
-            result = run_single(seed, overrides)
+            result = run_single(seed, overrides, steps=STEPS, sample_every=SAMPLE_EVERY)
             elapsed = time.perf_counter() - t0
             results.append(result)
 

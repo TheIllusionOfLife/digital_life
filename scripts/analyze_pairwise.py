@@ -100,8 +100,16 @@ def main():
             print(f"  {pair_name}: SKIPPED (n < 2)", file=sys.stderr)
             continue
 
-        decline_a = single_declines.get(a, 0.0)
-        decline_b = single_declines.get(b, 0.0)
+        missing = [k for k in (a, b) if k not in single_declines]
+        if missing:
+            print(
+                f"  {pair_name}: SKIPPED (missing single-ablation data for {missing})",
+                file=sys.stderr,
+            )
+            continue
+
+        decline_a = single_declines[a]
+        decline_b = single_declines[b]
         decline_ab = baseline_mean - float(np.mean(ab_alive))
         synergy = compute_synergy(decline_a, decline_b, decline_ab)
 
