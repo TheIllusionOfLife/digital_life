@@ -1444,6 +1444,13 @@ impl World {
             self.prune_dead_entities();
         }
 
+        // Environment shift: change resource rate at specified step
+        if self.config.environment_shift_step > 0
+            && self.step_index == self.config.environment_shift_step
+        {
+            self.config.resource_regeneration_rate = self.config.environment_shift_resource_rate;
+        }
+
         if self.config.resource_regeneration_rate > 0.0 {
             self.resource_field
                 .regenerate(self.config.resource_regeneration_rate * self.config.dt as f32);
@@ -2424,6 +2431,43 @@ mod tests {
         assert!(
             sample.genome_diversity < f32::EPSILON,
             "genome_diversity should be 0 with only one organism"
+        );
+    }
+
+    // ── Environment shift tests (Phase 4) ──
+
+    #[test]
+    fn environment_shift_zero_produces_no_change() {
+        let mut world = make_world(10, 100.0);
+        world.config.environment_shift_step = 0; // disabled
+        world.config.environment_shift_resource_rate = 0.0;
+        let original_rate = world.config.resource_regeneration_rate;
+        for _ in 0..50 {
+            world.step();
+        }
+        assert!(
+            (world.config.resource_regeneration_rate - original_rate).abs() < f32::EPSILON,
+            "resource rate should not change when shift_step=0"
+        );
+    }
+
+    #[test]
+    fn environment_shift_changes_resource_rate_at_step() {
+        let mut world = make_world(10, 100.0);
+        world.config.environment_shift_step = 5;
+        world.config.environment_shift_resource_rate = 0.005;
+        world.config.resource_regeneration_rate = 0.01;
+        for _ in 0..4 {
+            world.step();
+        }
+        assert!(
+            (world.config.resource_regeneration_rate - 0.01).abs() < f32::EPSILON,
+            "rate should be unchanged before shift step"
+        );
+        world.step(); // step 5
+        assert!(
+            (world.config.resource_regeneration_rate - 0.005).abs() < f32::EPSILON,
+            "rate should change at shift step"
         );
     }
 }

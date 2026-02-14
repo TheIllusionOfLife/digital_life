@@ -103,6 +103,10 @@ pub struct SimConfig {
     pub growth_immature_metabolic_efficiency: f32,
     /// Per-step resource regeneration rate per cell.
     pub resource_regeneration_rate: f32,
+    /// Step at which to apply environment shift (0 = no shift).
+    pub environment_shift_step: usize,
+    /// Resource regeneration rate to apply after the environment shift step.
+    pub environment_shift_resource_rate: f32,
 }
 
 impl Default for SimConfig {
@@ -153,6 +157,8 @@ impl Default for SimConfig {
             growth_maturation_steps: 200,
             growth_immature_metabolic_efficiency: 0.3,
             resource_regeneration_rate: 0.01,
+            environment_shift_step: 0,
+            environment_shift_resource_rate: 0.01,
         }
     }
 }
