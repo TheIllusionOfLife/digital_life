@@ -6,6 +6,8 @@ pub enum MetabolismMode {
     #[default]
     Toy,
     Graph,
+    /// Minimal single-step metabolism for proxy control experiments.
+    Counter,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

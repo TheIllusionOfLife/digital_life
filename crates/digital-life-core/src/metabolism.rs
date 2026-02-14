@@ -395,10 +395,67 @@ impl GraphMetabolism {
     }
 }
 
+/// Minimal single-step metabolism for proxy control experiments.
+///
+/// Converts external resource to energy with a flat efficiency.
+/// No graph intermediates, no waste dynamics beyond baseline decay.
+/// Serves as the simplest possible metabolism satisfying "dynamic + resource-consuming".
+#[derive(Clone, Debug)]
+pub struct CounterMetabolism {
+    pub flat_efficiency: f32,
+    pub energy_loss_rate: f32,
+    pub max_energy: f32,
+    pub waste_decay_rate: f32,
+    pub max_waste: f32,
+    pub uptake_rate: f32,
+}
+
+impl Default for CounterMetabolism {
+    fn default() -> Self {
+        let toy = ToyMetabolism::default();
+        Self {
+            flat_efficiency: 0.5,
+            energy_loss_rate: toy.energy_loss_rate,
+            max_energy: toy.max_energy,
+            waste_decay_rate: toy.waste_decay_rate,
+            max_waste: toy.max_waste,
+            uptake_rate: toy.uptake_rate,
+        }
+    }
+}
+
+impl CounterMetabolism {
+    pub fn step(
+        &self,
+        state: &mut MetabolicState,
+        external_resource: f32,
+        dt: f32,
+    ) -> MetabolismFlux {
+        // Single-step: consume external resource, add energy directly
+        let external_cap = (self.uptake_rate * dt).max(0.0);
+        let consumed_external = external_resource.max(0.0).min(external_cap);
+        state.energy += consumed_external * self.flat_efficiency;
+
+        // Same energy loss rate as other modes for fairness
+        let retained = (1.0 - self.energy_loss_rate * dt).clamp(0.0, 1.0);
+        state.energy = (state.energy * retained).clamp(0.0, self.max_energy);
+
+        // Waste decays but is not produced (no multi-step processing)
+        state.waste = (state.waste - self.waste_decay_rate * dt).clamp(0.0, self.max_waste);
+
+        MetabolismFlux {
+            consumed_external,
+            consumed_total: consumed_external,
+            produced_waste: 0.0,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum MetabolismEngine {
     Toy(ToyMetabolism),
     Graph(GraphMetabolism),
+    Counter(CounterMetabolism),
 }
 
 impl Default for MetabolismEngine {
@@ -417,6 +474,7 @@ impl MetabolismEngine {
         match self {
             MetabolismEngine::Toy(engine) => engine.step(state, external_resource, dt),
             MetabolismEngine::Graph(engine) => engine.step(state, external_resource, dt),
+            MetabolismEngine::Counter(engine) => engine.step(state, external_resource, dt),
         }
     }
 }
@@ -817,6 +875,76 @@ mod tests {
             }],
         };
         assert!(!validate_metabolic_graph(&graph, 0));
+    }
+
+    // ── CounterMetabolism tests ──
+
+    #[test]
+    fn counter_produces_bounded_energy() {
+        let mut state = MetabolicState::default();
+        let metabolism = CounterMetabolism::default();
+        for _ in 0..100 {
+            metabolism.step(&mut state, 1.0, 1.0);
+        }
+        assert!(
+            (0.0..=metabolism.max_energy).contains(&state.energy),
+            "energy out of bounds: {}",
+            state.energy
+        );
+    }
+
+    #[test]
+    fn counter_consumes_external_resource() {
+        let mut state = MetabolicState {
+            energy: 0.0,
+            resource: 0.0,
+            waste: 0.0,
+            ..MetabolicState::default()
+        };
+        let metabolism = CounterMetabolism::default();
+        let flux = metabolism.step(&mut state, 1.0, 1.0);
+        assert!(
+            flux.consumed_external > 0.0,
+            "should consume external resource"
+        );
+        assert!(state.energy > 0.0, "should produce energy");
+    }
+
+    #[test]
+    fn counter_produces_no_waste() {
+        let mut state = MetabolicState {
+            energy: 0.0,
+            resource: 0.0,
+            waste: 0.0,
+            ..MetabolicState::default()
+        };
+        let metabolism = CounterMetabolism::default();
+        let flux = metabolism.step(&mut state, 1.0, 1.0);
+        assert!(
+            flux.produced_waste < f32::EPSILON,
+            "counter should produce no waste"
+        );
+    }
+
+    #[test]
+    fn counter_flux_consumed_correctly() {
+        let mut state = MetabolicState {
+            energy: 0.0,
+            ..MetabolicState::default()
+        };
+        let metabolism = CounterMetabolism {
+            flat_efficiency: 1.0,
+            energy_loss_rate: 0.0,
+            ..CounterMetabolism::default()
+        };
+        let flux = metabolism.step(&mut state, 10.0, 1.0);
+        // Energy gained should equal consumed * efficiency
+        assert!(
+            (state.energy - flux.consumed_external).abs() < 0.01,
+            "energy {} should equal consumed {} * 1.0",
+            state.energy,
+            flux.consumed_external
+        );
     }
 
     #[test]

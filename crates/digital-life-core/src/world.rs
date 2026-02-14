@@ -24,14 +24,14 @@ fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
 
 /// Decode a genome's metabolic segment into a per-organism `MetabolismEngine`.
 ///
-/// Returns `Some(engine)` in Graph mode, `None` in Toy mode (uses shared engine).
+/// Returns `Some(engine)` in Graph mode, `None` in Toy/Counter mode (uses shared engine).
 fn decode_organism_metabolism(genome: &Genome, mode: MetabolismMode) -> Option<MetabolismEngine> {
     match mode {
         MetabolismMode::Graph => {
             let gm = crate::metabolism::decode_graph_metabolism(genome.segment_data(1));
             Some(MetabolismEngine::Graph(gm))
         }
-        MetabolismMode::Toy => None,
+        MetabolismMode::Toy | MetabolismMode::Counter => None,
     }
 }
 
@@ -415,6 +415,9 @@ impl World {
         let max_agent_id = agents.iter().map(|a| a.id).max().unwrap_or(0);
         let metabolism = match config.metabolism_mode {
             MetabolismMode::Toy => MetabolismEngine::default(),
+            MetabolismMode::Counter => {
+                MetabolismEngine::Counter(crate::metabolism::CounterMetabolism::default())
+            }
             MetabolismMode::Graph => {
                 MetabolismEngine::Graph(crate::metabolism::GraphMetabolism::default())
             }
@@ -640,6 +643,9 @@ impl World {
         if mode_changed {
             self.metabolism = match self.config.metabolism_mode {
                 MetabolismMode::Toy => MetabolismEngine::default(),
+                MetabolismMode::Counter => {
+                    MetabolismEngine::Counter(crate::metabolism::CounterMetabolism::default())
+                }
                 MetabolismMode::Graph => {
                     MetabolismEngine::Graph(crate::metabolism::GraphMetabolism::default())
                 }
