@@ -110,6 +110,9 @@ pub struct World {
     agent_id_exhaustions_last_step: usize,
     total_agent_id_exhaustions: usize,
     lifespans: Vec<usize>,
+    /// Runtime resource regeneration rate, separate from config to avoid mutating
+    /// config at runtime during environment shifts.
+    current_resource_rate: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -149,6 +152,7 @@ pub enum WorldInitError {
     InvalidGrowthMaturationSteps,
     InvalidGrowthImmatureMetabolicEfficiency,
     InvalidResourceRegenerationRate,
+    InvalidEnvironmentShiftResourceRate,
     WorldSizeTooLarge { max: f64, actual: f64 },
     AgentCountOverflow,
     TooManyAgents { max: usize, actual: usize },
@@ -273,6 +277,12 @@ impl fmt::Display for WorldInitError {
             }
             WorldInitError::InvalidResourceRegenerationRate => {
                 write!(f, "resource_regeneration_rate must be finite and non-negative")
+            }
+            WorldInitError::InvalidEnvironmentShiftResourceRate => {
+                write!(
+                    f,
+                    "environment_shift_resource_rate must be finite and non-negative"
+                )
             }
             WorldInitError::WorldSizeTooLarge { max, actual } => {
                 write!(f, "world_size ({actual}) exceeds supported maximum ({max})")
@@ -446,6 +456,7 @@ impl World {
             agent_id_exhaustions_last_step: 0,
             total_agent_id_exhaustions: 0,
             lifespans: Vec::new(),
+            current_resource_rate: config.resource_regeneration_rate,
         })
     }
 
@@ -609,6 +620,11 @@ impl World {
         {
             return Err(WorldInitError::InvalidResourceRegenerationRate);
         }
+        if !(config.environment_shift_resource_rate.is_finite()
+            && config.environment_shift_resource_rate >= 0.0)
+        {
+            return Err(WorldInitError::InvalidEnvironmentShiftResourceRate);
+        }
         Ok(())
     }
 
@@ -638,6 +654,7 @@ impl World {
         if (self.config.world_size - config.world_size).abs() > f64::EPSILON {
             self.resource_field = ResourceField::new(config.world_size, 1.0, 1.0);
         }
+        self.current_resource_rate = config.resource_regeneration_rate;
         self.config = config;
         self.mutation_rates = Self::mutation_rates_from_config(&self.config);
         if mode_changed {
@@ -868,24 +885,27 @@ impl World {
             var.sqrt()
         };
 
-        // Internal state: mean and SD across all alive agents
+        // Internal state: mean and SD across all alive agents (single-pass collection)
+        let alive_states: Vec<[f32; 4]> = self
+            .agents
+            .iter()
+            .filter(|a| {
+                self.organisms
+                    .get(a.organism_id as usize)
+                    .map(|o| o.alive)
+                    .unwrap_or(false)
+            })
+            .map(|a| a.internal_state)
+            .collect();
+
+        let is_count = alive_states.len();
+        let is_denom = is_count.max(1) as f32;
         let mut is_sums = [0.0f32; 4];
-        let mut is_count = 0usize;
-        for agent in &self.agents {
-            let org_idx = agent.organism_id as usize;
-            if self
-                .organisms
-                .get(org_idx)
-                .map(|o| o.alive)
-                .unwrap_or(false)
-            {
-                for (s, &v) in is_sums.iter_mut().zip(&agent.internal_state) {
-                    *s += v;
-                }
-                is_count += 1;
+        for state in &alive_states {
+            for (s, &v) in is_sums.iter_mut().zip(state) {
+                *s += v;
             }
         }
-        let is_denom = is_count.max(1) as f32;
         let internal_state_mean = [
             is_sums[0] / is_denom,
             is_sums[1] / is_denom,
@@ -895,21 +915,9 @@ impl World {
 
         let mut is_var = [0.0f32; 4];
         if is_count >= 2 {
-            for agent in &self.agents {
-                let org_idx = agent.organism_id as usize;
-                if self
-                    .organisms
-                    .get(org_idx)
-                    .map(|o| o.alive)
-                    .unwrap_or(false)
-                {
-                    for ((v, &s), &m) in is_var
-                        .iter_mut()
-                        .zip(&agent.internal_state)
-                        .zip(&internal_state_mean)
-                    {
-                        *v += (s - m).powi(2);
-                    }
+            for state in &alive_states {
+                for ((v, &s), &m) in is_var.iter_mut().zip(state).zip(&internal_state_mean) {
+                    *v += (s - m).powi(2);
                 }
             }
             for v in &mut is_var {
@@ -1444,16 +1452,17 @@ impl World {
             self.prune_dead_entities();
         }
 
-        // Environment shift: change resource rate at specified step
+        // Environment shift: change runtime resource rate at specified step.
+        // Uses a separate field to keep self.config immutable at runtime.
         if self.config.environment_shift_step > 0
             && self.step_index == self.config.environment_shift_step
         {
-            self.config.resource_regeneration_rate = self.config.environment_shift_resource_rate;
+            self.current_resource_rate = self.config.environment_shift_resource_rate;
         }
 
-        if self.config.resource_regeneration_rate > 0.0 {
+        if self.current_resource_rate > 0.0 {
             self.resource_field
-                .regenerate(self.config.resource_regeneration_rate * self.config.dt as f32);
+                .regenerate(self.current_resource_rate * self.config.dt as f32);
         }
 
         let state_update_us = t2.elapsed().as_micros() as u64;
@@ -1675,6 +1684,7 @@ mod tests {
     fn toroidal_center_uses_wrapped_mean_for_resource_sampling() {
         let mut world = make_world(2, 100.0);
         world.config.resource_regeneration_rate = 0.0;
+        world.current_resource_rate = 0.0;
         world.agents[0].position = [0.1, 50.0];
         world.agents[1].position = [99.9, 50.0];
         world.resource_field_mut().set(0.0, 50.0, 2.0);
@@ -2162,6 +2172,7 @@ mod tests {
         world.config.death_energy_threshold = 0.0;
         world.config.enable_reproduction = false;
         world.config.resource_regeneration_rate = 0.0;
+        world.current_resource_rate = 0.0;
         world.organisms[0].maturity = 0.0; // fully immature
 
         // Deplete ALL resource sources: world grid, internal pool, and graph pool.
@@ -2441,12 +2452,12 @@ mod tests {
         let mut world = make_world(10, 100.0);
         world.config.environment_shift_step = 0; // disabled
         world.config.environment_shift_resource_rate = 0.0;
-        let original_rate = world.config.resource_regeneration_rate;
+        let original_rate = world.current_resource_rate;
         for _ in 0..50 {
             world.step();
         }
         assert!(
-            (world.config.resource_regeneration_rate - original_rate).abs() < f32::EPSILON,
+            (world.current_resource_rate - original_rate).abs() < f32::EPSILON,
             "resource rate should not change when shift_step=0"
         );
     }
@@ -2457,16 +2468,17 @@ mod tests {
         world.config.environment_shift_step = 5;
         world.config.environment_shift_resource_rate = 0.005;
         world.config.resource_regeneration_rate = 0.01;
+        world.current_resource_rate = 0.01;
         for _ in 0..4 {
             world.step();
         }
         assert!(
-            (world.config.resource_regeneration_rate - 0.01).abs() < f32::EPSILON,
+            (world.current_resource_rate - 0.01).abs() < f32::EPSILON,
             "rate should be unchanged before shift step"
         );
         world.step(); // step 5
         assert!(
-            (world.config.resource_regeneration_rate - 0.005).abs() < f32::EPSILON,
+            (world.current_resource_rate - 0.005).abs() < f32::EPSILON,
             "rate should change at shift step"
         );
     }

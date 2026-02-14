@@ -940,7 +940,7 @@ mod tests {
         let flux = metabolism.step(&mut state, 10.0, 1.0);
         // Energy gained should equal consumed * efficiency
         assert!(
-            (state.energy - flux.consumed_external).abs() < 0.01,
+            (state.energy - flux.consumed_external).abs() < f32::EPSILON,
             "energy {} should equal consumed {} * 1.0",
             state.energy,
             flux.consumed_external

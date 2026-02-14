@@ -29,29 +29,10 @@ from pathlib import Path
 import numpy as np
 from scipy import stats
 
-PAIRS = [
-    ("metabolism", "homeostasis"),
-    ("metabolism", "response"),
-    ("reproduction", "growth"),
-    ("boundary", "homeostasis"),
-    ("response", "homeostasis"),
-    ("reproduction", "evolution"),
-]
-
-
-def load_json(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    with open(path) as f:
-        return json.load(f)
-
-
-def extract_final_alive(results: list[dict]) -> np.ndarray:
-    return np.array([r["final_alive_count"] for r in results if "samples" in r])
+from experiment_common import PAIRS, extract_final_alive, load_json
 
 
 def compute_synergy(
-    baseline_mean: float,
     decline_a: float,
     decline_b: float,
     decline_ab: float,
@@ -61,6 +42,7 @@ def compute_synergy(
 
 
 def main():
+    """Compute pairwise synergy scores and statistical tests."""
     if len(sys.argv) < 3:
         print(
             "Usage: python scripts/analyze_pairwise.py <single_prefix> <pairwise_prefix>",
@@ -121,7 +103,7 @@ def main():
         decline_a = single_declines.get(a, 0.0)
         decline_b = single_declines.get(b, 0.0)
         decline_ab = baseline_mean - float(np.mean(ab_alive))
-        synergy = compute_synergy(baseline_mean, decline_a, decline_b, decline_ab)
+        synergy = compute_synergy(decline_a, decline_b, decline_ab)
 
         # Statistical test: compare observed pairwise decline vs expected additive
         # Use one-sample t-test on per-seed pairwise alive counts vs expected

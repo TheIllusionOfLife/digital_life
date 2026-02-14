@@ -263,6 +263,7 @@ PROXY_LABELS = {
 
 
 def load_json(path: Path) -> list[dict]:
+    """Load experiment results from a JSON file."""
     with open(path) as f:
         return json.load(f)
 
@@ -272,19 +273,26 @@ def generate_proxy() -> None:
     exp_dir = PROJECT_ROOT / "experiments"
     modes = ["counter", "toy", "graph"]
 
-    # Collect time-series data per mode
+    # Collect time-series data per mode, skipping missing files
+    available_modes = []
     mode_data: dict[str, dict[int, list[float]]] = {}
     for mode in modes:
         path = exp_dir / f"proxy_{mode}.json"
         if not path.exists():
-            print(f"  SKIP: {path} not found")
-            return
+            print(f"  SKIP mode '{mode}': {path} not found")
+            continue
+        available_modes.append(mode)
         results = load_json(path)
         step_vals: dict[int, list[float]] = defaultdict(list)
         for r in results:
             for s in r["samples"]:
                 step_vals[s["step"]].append(s["alive_count"])
         mode_data[mode] = step_vals
+
+    if len(available_modes) < 2:
+        print("  SKIP figure: need at least 2 modes for comparison")
+        return
+    modes = available_modes
 
     fig, axes = plt.subplots(1, 3, figsize=(7, 2.4))
 
@@ -309,24 +317,22 @@ def generate_proxy() -> None:
     ax = axes[1]
     final_alive = {m: np.array([r["final_alive_count"] for r in load_json(exp_dir / f"proxy_{m}.json")])
                    for m in modes}
-    bp = ax.boxplot([final_alive[m] for m in modes], tick_labels=["Counter", "Toy", "Graph"],
+    bp = ax.boxplot([final_alive[m] for m in modes], tick_labels=[m.capitalize() for m in modes],
                     patch_artist=True, widths=0.6)
-    for patch, mode in zip(bp["boxes"], modes):
+    for patch, mode in zip(bp["boxes"], modes, strict=True):
         patch.set_facecolor(PROXY_COLORS[mode])
         patch.set_alpha(0.4)
     ax.set_ylabel("Final Alive")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    # Panel 3: Genome diversity boxplot
+    # Panel 3: Genome diversity boxplot (reuse loaded data from panel 2)
     ax = axes[2]
-    final_div = {}
-    for m in modes:
-        results = load_json(exp_dir / f"proxy_{m}.json")
-        final_div[m] = np.array([r["samples"][-1].get("genome_diversity", 0) for r in results])
-    bp = ax.boxplot([final_div[m] for m in modes], tick_labels=["Counter", "Toy", "Graph"],
+    final_div = {m: np.array([r["samples"][-1].get("genome_diversity", 0) for r in load_json(exp_dir / f"proxy_{m}.json")])
+                 for m in modes}
+    bp = ax.boxplot([final_div[m] for m in modes], tick_labels=[m.capitalize() for m in modes],
                     patch_artist=True, widths=0.6)
-    for patch, mode in zip(bp["boxes"], modes):
+    for patch, mode in zip(bp["boxes"], modes, strict=True):
         patch.set_facecolor(PROXY_COLORS[mode])
         patch.set_alpha(0.4)
     ax.set_ylabel("Genome Diversity")

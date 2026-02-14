@@ -53,7 +53,7 @@ def extract_auc(results: list[dict]) -> np.ndarray:
         steps = [s["step"] for s in r["samples"]]
         counts = [s["alive_count"] for s in r["samples"]]
         if len(steps) >= 2:
-            aucs.append(float(np.trapz(counts, steps)))
+            aucs.append(float(np.trapezoid(counts, steps)))
         else:
             aucs.append(0.0)
     return np.array(aucs)
@@ -134,6 +134,7 @@ def distribution_stats(arr: np.ndarray) -> dict:
 
 
 def main():
+    """Analyze criterion-ablation results with statistical tests and effect sizes."""
     if len(sys.argv) < 2:
         print("Usage: python scripts/analyze_results.py <prefix>", file=sys.stderr)
         print("  e.g. python scripts/analyze_results.py experiments/final", file=sys.stderr)
