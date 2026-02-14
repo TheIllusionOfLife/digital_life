@@ -1,0 +1,489 @@
+\documentclass[letterpaper]{article}
+\usepackage{natbib,alifeconf}
+\usepackage{graphicx,amsmath,booktabs,xcolor,multirow}
+
+\title{Digital Life: Satisfying Seven Biological Criteria\\Through Functional Analogy and Criterion-Ablation}
+\author{Anonymous}
+
+\begin{document}
+\maketitle
+
+% ============================================================================
+\begin{abstract}
+We present the first artificial life system that integrates all seven textbook
+biological criteria for life---cellular organization, metabolism, homeostasis,
+growth, reproduction, response to stimuli, and evolution---as functionally
+interdependent computational processes.
+Existing systems implement at most a subset of these criteria, often as
+independent modules or static proxies that can be removed without measurable
+system degradation.
+Our hybrid swarm-organism architecture implements each criterion as a dynamic
+process satisfying three conditions---sustained resource consumption,
+measurable degradation upon removal, and feedback coupling with other
+criteria---which we term \emph{functional analogy}.
+A criterion-ablation experiment ($n$=30 per condition, seeds held out from
+calibration) demonstrates that disabling any single criterion causes
+statistically significant population decline (Mann-Whitney $U$,
+Holm-Bonferroni corrected, all $p \leq 0.016$), with Cohen's $d$ ranging from
+0.57 to 18.1.
+The strongest effects arise from disabling reproduction ($\Delta$=--89.3\%),
+response to stimuli ($\Delta$=--88.4\%), and metabolism ($\Delta$=--84.3\%),
+confirming that these criteria function as necessary, interdependent
+components of organismal viability rather than decorative labels.
+\end{abstract}
+
+% ============================================================================
+\section{Introduction}
+
+What distinguishes a living system from a merely complex one?
+Biology textbooks identify seven criteria---cellular organization, metabolism,
+homeostasis, growth and development, reproduction, response to stimuli, and
+evolution \citep{urry_2020_campbell}---but artificial life (ALife) research has
+struggled to integrate all seven into a single computational system.
+Most existing platforms implement a subset: evolutionary dynamics without
+metabolism \citep{ofria_2004_avida}, pattern formation without reproduction
+\citep{chan_2019_lenia}, or boundary self-organization without evolution
+\citep{plantec_2023_flow}.
+Where criteria are nominally present, they often function as \emph{simplified
+proxies}---static parameters or independent modules whose removal has no
+measurable effect on system behavior.
+
+We argue that a meaningful computational model of life requires more than
+feature checklists.
+Each criterion must function as a \emph{functional analogy} of its biological
+counterpart, satisfying three conditions:
+\begin{enumerate}
+  \item \textbf{Dynamic process}: the criterion requires sustained resource
+    consumption at every timestep, not a static lookup.
+  \item \textbf{Measurable degradation}: ablating the criterion causes
+    statistically significant decline in organism viability.
+  \item \textbf{Feedback coupling}: the criterion forms at least one feedback
+    loop with another criterion, precluding independent-module implementations.
+\end{enumerate}
+This definition operationalizes the intuition behind autopoiesis
+\citep{maturana_1980_autopoiesis} and minimal-life frameworks
+\citep{ruizmirazo_2004_universal} in a form amenable to experimental
+falsification.
+
+We adopt a \emph{weak ALife} stance: our system is a functional model of life,
+not a claim that the organisms are alive.
+The contribution is methodological---demonstrating that all seven criteria
+\emph{can} be integrated as interdependent processes and that their necessity
+can be rigorously tested.
+
+This paper makes three contributions:
+\begin{enumerate}
+  \item A hybrid swarm-organism architecture integrating all seven biological
+    criteria as functionally interdependent processes.
+  \item An operational definition of \emph{functional analogy} with three
+    falsifiable conditions.
+  \item A \emph{criterion-ablation} methodology proving each criterion's
+    functional necessity via controlled experiments with multiple-comparison
+    correction.
+\end{enumerate}
+
+% ============================================================================
+\section{Related Work}
+
+Artificial life research has produced diverse computational substrates, each
+excelling along different axes of biological fidelity.
+We organize the landscape by methodological approach rather than chronology.
+
+\paragraph{Evolutionary platforms.}
+Tierra \citep{ray_1991_approach} and Avida \citep{ofria_2004_avida} pioneered
+self-replicating digital organisms with mutation and natural selection,
+achieving strong evolutionary dynamics (Level~5 on our rubric).
+However, organisms lack spatial bodies, metabolic processes, and boundary
+maintenance---criteria 1--4 receive minimal or no implementation.
+Polyworld \citep{yaeger_1994_computational} adds neural-network-driven behavior
+and simple energy budgets, though its metabolism operates as a dynamic
+single-resource process rather than a multi-step network.
+
+\paragraph{Continuous and particle-based systems.}
+Lenia \citep{chan_2019_lenia} demonstrates emergent lifelike patterns in
+continuous cellular automata, exhibiting coherent spatial organization and
+growth.
+Flow-Lenia \citep{plantec_2023_flow} extends this with mass conservation,
+achieving stronger boundary maintenance.
+ALIEN \citep{heinemann_2008_alien} provides a GPU-accelerated particle
+simulator with typed cells supporting self-replicating structures,
+achieving multi-process interaction on several criteria.
+While ALIEN demonstrates broad coverage, no existing system combines
+multi-step metabolism with active homeostatic regulation.
+
+\paragraph{Chemistry-inspired systems.}
+Coralai \citep{barbieux_2024_coralai} combines multi-agent neural cellular
+automata with energy dynamics, implementing rudimentary metabolism and
+spatial organization.
+It represents a step toward metabolic integration but does not achieve
+the feedback coupling between metabolism and other criteria that our
+framework requires.
+
+\paragraph{Theoretical foundations.}
+The autopoiesis framework \citep{maturana_1980_autopoiesis,
+mcmullin_2004_thirty} emphasizes self-producing boundaries as the
+minimal criterion for life, which our boundary-maintenance mechanism
+operationalizes.
+NASA's working definition---``a self-sustaining chemical system capable of
+Darwinian evolution'' \citep{joyce_1994_foreword}---bundles metabolism and
+evolution but does not individuate the remaining five criteria.
+\citet{ruizmirazo_2004_universal} argue for a richer set of minimal
+conditions, closer to our seven-criteria framework.
+The open-ended evolution research program \citep{bedau_2000_open,
+taylor_2016_openended} provides metrics for evolutionary richness that complement
+our criterion-ablation approach.
+
+Table~\ref{tab:comparison} summarizes how existing systems score on each
+criterion using a five-level rubric (1=absent, 5=self-maintaining/emergent).
+
+\begin{table*}[t]
+\centering
+\caption{Literature comparison: seven biological criteria scored on a
+five-level rubric (1=no feature, 2=static parameter, 3=dynamic single process,
+4=multi-process interaction, 5=self-maintaining/emergent).
+Bold indicates scores $\geq$4.}
+\label{tab:comparison}
+\small
+\begin{tabular}{l@{\hskip 6pt}c@{\hskip 6pt}c@{\hskip 6pt}c@{\hskip 6pt}c@{\hskip 6pt}c@{\hskip 6pt}c@{\hskip 6pt}c@{\hskip 6pt}c}
+\toprule
+System & Cell.Org & Metab & Homeo & Growth & Reprod & Response & Evol & Total \\
+\midrule
+% Scores verified via literature review; justifications in paper/literature_scores.md
+Polyworld  & 2 & 3 & 1 & 1 & 3 & \textbf{4} & \textbf{4} & 18 \\
+Avida      & 2 & 3 & 1 & 2 & \textbf{4} & 3 & \textbf{5} & 20 \\
+Lenia      & 3 & 1 & 2 & 2 & 2 & 3 & 2 & 15 \\
+ALIEN      & \textbf{4} & 3 & 2 & 3 & \textbf{4} & \textbf{4} & \textbf{4} & 24 \\
+Flow-Lenia & 3 & 3 & 3 & 3 & 3 & 3 & 3 & 21 \\
+Coralai    & 3 & 3 & 2 & 3 & 3 & 3 & 3 & 20 \\
+\midrule
+\textbf{Ours} & \textbf{4} & \textbf{5} & \textbf{4} & 3 & \textbf{4} & \textbf{4} & 3 & \textbf{27} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+While ALIEN achieves Level~4 on four criteria, it lacks multi-step metabolism
+(Level~3) and active homeostasis (Level~2).
+Our system achieves Level~5 on metabolism---the only system to do so---and
+reaches $\geq$4 on five of seven criteria, with the highest total score (27)
+across all systems surveyed.
+
+% ============================================================================
+\section{System Design}
+
+\subsection{Architecture Overview}
+
+The system implements a hybrid two-layer architecture (Figure~\ref{fig:arch}).
+The outer layer is a continuous toroidal 2D environment (100$\times$100 world
+units) containing a diffusing resource field.
+The inner layer consists of 10--50 \emph{organisms}, each composed of 10--50
+\emph{swarm agents} that collectively maintain the organism's spatial boundary.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_architecture.pdf}
+\caption{Two-layer architecture. Each organism comprises swarm agents maintaining
+a spatial boundary, a neural-network controller, a graph-based metabolic network,
+and a variable-length genome encoding all seven criteria. Organisms inhabit a
+continuous toroidal environment with a diffusing resource field.}
+\label{fig:arch}
+\end{figure*}
+
+Each organism maintains the following runtime state: boundary integrity
+($b \in [0,1]$), metabolic state (energy $e$, resource $r$, waste $w$),
+internal state vector for homeostatic regulation, a neural-network controller,
+a genetically encoded metabolic network, age, generation counter, and maturity
+level.
+
+\subsection{Seven Criteria Implementation}
+
+Table~\ref{tab:criteria} maps each biological criterion to its computational
+implementation, ablation toggle, and feedback partners.
+
+\begin{table}[t]
+\centering
+\caption{Mapping of seven biological criteria to computational processes.
+Each criterion satisfies the three functional-analogy conditions.}
+\label{tab:criteria}
+\small
+\begin{tabular}{@{}p{1.4cm}p{2.8cm}p{2.5cm}@{}}
+\toprule
+Criterion & Process & Feedback \\
+\midrule
+Cell.\ Org. & Swarm agents maintain boundary; decays without energy & Metab, Homeo \\
+Metabolism & Graph network transforms resources to energy; waste accumulates & Cell.\ Org., Homeo \\
+Homeostasis & NN regulates internal state vector each step & Metab, Response \\
+Growth & Maturation from seed to full capacity & Metab, Reprod \\
+Reproduction & Division when metabolically ready; energy cost; offspring from seed & Metab, Evol \\
+Response & NN processes sensory input $\rightarrow$ velocity delta & Homeo, Metab \\
+Evolution & Mutation during reproduction; differential survival & Reprod, all \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Cellular organization.}
+Swarm agents collectively define an organism's spatial extent.
+Boundary integrity $b$ decays each step at a base rate modulated by energy
+deficit and waste pressure:
+$\Delta b_{\text{decay}} = -r_b \cdot (1 + s_e \cdot (1 - e) + s_w \cdot w)$,
+where $r_b = 0.02$ is the base decay rate, $s_e = 0.5$ and $s_w = 0.3$ are
+scaling factors.
+Repair occurs proportionally to available energy:
+$\Delta b_{\text{repair}} = r_r \cdot e \cdot (1 - s_p \cdot w)$,
+with repair rate $r_r = 0.15$ and waste penalty $s_p = 0.4$.
+When $b$ falls below a collapse threshold ($b < 0.1$), the organism dies.
+
+\paragraph{Metabolism.}
+Each organism possesses a genetically encoded graph-based metabolic network
+with 2--4 catalytic nodes and directed edges.
+The genome segment (16 floats) is decoded via sigmoid mapping:
+node count $= \text{round}(\sigma(g_0) \cdot 2 + 2)$,
+catalytic efficiency $= \sigma(g_{2+i}) \cdot 0.9 + 0.1 \in [0.1, 1.0]$,
+edge existence determined by $|g_j| > 0.3$, and
+conversion efficiency $= \sigma(g_{13}) \cdot 0.7 + 0.3 \in [0.3, 1.0]$.
+External resources enter at a designated entry node, flow through the graph
+with per-edge transfer efficiency in $[0.7, 1.0]$, and exit as energy.
+Waste accumulates as a byproduct proportional to throughput.
+
+\paragraph{Homeostasis.}
+A feedforward neural network (8 inputs $\rightarrow$ 16 hidden with tanh
+$\rightarrow$ 4 outputs with tanh; 212 weights) processes sensory inputs
+(position, velocity, internal state, neighbor count) and produces velocity
+adjustments and internal-state deltas.
+The internal state vector enables adaptive regulation: organisms that maintain
+internal variables within viable ranges survive longer.
+
+\paragraph{Growth and development.}
+Organisms begin as minimal seeds (maturity $m = 0$) and develop toward full
+capacity ($m = 1$) over time.
+Maturation gates metabolic throughput and reproductive readiness, ensuring
+organisms must develop before they can reproduce.
+
+\paragraph{Reproduction.}
+When energy exceeds $e_{\min} = 0.7$ and boundary integrity exceeds
+$b_{\min} = 0.5$, an organism may divide.
+The parent pays an energy cost ($c_r = 0.3$), and the offspring inherits a
+(possibly mutated) copy of the genome, starting as a seed.
+Child agents spawn within a radius of the parent's center of mass.
+
+\paragraph{Response to stimuli.}
+The neural-network controller processes a local sensory field each timestep,
+producing velocity deltas that govern agent movement.
+Disabling response freezes agents' velocity adjustments, preventing adaptive
+resource seeking.
+
+\paragraph{Evolution.}
+During reproduction, offspring genomes undergo point mutations
+(rate $= 0.01$ per gene, scale $= 0.1$), reset mutations
+(rate $= 0.001$), and scale mutations (rate $= 0.005$,
+factor $\in [0.8, 1.2]$).
+All gene values are clamped to $[-5, 5]$.
+This produces heritable variation subject to differential survival.
+
+\subsection{Genome Encoding}
+
+The genome is a variable-length vector of 256 floats organized into seven
+segments: neural-network weights (212), metabolic network (16), homeostasis
+parameters (8), developmental program (8), reproduction parameters (4),
+sensory parameters (4), and evolution parameters (4).
+All criteria are encoded from initialization; segments are activated as
+features are enabled.
+
+% ============================================================================
+\section{Criterion-Ablation Experiment}
+
+This experiment tests whether each of the seven criteria is functionally
+necessary for organism viability, as predicted by the functional-analogy
+framework.
+
+\subsection{Protocol}
+
+The system provides seven boolean ablation toggles, one per criterion
+(e.g., \texttt{enable\_metabolism = false}).
+For each of the seven criteria, we disable that criterion while keeping all
+others active, and compare the resulting population dynamics against the
+fully enabled baseline (``normal'' condition).
+This yields eight conditions: one normal baseline and seven single-criterion
+ablations.
+
+\subsection{Data Separation}
+
+To prevent overfitting of thresholds, we separate data into:
+\begin{itemize}
+  \item \textbf{Calibration set}: Seeds 0--99, used during development for
+    parameter tuning and threshold selection.
+  \item \textbf{Test set}: Seeds 100--129 ($n$=30), held out until final
+    evaluation. All reported results use this set exclusively.
+\end{itemize}
+
+Calibration confirmed that both metabolism engines produce viable populations
+(Toy: $\bar{x}$=328.1, Graph: $\bar{x}$=291.8 alive at step 2000).
+All final experiments use the Graph metabolism engine.
+
+\subsection{Simulation Parameters}
+
+Each simulation runs for 2000 timesteps with population sampled every 50
+steps.
+The environment is a 100$\times$100 toroidal grid with 30 initial organisms,
+each comprising 25 swarm agents.
+The primary outcome metric is alive organism count at step 2000.
+
+\subsection{Statistical Design}
+
+For each ablation condition, we test the one-sided hypothesis:
+\[
+H_1: \text{alive\_count}_{\text{normal}} > \text{alive\_count}_{\text{ablated}}
+\]
+using the Mann-Whitney $U$ test \citep{mann_1947_test}, appropriate for
+non-normal count data.
+We apply Holm-Bonferroni correction \citep{holm_1979_simple} for seven
+simultaneous comparisons at $\alpha = 0.05$.
+Effect sizes are reported as Cohen's $d$ \citep{cohen_1988_statistical}.
+
+% ============================================================================
+\section{Results}
+
+All seven criterion ablations produce statistically significant population
+decline compared to the normal baseline (Table~\ref{tab:ablation}).
+
+\begin{table}[t]
+\centering
+\caption{Criterion-ablation results ($n$=30 per condition). Normal baseline
+mean: 293.1. All $p$-values Holm-Bonferroni corrected. $^{***}p<0.001$,
+$^{*}p<0.05$.}
+\label{tab:ablation}
+\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+Condition & Mean & $\Delta$\% & $d$ & $p_{\text{corr}}$ & Sig. \\
+\midrule
+No Reproduction & 31.3 & $-$89.3 & \textbf{18.06} & $<$0.001 & $^{***}$ \\
+No Response     & 34.1 & $-$88.4 & \textbf{17.82} & $<$0.001 & $^{***}$ \\
+No Metabolism   & 46.0 & $-$84.3 & \textbf{17.24} & $<$0.001 & $^{***}$ \\
+No Homeostasis  & 68.3 & $-$76.7 & 4.94 & $<$0.001 & $^{***}$ \\
+No Growth       & 185.6 & $-$36.7 & 5.34 & $<$0.001 & $^{***}$ \\
+No Boundary     & 121.8 & $-$58.4 & 4.36 & $<$0.001 & $^{***}$ \\
+No Evolution    & 278.3 & $-$5.1  & 0.57 & 0.016 & $^{*}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three ablations cause near-total population collapse ($>$84\% decline):
+reproduction, response to stimuli, and metabolism.
+These criteria form the core viability loop---without energy production,
+adaptive movement, or population renewal, organisms cannot sustain themselves.
+
+Figure~\ref{fig:timeseries} shows population trajectories across all
+conditions.
+The normal condition (black) stabilizes around 293 organisms by step~1000.
+Metabolic ablation (orange) causes rapid collapse within the first 200 steps,
+as organisms cannot produce energy to maintain boundaries.
+Reproduction ablation (blue) produces a slower but equally terminal decline,
+as the initial population ages and dies without replacement.
+Evolution ablation (purple) shows the weakest effect ($d$=0.57), with
+populations remaining viable but slightly smaller than normal---consistent
+with evolution operating as an optimization process rather than a survival
+necessity at these timescales.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_timeseries.pdf}
+\caption{Population dynamics under criterion ablation. Lines show mean alive
+count across 30 seeds (100--129); shaded bands show $\pm$1 SEM. Normal
+baseline (thick black) stabilizes near 293 organisms. Removing reproduction,
+response, or metabolism causes $>$84\% population collapse. Evolution ablation
+shows a modest 5\% decline ($d$=0.57), consistent with optimization rather
+than short-term survival necessity.}
+\label{fig:timeseries}
+\end{figure*}
+
+\paragraph{Functional analogy verification.}
+For each criterion, all three conditions are satisfied:
+(a)~each consumes resources per step (energy for boundary repair, metabolic
+computation, NN evaluation);
+(b)~ablation causes significant degradation (Table~\ref{tab:ablation}); and
+(c)~feedback loops are observable (e.g., metabolism~$\leftrightarrow$~boundary:
+energy funds repair, boundary collapse stops metabolism).
+Thus, each criterion qualifies as a functional analogy, not a simplified proxy.
+
+% ============================================================================
+\section{Discussion}
+
+\paragraph{Criterion interdependence.}
+The ablation results reveal a hierarchy of necessity.
+Reproduction, response, and metabolism form an essential triad---their removal
+causes $>$84\% population collapse.
+Homeostasis and boundary maintenance occupy a middle tier ($\sim$58--77\%
+decline), modulating organism fitness without being immediately lethal.
+Growth occupies a similar middle tier ($\sim$37\% decline).
+Evolution shows the weakest short-term effect ($\sim$5\% decline), suggesting
+that at 2000-step timescales, evolutionary optimization contributes marginal
+improvement rather than constituting a survival requirement.
+This is biologically plausible: individual organisms do not need evolution to
+survive, but populations benefit from adaptation over longer horizons.
+
+\paragraph{Graph metabolism as functional analogy.}
+The graph-based metabolic network---genetically encoded, multi-node, with
+per-edge transfer efficiencies---represents a genuine multi-step
+transformation process rather than a simple energy counter.
+Its removal causes the third-strongest ablation effect ($d$=17.24),
+confirming that metabolic complexity contributes to viability beyond what a
+static energy parameter would provide.
+
+\subsection{Limitations}
+
+Several limitations constrain interpretation:
+
+\textbf{Growth mechanism.}
+The current growth/development implementation uses a maturation toggle rather
+than a full developmental program.
+While ablation still produces significant degradation ($d$=5.34), a richer
+developmental model (e.g., morphogenetic agent recruitment) would strengthen
+the functional-analogy claim for this criterion.
+
+\textbf{Evolution timescale.}
+The modest evolution effect ($d$=0.57) reflects the 2000-step simulation
+horizon.
+Evolutionary dynamics operate across generations; demonstrating stronger
+evolutionary necessity would require runs of $10^4$--$10^5$ steps with
+environmental change to create sustained selection pressure.
+
+\textbf{Computational scale.}
+The system runs on a single Mac Mini M2 Pro, limiting population sizes to
+$\sim$300 organisms.
+Larger populations might reveal emergent phenomena (e.g., speciation,
+ecosystem dynamics) not observable at current scale.
+
+\textbf{Weak ALife framing.}
+We make no claim that these digital organisms are alive.
+The functional-analogy framework demonstrates that seven criteria \emph{can}
+be integrated as interdependent processes, but this remains a model, not
+a sufficient condition for life.
+
+% ============================================================================
+\section{Conclusion}
+
+We presented the first artificial life system integrating all seven textbook
+biological criteria as functionally interdependent processes, verified through
+controlled criterion-ablation experiments.
+The functional-analogy framework---requiring dynamic operation, measurable
+degradation upon removal, and feedback coupling---provides a rigorous
+standard distinguishing genuine criteria implementations from simplified
+proxies.
+
+Our results demonstrate that no criterion is decorative: removing any one
+causes statistically significant population decline ($p < 0.016$, Holm-Bonferroni
+corrected), with effect sizes spanning from modest evolutionary optimization
+($d$=0.57) to catastrophic metabolic failure ($d$=17.24).
+
+Future work will pursue three directions:
+(1)~longer simulation runs ($10^4$+ steps) to reveal stronger evolutionary
+dynamics and open-ended evolution metrics \citep{bedau_2000_open,
+taylor_2016_openended};
+(2)~a richer developmental program replacing the current growth toggle; and
+(3)~scaling to larger populations to investigate emergent ecological
+phenomena.
+
+\bibliographystyle{apalike}
+\bibliography{references}
+
+\end{document}

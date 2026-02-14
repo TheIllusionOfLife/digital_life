@@ -1,0 +1,263 @@
+"""Generate all paper figures from experimental data.
+
+Outputs PDF figures to paper/figures/ for inclusion in the LaTeX manuscript.
+"""
+
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib.lines as mlines
+import numpy as np
+
+# Paths
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATA_TSV = PROJECT_ROOT / "experiments" / "final_graph_data.tsv"
+FIG_DIR = PROJECT_ROOT / "paper" / "figures"
+FIG_DIR.mkdir(parents=True, exist_ok=True)
+
+# Okabe-Ito colorblind-safe palette
+COLORS = {
+    "normal": "#000000",       # black
+    "no_metabolism": "#E69F00", # orange
+    "no_boundary": "#56B4E9",  # sky blue
+    "no_homeostasis": "#009E73",# bluish green
+    "no_growth": "#F0E442",    # yellow
+    "no_reproduction": "#0072B2",# blue
+    "no_response": "#D55E00",  # vermillion
+    "no_evolution": "#CC79A7", # reddish purple
+}
+
+LABELS = {
+    "normal": "Normal",
+    "no_metabolism": "No Metabolism",
+    "no_boundary": "No Boundary",
+    "no_homeostasis": "No Homeostasis",
+    "no_growth": "No Growth",
+    "no_reproduction": "No Reproduction",
+    "no_response": "No Response",
+    "no_evolution": "No Evolution",
+}
+
+# Condition ordering: normal first, then by effect size (strongest first)
+CONDITION_ORDER = [
+    "normal",
+    "no_reproduction",
+    "no_response",
+    "no_metabolism",
+    "no_homeostasis",
+    "no_growth",
+    "no_boundary",
+    "no_evolution",
+]
+
+# Global matplotlib style for LaTeX compatibility
+plt.rcParams.update({
+    "font.family": "serif",
+    "font.size": 9,
+    "axes.labelsize": 10,
+    "axes.titlesize": 10,
+    "legend.fontsize": 7,
+    "xtick.labelsize": 8,
+    "ytick.labelsize": 8,
+    "lines.linewidth": 1.2,
+    "figure.dpi": 300,
+    "savefig.bbox": "tight",
+    "savefig.pad_inches": 0.02,
+})
+
+
+VALID_CONDITIONS = set(COLORS.keys())
+
+
+def parse_tsv(path: Path) -> list[dict]:
+    """Parse TSV with stderr preamble and interleaved summary lines.
+
+    Detects header by content, then only parses lines whose first field
+    is a known condition name (skips seed-summary lines, condition headers, etc.).
+    """
+    rows = []
+    header = None
+    n_fields = 0
+    with open(path) as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line or line.startswith(" ") or line.startswith("---"):
+                continue
+            if header is None:
+                if line.startswith("condition\t"):
+                    header = line.split("\t")
+                    n_fields = len(header)
+                continue
+            fields = line.split("\t")
+            if len(fields) != n_fields:
+                continue
+            if fields[0] not in VALID_CONDITIONS:
+                continue
+            row = {}
+            for col, val in zip(header, fields):
+                try:
+                    row[col] = float(val)
+                except ValueError:
+                    row[col] = val
+            rows.append(row)
+    return rows
+
+
+def generate_timeseries(data: list[dict]) -> None:
+    """Figure 2: Population dynamics time-series with confidence bands."""
+    # Group by (condition, step) → list of alive_count values
+    from collections import defaultdict
+
+    groups: dict[tuple[str, int], list[float]] = defaultdict(list)
+    for row in data:
+        key = (row["condition"], int(row["step"]))
+        groups[key].append(row["alive_count"])
+
+    fig, ax = plt.subplots(figsize=(7, 3.2))
+
+    for condition in CONDITION_ORDER:
+        steps = sorted({s for (c, s) in groups if c == condition})
+        means = []
+        sems = []
+        for step in steps:
+            vals = groups[(condition, step)]
+            arr = np.array(vals)
+            means.append(arr.mean())
+            sems.append(arr.std(ddof=1) / np.sqrt(len(arr)) if len(arr) >= 2 else 0.0)
+
+        means = np.array(means)
+        sems = np.array(sems)
+        color = COLORS[condition]
+        lw = 2.0 if condition == "normal" else 1.2
+        ls = "-" if condition == "normal" else "--"
+        ax.plot(steps, means, color=color, linewidth=lw, linestyle=ls,
+                label=LABELS[condition], zorder=10 if condition == "normal" else 5)
+        ax.fill_between(steps, means - sems, means + sems,
+                        color=color, alpha=0.15, zorder=2)
+
+    ax.set_xlabel("Simulation Step")
+    ax.set_ylabel("Mean Alive Count ($n$=30)")
+    ax.set_xlim(0, 2000)
+    ax.set_ylim(bottom=0)
+    ax.legend(loc="upper right", ncol=2, framealpha=0.9, edgecolor="0.8")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.savefig(FIG_DIR / "fig_timeseries.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_timeseries.pdf'}")
+
+
+def generate_architecture() -> None:
+    """Figure 1: Architecture diagram showing two-layer hierarchy."""
+    fig, ax = plt.subplots(figsize=(7, 4.0))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 6.5)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    # Environment box
+    env_rect = mpatches.FancyBboxPatch(
+        (0.3, 0.3), 9.4, 5.9, boxstyle="round,pad=0.1",
+        facecolor="#F5F5F5", edgecolor="#333333", linewidth=1.5)
+    ax.add_patch(env_rect)
+    ax.text(5.0, 5.85, "Environment (Toroidal 2D, 100$\\times$100)",
+            ha="center", va="center", fontsize=10, fontweight="bold",
+            color="#333333")
+
+    # Resource field
+    ax.text(1.2, 5.35, "Resource Field", ha="left", va="center",
+            fontsize=7, fontstyle="italic", color="#666666")
+
+    # Single organism shown in detail (left side)
+    ox, oy = 0.8, 0.8
+    org_rect = mpatches.FancyBboxPatch(
+        (ox, oy), 4.8, 4.2, boxstyle="round,pad=0.08",
+        facecolor="#FFFFFF", edgecolor="#0072B2", linewidth=1.2)
+    ax.add_patch(org_rect)
+    ax.text(ox + 2.4, oy + 3.85, "Organism (10-50 per environment)",
+            ha="center", va="center", fontsize=8, fontweight="bold",
+            color="#0072B2")
+
+    # Internal components (wider boxes for the single organism)
+    components = [
+        ("Genome\n(7 segments, 256 floats)", ox + 0.2, oy + 2.7, 2.1, 0.85, "#E69F00"),
+        ("NN Controller\n(8>16>4, 212 wt)", ox + 2.5, oy + 2.7, 2.1, 0.85, "#009E73"),
+        ("Graph Metabolism\n(2-4 nodes, directed)", ox + 0.2, oy + 1.3, 2.1, 0.85, "#D55E00"),
+        ("Boundary Maintenance\n(10-50 swarm agents)", ox + 2.5, oy + 1.3, 2.1, 0.85, "#56B4E9"),
+    ]
+
+    for label, cx, cy, w, h, color in components:
+        comp_rect = mpatches.FancyBboxPatch(
+            (cx, cy), w, h, boxstyle="round,pad=0.05",
+            facecolor=color, edgecolor="none", alpha=0.2)
+        ax.add_patch(comp_rect)
+        comp_border = mpatches.FancyBboxPatch(
+            (cx, cy), w, h, boxstyle="round,pad=0.05",
+            facecolor="none", edgecolor=color, linewidth=0.8)
+        ax.add_patch(comp_border)
+        ax.text(cx + w / 2, cy + h / 2, label,
+                ha="center", va="center", fontsize=6, color="#333333")
+
+    # Arrows: Genome -> NN, Genome -> Metabolism
+    ax.annotate("", xy=(ox + 2.5, oy + 3.12), xytext=(ox + 2.3, oy + 3.12),
+                arrowprops=dict(arrowstyle="->", color="#888", lw=0.8))
+    ax.annotate("", xy=(ox + 1.25, oy + 2.7), xytext=(ox + 1.25, oy + 2.15),
+                arrowprops=dict(arrowstyle="->", color="#888", lw=0.8))
+    # NN -> Boundary (response to stimuli)
+    ax.annotate("", xy=(ox + 3.55, oy + 2.7), xytext=(ox + 3.55, oy + 2.15),
+                arrowprops=dict(arrowstyle="->", color="#888", lw=0.8))
+    # Metabolism <-> Boundary (energy <-> integrity)
+    ax.annotate("", xy=(ox + 2.5, oy + 1.72), xytext=(ox + 2.3, oy + 1.72),
+                arrowprops=dict(arrowstyle="<->", color="#888", lw=0.8))
+
+    # Internal state label
+    ax.text(ox + 2.4, oy + 0.45, "Internal State Vector (homeostatic regulation)",
+            ha="center", va="center", fontsize=6, fontstyle="italic",
+            color="#666666")
+
+    # Criteria mapping sidebar (right side, clearly separated)
+    sidebar_x = 6.2
+    sidebar_rect = mpatches.FancyBboxPatch(
+        (sidebar_x, 0.8), 3.2, 4.2, boxstyle="round,pad=0.08",
+        facecolor="#FFFFFF", edgecolor="#999999", linewidth=0.8,
+        linestyle="--")
+    ax.add_patch(sidebar_rect)
+    ax.text(sidebar_x + 1.6, 4.65, "7 Criteria", fontsize=8,
+            fontweight="bold", ha="center", color="#333333")
+
+    criteria_items = [
+        ("(1) Cellular Org.", "#56B4E9"),
+        ("(2) Metabolism", "#D55E00"),
+        ("(3) Homeostasis", "#009E73"),
+        ("(4) Growth/Dev.", "#CC79A7"),
+        ("(5) Reproduction", "#0072B2"),
+        ("(6) Response", "#009E73"),
+        ("(7) Evolution", "#E69F00"),
+    ]
+    for j, (label, color) in enumerate(criteria_items):
+        yy = 4.25 - j * 0.47
+        ax.plot(sidebar_x + 0.3, yy, "s", color=color, markersize=5)
+        ax.text(sidebar_x + 0.55, yy, label, fontsize=6.5, color="#333333",
+                va="center")
+
+    fig.savefig(FIG_DIR / "fig_architecture.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_architecture.pdf'}")
+
+
+if __name__ == "__main__":
+    print("Generating paper figures...")
+
+    print("Figure 1: Architecture diagram")
+    generate_architecture()
+
+    print("Figure 2: Time-series plot")
+    data = parse_tsv(DATA_TSV)
+    print(f"  Parsed {len(data)} rows from {DATA_TSV.name}")
+    generate_timeseries(data)
+
+    print("Done.")

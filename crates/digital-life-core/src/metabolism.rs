@@ -133,7 +133,7 @@ fn sigmoid(x: f32) -> f32 {
 ///
 /// Panics if `segment.len() < 2`.
 pub fn decode_entry_node_id(segment: &[f32], node_count: usize) -> u16 {
-    debug_assert!(segment.len() >= 2, "segment must have at least 2 elements");
+    assert!(segment.len() >= 2, "segment must have at least 2 elements");
     let raw = (sigmoid(segment[1]) * node_count as f32).floor() as usize;
     raw.min(node_count.saturating_sub(1)) as u16
 }
@@ -150,7 +150,10 @@ pub fn decode_entry_node_id(segment: &[f32], node_count: usize) -> u16 {
 /// - [13]: conversion efficiency → sigmoid(x)*0.7+0.3 → [0.3, 1.0]
 /// - 14-15: reserved
 pub fn decode_metabolic_graph(segment: &[f32]) -> MetabolicGraph {
-    debug_assert!(segment.len() >= 16);
+    assert!(
+        segment.len() >= 16,
+        "segment must have at least 16 elements"
+    );
 
     let node_count = (sigmoid(segment[0]) * NODE_COUNT_SCALE + NODE_COUNT_OFFSET)
         .round()
@@ -197,7 +200,7 @@ pub fn decode_graph_metabolism(segment: &[f32]) -> GraphMetabolism {
         sigmoid(segment[12]) * EDGE_TRANSFER_EFF_SCALE + EDGE_TRANSFER_EFF_OFFSET;
     let conversion_efficiency = sigmoid(segment[13]) * CONVERSION_EFF_SCALE + CONVERSION_EFF_OFFSET;
 
-    debug_assert!(
+    assert!(
         validate_metabolic_graph(&graph, entry_node_id),
         "decoded graph must be structurally valid"
     );
