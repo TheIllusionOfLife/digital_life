@@ -1,7 +1,8 @@
-"""Pairwise criterion-ablation experiment.
+"""Pairwise criterion-ablation experiment with Graph metabolism.
 
 Tests interaction effects between pairs of criteria to prove
-interdependence (not just independent necessity).
+interdependence (not just independent necessity).  Uses Graph metabolism
+for consistency with the main ablation table (Table 3).
 
 Pairs tested (top criteria by effect size):
   (metabolism, homeostasis), (metabolism, response),
@@ -9,10 +10,10 @@ Pairs tested (top criteria by effect size):
   (response, homeostasis), (reproduction, evolution)
 
 Usage:
-    uv run python scripts/experiment_pairwise.py > experiments/pairwise_data.tsv
+    uv run python scripts/experiment_pairwise.py > experiments/pairwise_graph_data.tsv
 
 Output: TSV data to stdout + summary report to stderr.
-        Raw JSON saved to experiments/pairwise_{pair}.json.
+        Raw JSON saved to experiments/pairwise_graph_{pair}.json.
 """
 
 import json
@@ -34,6 +35,8 @@ STEPS = 2000
 SAMPLE_EVERY = 50
 SEEDS = list(range(100, 130))  # test set: seeds 100-129, n=30
 
+GRAPH_OVERRIDES = {"metabolism_mode": "graph"}
+
 
 def run_condition(cond_name: str, overrides: dict, out_dir: Path):
     """Run all seeds for a single condition and save results to JSON."""
@@ -43,7 +46,7 @@ def run_condition(cond_name: str, overrides: dict, out_dir: Path):
 
     for seed in SEEDS:
         t0 = time.perf_counter()
-        result = run_single(seed, overrides, steps=STEPS, sample_every=SAMPLE_EVERY)
+        result = run_single(seed, {**GRAPH_OVERRIDES, **overrides}, steps=STEPS, sample_every=SAMPLE_EVERY)
         elapsed = time.perf_counter() - t0
         results.append(result)
 
@@ -56,7 +59,7 @@ def run_condition(cond_name: str, overrides: dict, out_dir: Path):
     cond_elapsed = time.perf_counter() - cond_start
     log(f"  Condition time: {cond_elapsed:.1f}s")
 
-    raw_path = out_dir / f"pairwise_{cond_name}.json"
+    raw_path = out_dir / f"pairwise_graph_{cond_name}.json"
     with open(raw_path, "w") as f:
         json.dump(results, f, indent=2)
     log(f"  Saved: {raw_path}")
