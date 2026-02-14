@@ -10,7 +10,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
+import json
 import numpy as np
+from collections import defaultdict
 
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -109,8 +111,6 @@ def parse_tsv(path: Path) -> list[dict]:
 def generate_timeseries(data: list[dict]) -> None:
     """Figure 2: Population dynamics time-series with confidence bands."""
     # Group by (condition, step) → list of alive_count values
-    from collections import defaultdict
-
     groups: dict[tuple[str, int], list[float]] = defaultdict(list)
     for row in data:
         key = (row["condition"], int(row["step"]))
@@ -249,6 +249,177 @@ def generate_architecture() -> None:
     print(f"  Saved {FIG_DIR / 'fig_architecture.pdf'}")
 
 
+PROXY_COLORS = {
+    "counter": "#56B4E9",  # sky blue
+    "toy": "#E69F00",      # orange
+    "graph": "#009E73",    # bluish green
+}
+
+PROXY_LABELS = {
+    "counter": "Counter (minimal)",
+    "toy": "Toy (single-step + waste)",
+    "graph": "Graph (multi-step network)",
+}
+
+
+def load_json(path: Path) -> list[dict]:
+    with open(path) as f:
+        return json.load(f)
+
+
+def generate_proxy() -> None:
+    """Figure 3: Proxy control comparison — 3 metabolism modes."""
+    exp_dir = PROJECT_ROOT / "experiments"
+    modes = ["counter", "toy", "graph"]
+
+    # Collect time-series data per mode
+    mode_data: dict[str, dict[int, list[float]]] = {}
+    for mode in modes:
+        path = exp_dir / f"proxy_{mode}.json"
+        if not path.exists():
+            print(f"  SKIP: {path} not found")
+            return
+        results = load_json(path)
+        step_vals: dict[int, list[float]] = defaultdict(list)
+        for r in results:
+            for s in r["samples"]:
+                step_vals[s["step"]].append(s["alive_count"])
+        mode_data[mode] = step_vals
+
+    fig, axes = plt.subplots(1, 3, figsize=(7, 2.4))
+
+    # Panel 1: Alive count time-series
+    ax = axes[0]
+    for mode in modes:
+        steps = sorted(mode_data[mode].keys())
+        means = [np.mean(mode_data[mode][s]) for s in steps]
+        sems = [np.std(mode_data[mode][s], ddof=1) / np.sqrt(len(mode_data[mode][s]))
+                for s in steps]
+        means, sems = np.array(means), np.array(sems)
+        ax.plot(steps, means, color=PROXY_COLORS[mode], label=PROXY_LABELS[mode])
+        ax.fill_between(steps, means - sems, means + sems,
+                        color=PROXY_COLORS[mode], alpha=0.15)
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Alive Count")
+    ax.set_ylim(bottom=0)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # Panel 2: Final alive count boxplot
+    ax = axes[1]
+    final_alive = {m: np.array([r["final_alive_count"] for r in load_json(exp_dir / f"proxy_{m}.json")])
+                   for m in modes}
+    bp = ax.boxplot([final_alive[m] for m in modes], tick_labels=["Counter", "Toy", "Graph"],
+                    patch_artist=True, widths=0.6)
+    for patch, mode in zip(bp["boxes"], modes):
+        patch.set_facecolor(PROXY_COLORS[mode])
+        patch.set_alpha(0.4)
+    ax.set_ylabel("Final Alive")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # Panel 3: Genome diversity boxplot
+    ax = axes[2]
+    final_div = {}
+    for m in modes:
+        results = load_json(exp_dir / f"proxy_{m}.json")
+        final_div[m] = np.array([r["samples"][-1].get("genome_diversity", 0) for r in results])
+    bp = ax.boxplot([final_div[m] for m in modes], tick_labels=["Counter", "Toy", "Graph"],
+                    patch_artist=True, widths=0.6)
+    for patch, mode in zip(bp["boxes"], modes):
+        patch.set_facecolor(PROXY_COLORS[mode])
+        patch.set_alpha(0.4)
+    ax.set_ylabel("Genome Diversity")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # Shared legend
+    handles = [mlines.Line2D([], [], color=PROXY_COLORS[m], label=PROXY_LABELS[m])
+               for m in modes]
+    fig.legend(handles=handles, loc="upper center", ncol=3, fontsize=7,
+               framealpha=0.9, bbox_to_anchor=(0.5, 1.08))
+
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "fig_proxy.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_proxy.pdf'}")
+
+
+def generate_evolution() -> None:
+    """Figure 4: Evolution strengthening — long run + env shift."""
+    exp_dir = PROJECT_ROOT / "experiments"
+
+    conditions = {
+        "long_normal": ("Normal", "#000000"),
+        "long_no_evolution": ("No Evolution", "#CC79A7"),
+        "shift_normal": ("Normal", "#000000"),
+        "shift_no_evolution": ("No Evolution", "#CC79A7"),
+    }
+
+    # Load time-series
+    cond_data: dict[str, dict[int, list[float]]] = {}
+    for cond in conditions:
+        path = exp_dir / f"evolution_{cond}.json"
+        if not path.exists():
+            print(f"  SKIP: {path} not found")
+            return
+        results = load_json(path)
+        step_vals: dict[int, list[float]] = defaultdict(list)
+        for r in results:
+            for s in r["samples"]:
+                step_vals[s["step"]].append(s["alive_count"])
+        cond_data[cond] = step_vals
+
+    fig, axes = plt.subplots(2, 1, figsize=(3.4, 4.0), sharex=False)
+
+    # Top: Long run (10K steps)
+    ax = axes[0]
+    for cond in ["long_normal", "long_no_evolution"]:
+        label, color = conditions[cond]
+        steps = sorted(cond_data[cond].keys())
+        means = [np.mean(cond_data[cond][s]) for s in steps]
+        sems = [np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
+                for s in steps]
+        means, sems = np.array(means), np.array(sems)
+        ls = "-" if "normal" in cond and "no_" not in cond else "--"
+        ax.plot(steps, means, color=color, linestyle=ls, label=label)
+        ax.fill_between(steps, means - sems, means + sems,
+                        color=color, alpha=0.15)
+    ax.set_ylabel("Alive Count")
+    ax.set_title("Long run (10,000 steps)", fontsize=9)
+    ax.set_ylim(bottom=0)
+    ax.legend(loc="lower right", fontsize=7)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # Bottom: Shift run (5K steps)
+    ax = axes[1]
+    for cond in ["shift_normal", "shift_no_evolution"]:
+        label, color = conditions[cond]
+        steps = sorted(cond_data[cond].keys())
+        means = [np.mean(cond_data[cond][s]) for s in steps]
+        sems = [np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
+                for s in steps]
+        means, sems = np.array(means), np.array(sems)
+        ls = "-" if "normal" in cond and "no_" not in cond else "--"
+        ax.plot(steps, means, color=color, linestyle=ls, label=label)
+        ax.fill_between(steps, means - sems, means + sems,
+                        color=color, alpha=0.15)
+    ax.axvline(x=2500, color="#888888", linestyle=":", linewidth=0.8, label="Env. shift")
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Alive Count")
+    ax.set_title("Environmental shift at step 2,500", fontsize=9)
+    ax.set_ylim(bottom=0)
+    ax.legend(loc="lower right", fontsize=7)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "fig_evolution.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_evolution.pdf'}")
+
+
 if __name__ == "__main__":
     print("Generating paper figures...")
 
@@ -259,5 +430,11 @@ if __name__ == "__main__":
     data = parse_tsv(DATA_TSV)
     print(f"  Parsed {len(data)} rows from {DATA_TSV.name}")
     generate_timeseries(data)
+
+    print("Figure 3: Proxy control comparison")
+    generate_proxy()
+
+    print("Figure 4: Evolution strengthening")
+    generate_evolution()
 
     print("Done.")

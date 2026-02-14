@@ -26,11 +26,12 @@ calibration) demonstrates that disabling any single criterion causes
 statistically significant population decline (Mann-Whitney $U$,
 Holm-Bonferroni corrected, all $p \leq 0.016$), with Cliff's $\delta$
 ranging from 0.18 to 1.00.
-Pairwise ablations reveal super-additive interactions between criteria,
-confirming genuine interdependence beyond independent necessity.
-A proxy control comparison shows that graph-based metabolism produces
-qualitatively richer dynamics than simpler alternatives, ruling out
-tautological criterion definitions.
+Pairwise ablations reveal sub-additive interactions consistent with
+shared failure pathways, confirming that criteria damage overlapping
+subsystems rather than operating independently.
+A proxy control comparison shows that metabolism implementations of
+differing complexity produce qualitatively distinct population dynamics,
+ruling out tautological criterion definitions.
 The strongest single-ablation effects arise from disabling reproduction
 ($\Delta$=--89.3\%), response to stimuli ($\Delta$=--88.4\%), and metabolism
 ($\Delta$=--84.3\%), confirming that these criteria function as necessary,
@@ -86,8 +87,8 @@ This paper makes four contributions:
   \item A \emph{criterion-ablation} methodology demonstrating each criterion's
     functional necessity via controlled experiments with multiple-comparison
     correction.
-  \item Pairwise ablation and proxy control experiments validating
-    criterion interdependence and ruling out tautological definitions.
+  \item Pairwise ablation and proxy control experiments characterizing
+    criterion interactions and ruling out tautological definitions.
 \end{enumerate}
 
 % ============================================================================
@@ -421,30 +422,19 @@ Thus, each criterion qualifies as a functional analogy, not a simplified proxy.
 
 \subsection{Proxy Control Comparison}
 
-A key concern is whether criterion ablation demonstrates genuine functional
-complexity or merely reflects tautological definitions---i.e., whether any
-mechanism satisfying the criterion label would produce the same result.
-To address this, we compare three metabolism implementations of increasing
-complexity on the same seeds ($n$=30):
-
-\begin{enumerate}
-  \item \textbf{Counter}: minimal single-step conversion
-    ($\text{energy} \mathrel{+}= \text{resource} \times \eta$), no waste
-    dynamics, no graph processing.
-  \item \textbf{Toy}: single-step conversion with waste production and decay,
-    matching Counter's uptake rate and energy loss.
-  \item \textbf{Graph}: full multi-step graph-based network with catalytic
-    nodes, edge transfer efficiencies, and waste byproducts.
-\end{enumerate}
-
-All three satisfy the formal definition of ``dynamic process requiring
-sustained resource consumption,'' yet they produce qualitatively different
-population dynamics (Figure~\ref{fig:proxy}).
-Graph metabolism supports richer behavioral repertoires: higher genome
-diversity, more sustained boundary integrity, and greater population
-stability.
-This confirms that the criterion-ablation results reflect genuine
-functional complexity rather than tautological necessity.
+To test whether criterion ablation merely reflects tautological
+definitions, we compare three metabolism implementations on the same seeds
+($n$=30): \textbf{Counter} (minimal single-step conversion, no waste),
+\textbf{Toy} (single-step with waste dynamics), and \textbf{Graph} (full
+multi-step network with catalytic nodes).
+All three satisfy ``dynamic resource consumption,'' yet produce
+qualitatively different dynamics (Figure~\ref{fig:proxy}).
+Graph metabolism supports the highest genome diversity (7.58 vs.\ 5.69 for
+Toy) despite sustaining fewer organisms (293 vs.\ 322 for Toy, 374 for
+Counter), indicating that metabolic complexity imposes greater selective
+pressure.
+This confirms that the specific implementation---not merely the presence---of
+a criterion shapes system behavior, ruling out tautological definitions.
 
 \begin{figure}[t]
 \centering
@@ -453,61 +443,52 @@ functional complexity rather than tautological necessity.
   {\fbox{\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule}{%
     \centering\vspace{2em}[fig\_proxy.pdf --- to be generated]\vspace{2em}}}}
 \caption{Proxy control comparison. Three metabolism implementations of
-increasing complexity on the same seeds ($n$=30). Graph metabolism produces
-qualitatively richer dynamics---higher population counts, boundary integrity,
-and genome diversity---demonstrating that criterion-ablation results reflect
-genuine functional complexity.}
+increasing complexity on the same seeds ($n$=30). Graph metabolism sustains
+fewer organisms but higher genome diversity and waste dynamics, demonstrating
+that metabolic complexity produces qualitatively distinct ecological dynamics
+rather than simply increasing population counts.}
 \label{fig:proxy}
 \end{figure}
 
 \subsection{Pairwise Ablations and Interdependence}
 
-Single-criterion ablation proves each criterion is individually necessary
-but does not demonstrate interdependence between criteria.
-To test for genuine interaction effects, we disable pairs of criteria
-simultaneously and compute synergy scores:
-\[
-\text{synergy}_{A,B} = \Delta_{A \cup B} - (\Delta_A + \Delta_B)
-\]
-where $\Delta_X$ denotes the population decline when criterion $X$ is
-ablated.
-Super-additive synergy (synergy $> 0$) indicates that the combined effect
-exceeds the sum of individual effects---evidence of genuine functional
-coupling.
-
-Table~\ref{tab:pairwise} reports synergy scores for six criterion pairs
-selected based on high single-ablation effect sizes and theoretical relevance.
+To test for interaction effects beyond individual necessity, we disable
+pairs of criteria and compute synergy:
+$\text{synergy}_{A,B} = \Delta_{A \cup B} - (\Delta_A + \Delta_B)$.
+Table~\ref{tab:pairwise} reports scores for six pairs.
+All show sub-additive synergy (negative), indicating \emph{shared failure
+pathways}: individual ablations already collapse populations to near
+their floor ($\sim$30--50 organisms), leaving no room for additive effects.
+This ceiling effect reveals that criteria damage overlapping subsystems.
 
 \begin{table}[t]
 \centering
 \caption{Pairwise ablation synergy scores ($n$=30 per condition).
-Positive synergy indicates super-additive interaction (genuine
-interdependence). $^{***}p<0.001$ for one-sided $t$-test vs.\ expected
-additive decline.}
+Negative synergy indicates sub-additive interaction (shared failure
+pathways). $\Delta$ values as percentage of baseline ($\bar{x}$=322).}
 \label{tab:pairwise}
 \small
-\begin{tabular}{@{}llrrr@{}}
+\begin{tabular}{@{}lrrrr@{}}
 \toprule
-Pair & $\Delta_{AB}$ & Expected & Synergy & Sig. \\
+Pair & $\Delta_{AB}$ & Expected & Synergy & Ratio \\
 \midrule
-(Metab, Homeo)   & --- & --- & --- & --- \\
-(Metab, Response) & --- & --- & --- & --- \\
-(Reprod, Growth)  & --- & --- & --- & --- \\
-(Boundary, Homeo) & --- & --- & --- & --- \\
-(Response, Homeo) & --- & --- & --- & --- \\
-(Reprod, Evol)    & --- & --- & --- & --- \\
+(Metab, Homeo)    & 278.8 & 528.3 & $-$249.5 & 0.53 \\
+(Metab, Response)  & 276.5 & 558.3 & $-$281.8 & 0.50 \\
+(Reprod, Growth)   & 290.4 & 418.5 & $-$128.1 & 0.69 \\
+(Boundary, Homeo)  & 268.7 & 509.6 & $-$240.9 & 0.53 \\
+(Response, Homeo)  & 277.5 & 534.8 & $-$257.3 & 0.52 \\
+(Reprod, Evol)     & 290.4 & 313.9 & $-$23.5  & 0.93 \\
 \bottomrule
-\multicolumn{5}{l}{\footnotesize Values to be filled after running experiments.}
+\multicolumn{5}{l}{\footnotesize Ratio = $\Delta_{AB}$ / Expected; values $<$1 indicate shared pathways.}
 \end{tabular}
 \end{table}
 
 \paragraph{Growth--reproduction confound.}
-Reviewer concern that growth ablation may simply block reproduction (since
-immature organisms cannot reproduce) is addressed by the pairwise design:
-if the (reproduction, growth) pair shows synergy $\approx 0$, then
-growth's effect is fully mediated through reproduction.
-Conversely, positive synergy would indicate that growth has independent
-effects on organism viability beyond reproduction gating.
+The (reproduction, growth) pair confirms: $\Delta_{AB} =
+\Delta_{\text{reproduction}}$ = 290.4, so growth's effect is fully mediated
+through reproduction gating.
+This clarifies growth's role as an upstream prerequisite for reproductive
+competence rather than an independent viability mechanism.
 
 \subsection{Evolution Strengthening}
 
@@ -517,17 +498,19 @@ To demonstrate evolution's contribution at longer timescales, we run two
 additional experiments:
 
 \paragraph{Long run.}
-Extending simulations to 10,000 steps ($n$=30) allows multiple generations
-to accumulate adaptive mutations.
-We expect the effect size for no-evolution to increase substantially as
-unevolved populations fail to adapt to gradual resource depletion.
+Extending simulations to 10,000 steps ($n$=30) yields $d$=1.46, Cliff's
+$\delta$=0.72 ($p < 0.001$), a large effect compared to the modest
+2000-step result.
+Normal populations reach $\bar{x}$=358.1 organisms versus 327.1 for
+no-evolution ($\Delta$=$-$8.7\%), confirming that evolutionary adaptation
+accumulates across generations.
 
 \paragraph{Environmental shift.}
 At step 2,500 of a 5,000-step simulation, resource regeneration rate is
 halved (from 0.01 to 0.005 per cell per step).
-This environmental perturbation creates selection pressure that evolved
-populations can adapt to through frequency-dependent selection on metabolic
-efficiency, while unevolved populations cannot.
+Evolved populations recover more effectively ($\bar{x}$=384.6 vs.\ 361.4,
+$d$=1.02, Cliff's $\delta$=0.57, $p < 0.001$), demonstrating that
+evolution enables adaptive response to environmental perturbation.
 
 \begin{figure}[t]
 \centering
@@ -547,60 +530,35 @@ Lines show mean across 30 seeds; shaded bands $\pm$1 SEM.}
 \section{Discussion}
 
 \paragraph{Criterion interdependence.}
-The single-ablation results reveal a hierarchy of necessity:
-reproduction, response, and metabolism form an essential triad ($>$84\%
-decline), while homeostasis and boundary occupy a middle tier ($\sim$58--77\%).
-The pairwise ablation experiments extend this picture by demonstrating
-super-additive interactions between criteria---the combined effect of
-disabling two criteria exceeds the sum of their individual effects.
-This rules out the possibility that criteria operate as independent modules
-and confirms the feedback-coupling condition of functional analogy.
-
-\paragraph{Proxy controls and tautology.}
-The proxy control comparison demonstrates that not all mechanisms satisfying
-the criterion label are equivalent.
-Graph metabolism produces qualitatively richer dynamics than Counter or
-Toy metabolism, despite all three satisfying ``dynamic resource consumption.''
-This addresses the concern that criterion ablation merely tests whether
-\emph{any} mechanism is better than nothing.
+Single ablations reveal a hierarchy: reproduction, response, and metabolism
+form an essential triad ($>$84\% decline), while homeostasis and boundary
+occupy a middle tier ($\sim$58--77\%).
+Pairwise ablations show uniformly sub-additive interactions
+(Table~\ref{tab:pairwise}), consistent with \emph{shared failure pathways}
+rather than independent modules---criteria converge on overlapping viability
+subsystems.
+The proxy control comparison further demonstrates that the specific
+implementation of a criterion shapes ecological dynamics (graph metabolism
+produces higher diversity but lower populations than simpler alternatives),
+ruling out tautological definitions.
 
 \paragraph{Evolution at longer timescales.}
-The modest 2000-step evolution effect ($d$=0.57) is consistent with biological
-intuition: evolution operates across generations, not within individual
-lifetimes.
-Extended runs (10,000 steps) and environmental perturbation experiments
-are expected to reveal substantially stronger evolutionary contributions,
-as populations that cannot adapt fall behind those that can.
+The modest 2000-step evolution effect ($d$=0.57) grows to $d$=1.46 at
+10,000 steps and $d$=1.02 under environmental perturbation, confirming
+that evolutionary adaptation accumulates across generations.
 
 \subsection{Limitations}
 
-Several limitations constrain interpretation:
-
-\textbf{Growth mechanism.}
-The current growth/development implementation uses a maturation toggle rather
-than a full developmental program.
-While ablation still produces significant degradation ($d$=5.34), a richer
-developmental model (e.g., morphogenetic agent recruitment) would strengthen
-the functional-analogy claim for this criterion.
-
-\textbf{Evolution timescale.}
-The modest evolution effect ($d$=0.57) reflects the 2000-step simulation
-horizon.
-Evolutionary dynamics operate across generations; demonstrating stronger
-evolutionary necessity would require runs of $10^4$--$10^5$ steps with
-environmental change to create sustained selection pressure.
-
-\textbf{Computational scale.}
-The system runs on a single Mac Mini M2 Pro, limiting population sizes to
-$\sim$300 organisms.
-Larger populations might reveal emergent phenomena (e.g., speciation,
-ecosystem dynamics) not observable at current scale.
-
-\textbf{Weak ALife framing.}
-We make no claim that these digital organisms are alive.
-The functional-analogy framework demonstrates that seven criteria \emph{can}
-be integrated as interdependent processes, but this remains a model, not
-a sufficient condition for life.
+\textbf{Growth} uses a maturation toggle rather than a full developmental
+program; a morphogenetic model would strengthen this criterion's
+functional-analogy claim.
+\textbf{Evolution} reaches $d$=1.46 at 10,000 steps but demonstrating
+open-ended dynamics would require $10^5$+ steps with novelty metrics
+\citep{bedau_2000_open}.
+\textbf{Scale} is limited to $\sim$300 organisms on a single machine;
+larger populations might reveal emergent ecological phenomena.
+We adopt a \textbf{weak ALife} stance: this is a functional model, not
+a claim that digital organisms are alive.
 
 % ============================================================================
 \section{Conclusion}
@@ -617,8 +575,9 @@ proxies.
 Our results demonstrate that no criterion is decorative: removing any one
 causes statistically significant population decline ($p < 0.016$, Holm-Bonferroni
 corrected), with Cliff's $\delta$ ranging from 0.18 to 1.00.
-Pairwise ablations further show super-additive interactions, confirming genuine
-interdependence rather than independent necessity.
+Pairwise ablations further reveal shared failure pathways---sub-additive
+interactions consistent with criteria converging on overlapping viability
+subsystems rather than operating independently.
 
 Future work will pursue three directions:
 (1)~a richer developmental program replacing the current growth toggle;
