@@ -25,7 +25,7 @@ A criterion-ablation experiment ($n$=30 per condition, seeds held out from
 calibration) demonstrates that disabling any single criterion causes
 statistically significant population decline (Mann-Whitney $U$,
 Holm-Bonferroni corrected, all $p \leq 0.016$), with Cliff's $\delta$
-ranging from 0.18 to 1.00.
+ranging from 0.32 to 1.00.
 Pairwise ablations reveal sub-additive interactions consistent with
 shared failure pathways, confirming that criteria damage overlapping
 subsystems rather than operating independently.
@@ -363,7 +363,7 @@ decline compared to the normal baseline (Table~\ref{tab:ablation}).
 \begin{table}[t]
 \centering
 \caption{Criterion-ablation results ($n$=30 per condition). Normal baseline
-mean: 293.1 (median: 294, IQR: 283--305). All $p$-values Holm-Bonferroni
+mean: 293.1 (median: 294, IQR: 282--310). All $p$-values Holm-Bonferroni
 corrected. $^{***}p<0.001$, $^{*}p<0.05$.}
 \label{tab:ablation}
 \small
@@ -375,9 +375,9 @@ No Reproduction & 31.3 & $-$89.3 & 18.06 & 1.00 & $<$0.001 & $^{***}$ \\
 No Response     & 34.1 & $-$88.4 & 17.82 & 1.00 & $<$0.001 & $^{***}$ \\
 No Metabolism   & 46.0 & $-$84.3 & 17.24 & 1.00 & $<$0.001 & $^{***}$ \\
 No Homeostasis  & 68.3 & $-$76.7 & 4.94  & 1.00 & $<$0.001 & $^{***}$ \\
-No Boundary     & 121.8 & $-$58.4 & 4.36 & 1.00 & $<$0.001 & $^{***}$ \\
-No Growth       & 185.6 & $-$36.7 & 5.34 & 0.97 & $<$0.001 & $^{***}$ \\
-No Evolution    & 278.3 & $-$5.1  & 0.57 & 0.18 & 0.016 & $^{*}$ \\
+No Boundary     & 121.8 & $-$58.5 & 4.36 & 1.00 & $<$0.001 & $^{***}$ \\
+No Growth       & 185.6 & $-$36.7 & 5.34 & 1.00 & $<$0.001 & $^{***}$ \\
+No Evolution    & 278.3 & $-$5.1  & 0.57 & 0.32 & 0.016 & $^{*}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -389,7 +389,7 @@ adaptive movement, or population renewal, organisms cannot sustain themselves.
 
 Figure~\ref{fig:timeseries} shows population trajectories across all
 conditions.
-The normal condition (black) stabilizes around 293 organisms by step~1000.
+The normal condition (black) stabilizes around 293 organisms by step~1900.
 Metabolic ablation (orange) causes rapid collapse within the first 200 steps,
 as organisms cannot produce energy to maintain boundaries.
 Reproduction ablation (blue) produces a slower but equally terminal decline,
@@ -404,7 +404,7 @@ necessity at these timescales.
 \includegraphics[width=\textwidth]{figures/fig_timeseries.pdf}
 \caption{Population dynamics under criterion ablation. Lines show mean alive
 count across 30 seeds (100--129); shaded bands show $\pm$1 SEM. Normal
-baseline (thick black) stabilizes near 293 organisms. Removing reproduction,
+baseline (thick black) stabilizes near 293 organisms by step~1900. Removing reproduction,
 response, or metabolism causes $>$84\% population collapse. Evolution ablation
 shows a modest 5\% decline ($d$=0.57), consistent with optimization rather
 than short-term survival necessity.}
@@ -494,12 +494,12 @@ competence rather than an independent viability mechanism.
 \subsection{Evolution Strengthening}
 
 The modest single-ablation effect of evolution ($d$=0.57, Cliff's
-$\delta$=0.18) reflects the 2000-step simulation horizon.
+$\delta$=0.32) reflects the 2000-step simulation horizon.
 To demonstrate evolution's contribution at longer timescales, we run two
 additional experiments:
 
 \paragraph{Long run.}
-Extending simulations to 10,000 steps ($n$=30) yields $d$=1.46, Cliff's
+Extending simulations to 10,000 steps ($n$=30) yields $d$=1.43, Cliff's
 $\delta$=0.72 ($p < 0.001$), a large effect compared to the modest
 2000-step result.
 Normal populations reach $\bar{x}$=358.1 organisms versus 327.1 for
@@ -510,7 +510,7 @@ accumulates across generations.
 At step 2,500 of a 5,000-step simulation, resource regeneration rate is
 halved (from 0.01 to 0.005 per cell per step).
 Evolved populations recover more effectively ($\bar{x}$=384.6 vs.\ 361.4,
-$d$=1.02, Cliff's $\delta$=0.57, $p < 0.001$), demonstrating that
+$d$=1.01, Cliff's $\delta$=0.57, $p < 0.001$), demonstrating that
 evolution enables adaptive response to environmental perturbation.
 
 \begin{figure}[t]
@@ -533,11 +533,11 @@ Figure~\ref{fig:homeostasis} shows population-mean internal state
 trajectories for Normal versus No Homeostasis conditions.
 Under normal operation, the neural-network controller actively regulates
 internal state variable~$s_0$, maintaining it near 0.99 throughout
-the simulation (Panel~A, solid line).
+the simulation (Panel~A, solid).
 When homeostasis is disabled, $s_0$ decays monotonically due to the
 passive decay term ($h_{\text{decay}} = 0.01$ per step), and the
 population exhibits high variance as organisms lack the ability to
-counteract perturbations (Panel~B, dashed line).
+counteract perturbations (Panel~A, dashed; variance shown in Panel~B).
 This divergence confirms that the NN-driven homeostatic mechanism
 constitutes an active regulatory process---not a static parameter---that
 satisfies the functional-analogy requirement of sustained resource
@@ -605,7 +605,7 @@ proxies.
 
 Our results demonstrate that no criterion is decorative: removing any one
 causes statistically significant population decline ($p < 0.016$, Holm-Bonferroni
-corrected), with Cliff's $\delta$ ranging from 0.18 to 1.00.
+corrected), with Cliff's $\delta$ ranging from 0.32 to 1.00.
 Pairwise ablations further reveal shared failure pathways---sub-additive
 interactions consistent with criteria converging on overlapping viability
 subsystems rather than operating independently.
