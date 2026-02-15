@@ -47,6 +47,14 @@ Build and evolve the Digital Life simulation with reproducible, testable changes
 - Running `cargo run -p digital-life-spike` without `--release` yields non-representative performance.
 - Local build artifacts (`target/`, extension binaries) should remain untracked.
 
+## Paper (LaTeX) Guidelines
+
+- **Overfull \hbox/\vbox** = text overflows margins. **Must fix** (adjust column widths, abbreviate text, use `\footnotesize`, etc.).
+- **Underfull \hbox/\vbox** = extra whitespace from imperfect line/page breaking. **Ignorable** in two-column conference format.
+- After paper edits, verify zero overfull warnings: `cd paper && tectonic main.tex 2>&1 | grep -i overfull`
+- ALIFE 2026 format: 3–8 pages **excluding references/acknowledgements**. Uses `alifeconf.sty`, `natbib` + `apalike`.
+- When editing tables, test that no word in a `p{width}` column exceeds the column width — this is the most common cause of overfull hbox.
+
 ## Non-Obvious Gotchas
 
 - `num_organisms * agents_per_organism` is bounded; exceeding limits is rejected by runtime checks.
