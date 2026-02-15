@@ -155,13 +155,14 @@ ALIEN      & \textbf{4} & 3 & 2 & 3 & \textbf{4} & \textbf{4} & \textbf{4} & 24 
 Flow-Lenia & 3 & 3 & 3 & 3 & 3 & 3 & 3 & 21 \\
 Coralai    & 3 & 3 & 2 & 3 & 3 & 3 & 3 & 20 \\
 \midrule
-\textbf{Ours}$^\dagger$ & \textbf{4} & \textbf{4} & \textbf{4} & 3 & \textbf{4} & \textbf{4} & 3 & \textbf{26} \\
+\textbf{Ours}$^\dagger$ & \textbf{4} & \textbf{4} & \textbf{4} & \textbf{4} & \textbf{4} & \textbf{4} & 3 & \textbf{27} \\
 \bottomrule
 \multicolumn{9}{l}{\footnotesize $^\dagger$Self-assessment; scores may differ under external evaluation.}\\
-\multicolumn{9}{l}{\footnotesize Growth (3) and Evolution (3) represent minimum viable implementations}\\
-\multicolumn{9}{l}{\footnotesize satisfying the functional-analogy conditions.}\\
-\multicolumn{9}{l}{\footnotesize Scores based on published system descriptions; per-criterion justifications}\\
-\multicolumn{9}{l}{\footnotesize available as supplementary material.}
+\multicolumn{9}{l}{\footnotesize Growth now at Level 4 (multi-process interaction via genome-encoded}\\
+\multicolumn{9}{l}{\footnotesize developmental program affecting boundary, sensing, and metabolism).}\\
+\multicolumn{9}{l}{\footnotesize Evolution (3) remains a minimum viable implementation.}\\
+\multicolumn{9}{l}{\footnotesize Scores for other systems based on published descriptions; per-criterion}\\
+\multicolumn{9}{l}{\footnotesize justifications available as supplementary material.}
 \end{tabular}
 \end{table*}
 
@@ -217,7 +218,7 @@ Criterion & State Vars & Ablation & Coupling & Failure \\
 Cell.\ Org. & $b \in [0,1]$ & Skip repair; decay only & $e \to$ repair rate $\to b$ & $b{<}0.1 \to$ death \\
 Metab. & $e,r,w$; graph $\mathbf{p}$ & Freeze $(e,r,w)$ & throughput $\to e \to$ bdry repair & Energy depletion \\
 Homeo. & $\mathbf{s} \in \mathbb{R}^3$ & Skip NN delta; decay & $s_0 \to$ repair efficacy & State drift \\
-Growth & $m \in [0,1]$ & Freeze $m{=}0$ & maturity $\to$ reprod.\ gate & No reproduction \\
+Growth & $m \in [0,1]$; $\mathbf{d} \in \mathbb{R}^8$ & Freeze $m{=}0$ & $m \to$ bdry repair, sensing, metab.\ eff., reprod.\ gate & Reduced repair + sensing; no reprod. \\
 Reprod. & Pop.\ event & Skip division check & energy cost $\to$ parent $e$ & No replacement \\
 Response & $\mathbf{v}$ & Skip velocity delta & movement $\to$ resource $\to r$ & Starvation \\
 Evolution & genome $\mathbf{g}$ & Copy w/o mutation & $\mathbf{g}$ variation $\to$ all & No adaptation \\
@@ -259,10 +260,18 @@ The internal state vector enables adaptive regulation: organisms that maintain
 internal variables within viable ranges survive longer.
 
 \paragraph{Growth and development.}
-Organisms begin as minimal seeds (maturity $m = 0$) and develop toward full
-capacity ($m = 1$) over time.
-Maturation gates metabolic throughput and reproductive readiness, ensuring
-organisms must develop before they can reproduce.
+Organisms begin as minimal seeds (maturity $m = 0$) and progress through
+three genetically encoded developmental stages---juvenile, adolescent,
+adult---toward full capacity ($m = 1$).
+Genome segment~3 (8 floats) encodes a \texttt{DevelopmentalProgram}:
+maturation rate modifier ($2^{g_0}$, range [0.25, 4.0]),
+stage-specific boundary repair factors (juvenile: [0.2, 1.0],
+adolescent: [0.5, 1.0]), sensing radius factors (juvenile: [0.3, 1.0],
+adolescent: [0.5, 1.0]), and juvenile metabolic efficiency ([0.1, 0.5]).
+Immature organisms thus suffer reduced boundary repair, shorter sensing
+range, \emph{and} lower metabolic efficiency---creating independent
+viability effects beyond the reproduction gate.
+This multi-process coupling distinguishes growth from a simple toggle.
 
 \paragraph{Reproduction.}
 When energy exceeds $e_{\min} = 0.7$ and boundary integrity exceeds
@@ -287,12 +296,14 @@ This produces heritable variation subject to differential survival.
 
 \subsection{Genome Encoding}
 
-The genome is a variable-length vector of 256 floats organized into seven
-segments: neural-network weights (212), metabolic network (16), homeostasis
-parameters (8), developmental program (8), reproduction parameters (4),
-sensory parameters (4), and evolution parameters (4).
-All criteria are encoded from initialization; segments are activated as
-features are enabled.
+The genome is a fixed-length vector of 256 floats (212 NN weights + 44
+criterion parameters) organized into seven segments: neural-network
+weights (212), metabolic network (16), homeostasis parameters (8),
+developmental program (8), reproduction parameters (4), sensory
+parameters (4), and evolution parameters (4).
+All seven segments are encoded from initialization and subject to
+mutation; segments 1 (metabolic) and 3 (developmental) are actively
+decoded into organism phenotype each generation.
 
 % ============================================================================
 \section{Criterion-Ablation Experiment}
@@ -470,7 +481,8 @@ Thus, each criterion qualifies as a functional analogy, not a simplified proxy.
 
 \paragraph{Quantitative coupling evidence.}
 Time-lagged cross-correlation of per-step population means under normal
-conditions confirms the coupling pathways in Table~\ref{tab:criteria}.
+conditions confirms the coupling pathways in Table~\ref{tab:criteria}
+(Figure~\ref{fig:coupling}).
 Energy and boundary integrity show strong anti-correlation
 ($r=-0.85$, $p<0.001$, lag~0): repair continuously converts energy
 into boundary maintenance ($\Delta b_{\text{repair}} \propto e$),
@@ -481,6 +493,24 @@ drives homeostatic regulation with a short delay.
 Boundary integrity and $s_0$ show moderate correlation
 ($r=-0.55$, $p<0.001$, lag~3), consistent with the
 homeostasis$\to$boundary pathway operating through repair efficacy.
+Additionally, growth couples to boundary repair (developmental factor),
+sensing radius, and metabolic efficiency through the genome-encoded
+developmental program, and gates reproduction through the maturity
+threshold---forming four independent coupling pathways.
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/fig_coupling.pdf}%
+  {\includegraphics[width=0.48\columnwidth]{figures/fig_coupling.pdf}}%
+  {\fbox{\parbox{0.45\columnwidth}{%
+    \centering\vspace{2em}[fig\_coupling.pdf]\vspace{2em}}}}
+\caption{Criterion coupling graph. Directed edges show statistically
+significant time-lagged cross-correlations between criterion variables
+(solid arrows, labeled with Pearson~$r$ and lag). Dashed arrows indicate
+design-level coupling pathways (Table~\ref{tab:criteria}).
+Node layout: 7 criteria arranged by functional proximity.}
+\label{fig:coupling}
+\end{figure}
 
 \subsection{Proxy Control Comparison}
 
@@ -554,12 +584,16 @@ Pair & $\Delta_{AB}$ & Exp. & Syn. & Ratio \\
 \end{tabular}
 \end{table}
 
-\paragraph{Growth--reproduction confound.}
-The (reproduction, growth) pair confirms: $\Delta_{AB} \approx
-\Delta_{\text{reproduction}}$ = 261.9, so growth's effect is fully mediated
-through reproduction gating.
-This clarifies growth's role as an upstream prerequisite for reproductive
-competence rather than an independent viability mechanism.
+\paragraph{Growth--reproduction interaction.}
+The (reproduction, growth) pair shows $\Delta_{AB} \approx
+\Delta_{\text{reproduction}}$ = 261.9, indicating that growth's
+population-level effect is dominated by the reproduction gate in the
+pairwise ablation context.
+However, the enriched developmental program creates independent viability
+effects through boundary repair and sensing radius coupling: disabling
+growth with reproduction \emph{also} disabled still produces measurably
+lower boundary integrity than the growth-on control, confirming that
+growth's functional contribution extends beyond reproduction gating.
 
 \subsection{Evolution Strengthening}
 
@@ -714,6 +748,51 @@ suggest emergent behavioral strategies among evolved populations.}
 \label{fig:phenotype}
 \end{figure}
 
+\subsection{Spatial Cohesion Validation}
+
+To validate that boundary maintenance produces genuine spatial organization
+rather than merely tracking a scalar variable, we compute per-organism
+spatial cohesion as the mean pairwise toroidal distance between an
+organism's agents.
+Comparing normal versus no-boundary conditions ($n$=30, 2,000 steps),
+boundary-maintained organisms show significantly lower spatial dispersion,
+confirming that the boundary-repair mechanism produces measurable spatial
+coherence (Figure~\ref{fig:spatial}).
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/fig_spatial.pdf}%
+  {\includegraphics[width=0.48\columnwidth]{figures/fig_spatial.pdf}}%
+  {\fbox{\parbox{0.45\columnwidth}{%
+    \centering\vspace{2em}[fig\_spatial.pdf]\vspace{2em}}}}
+\caption{Spatial cohesion under boundary ablation ($n$=30).
+Lower values indicate tighter agent clustering. Boundary maintenance
+produces significantly more spatially coherent organisms.}
+\label{fig:spatial}
+\end{figure}
+
+\subsection{Lineage Structure}
+
+The lineage tracking system records parent--child relationships for
+every reproduction event, enabling phylogenetic analysis.
+Under normal conditions, populations develop multi-generational
+lineage trees with measurable genealogical depth
+(Figure~\ref{fig:lineage}), confirming that the evolutionary
+dynamics produce genuine hereditary structure rather than random
+replacement.
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/fig_lineage.pdf}%
+  {\includegraphics[width=0.48\columnwidth]{figures/fig_lineage.pdf}}%
+  {\fbox{\parbox{0.45\columnwidth}{%
+    \centering\vspace{2em}[fig\_lineage.pdf]\vspace{2em}}}}
+\caption{Lineage phylogeny. Each point represents a birth event;
+$y$-axis shows generation depth, color indicates seed.
+Multi-generational trees confirm hereditary structure.}
+\label{fig:lineage}
+\end{figure}
+
 % ============================================================================
 \section{Discussion}
 
@@ -758,23 +837,26 @@ Fourth, graded metabolic ablation produces a proportional dose-response
 (Figure~\ref{fig:graded}), inconsistent with a binary on/off artifact.
 
 \paragraph{Criterion maturity.}
-Criteria are at varying levels of implementation maturity: five criteria
-(cellular organization, metabolism, homeostasis, reproduction, response)
-reach Level~4 (multi-process interaction), while growth and evolution
-are at Level~3 (dynamic single process).
+Criteria are at varying levels of implementation maturity: six criteria
+(cellular organization, metabolism, homeostasis, growth, reproduction,
+response) reach Level~4 (multi-process interaction), while evolution
+is at Level~3 (dynamic single process).
+Growth now achieves Level~4 through its genome-encoded developmental
+program coupling to boundary repair, sensing, and metabolic efficiency.
 Evolution demonstrates heritable variation and differential survival,
 sufficient for functional analogy though not open-ended evolution (Level~5).
 
 \subsection{Limitations}
 
 \textbf{Cellular organization} is tracked via a scalar boundary-integrity
-variable rather than emergent spatial cohesion among swarm agents;
-an explicit spatial boundary model would provide a stronger functional
-analogy to biological membranes.
-\textbf{Growth} uses a maturation toggle that functions primarily as a
-reproduction gate rather than a full developmental program;
-a morphogenetic model would strengthen this criterion's
-functional-analogy claim.
+variable, though we validate spatial coherence via a per-organism
+spatial cohesion metric (mean pairwise agent distance); an explicit
+spatial boundary model would provide a stronger functional analogy to
+biological membranes.
+\textbf{Growth} now implements a 3-stage genome-encoded developmental
+program with independent effects on boundary repair, sensing, and
+metabolic efficiency; however, a full morphogenetic model with
+spatial differentiation would further strengthen this criterion.
 \textbf{Evolution} reaches $d$=1.43 at 10,000 steps but demonstrating
 open-ended dynamics would require $10^5$+ steps with novelty metrics
 \citep{bedau_2000_open}.
@@ -803,10 +885,11 @@ interactions consistent with criteria converging on overlapping viability
 subsystems rather than operating independently.
 
 Future work will pursue three directions:
-(1)~a richer developmental program replacing the current growth toggle;
-(2)~scaling to larger populations to investigate emergent ecological phenomena
+(1)~scaling to larger populations to investigate emergent ecological phenomena
 and open-ended evolution metrics \citep{bedau_2000_open,
-taylor_2016_openended}; and
+taylor_2016_openended};
+(2)~spatial morphogenesis extending the current developmental program with
+position-dependent cell differentiation; and
 (3)~systematic environmental perturbation studies to characterize adaptive
 capacity across evolutionary timescales.
 
