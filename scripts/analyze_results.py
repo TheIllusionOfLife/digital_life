@@ -83,17 +83,16 @@ def cohens_d(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def cohens_d_ci(a: np.ndarray, b: np.ndarray, alpha: float = 0.05) -> tuple[float, float]:
-    """Compute CI for Cohen's d via noncentral t-distribution.
+    """Compute Wald-type CI for Cohen's d with approximate standard error.
 
-    Uses the noncentrality parameter approach: d is distributed as
-    noncentral t / sqrt(1/na + 1/nb), so we invert to get CI.
+    Uses the Hedges & Olkin (1985) approximation for the SE of d.
     """
     na, nb = len(a), len(b)
     if na < 2 or nb < 2:
         return (0.0, 0.0)
     d = cohens_d(a, b)
     df = na + nb - 2
-    se_d = np.sqrt((na + nb) / (na * nb) + d**2 / (2 * (na + nb)))
+    se_d = np.sqrt((na + nb) / (na * nb) + d**2 / (2 * (na + nb - 2)))
     t_lo = stats.t.ppf(alpha / 2, df)
     t_hi = stats.t.ppf(1 - alpha / 2, df)
     return (float(d + t_lo * se_d), float(d + t_hi * se_d))
@@ -102,7 +101,7 @@ def cohens_d_ci(a: np.ndarray, b: np.ndarray, alpha: float = 0.05) -> tuple[floa
 def bootstrap_cliffs_delta_ci(
     a: np.ndarray, b: np.ndarray, n_boot: int = 2000, alpha: float = 0.05
 ) -> tuple[float, float]:
-    """Compute bootstrap CI for Cliff's delta using BCa method."""
+    """Compute bootstrap CI for Cliff's delta using percentile method."""
     na, nb = len(a), len(b)
     if na < 2 or nb < 2:
         return (0.0, 0.0)
@@ -208,12 +207,17 @@ def main():
     n_normal = len(normal_alive)
     print(f"Normal baseline: n={n_normal}, mean={np.mean(normal_alive):.1f}", file=sys.stderr)
 
+    # Load all condition data upfront (reused for short-horizon analysis)
+    condition_data: dict[str, list[dict]] = {}
+    for condition in CONDITIONS:
+        condition_data[condition] = load_condition(prefix, condition)
+
     # Compute stats for each ablation
     comparisons = []
     raw_p_values = []
 
     for condition in CONDITIONS:
-        results = load_condition(prefix, condition)
+        results = condition_data[condition]
         if not results:
             print(f"  {condition}: SKIPPED (no data)", file=sys.stderr)
             continue
@@ -279,7 +283,7 @@ def main():
     short_horizon = []
     short_raw_p = []
     for condition in CONDITIONS:
-        results = load_condition(prefix, condition)
+        results = condition_data[condition]
         if not results:
             continue
         ablated_alive_500 = extract_alive_at_step(results, short_horizon_step)

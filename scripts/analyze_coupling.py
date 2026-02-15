@@ -64,7 +64,6 @@ def cross_correlation(x: np.ndarray, y: np.ndarray, max_lag: int) -> list[dict]:
     Positive lag means x leads y (x[t] correlates with y[t+lag]).
     """
     results = []
-    n = len(x)
     for lag in range(max_lag + 1):
         if lag == 0:
             x_slice = x
@@ -97,6 +96,9 @@ def main():
         return
 
     timeseries = load_timeseries(DATA_PATH)
+    if not timeseries:
+        print(f"ERROR: no timeseries data loaded from {DATA_PATH}")
+        return
     print(f"Loaded timeseries: {', '.join(timeseries.keys())}")
     print(f"Steps per variable: {len(next(iter(timeseries.values())))}")
 

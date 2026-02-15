@@ -362,8 +362,10 @@ non-normal count data.
 We apply Holm-Bonferroni correction \citep{holm_1979_simple} for seven
 simultaneous comparisons at $\alpha = 0.05$.
 Effect sizes are reported as Cliff's $\delta$ \citep{cliff_1993_dominance}
-with bootstrap 95\% confidence intervals (2000 resamples),
-appropriate for non-normal distributions.
+for the primary ablation comparisons, with Cohen's $d$ additionally reported
+for evolution-strengthening experiments to facilitate parametric comparison,
+with percentile bootstrap 95\% confidence intervals (2000 resamples,
+seed-fixed RNG), appropriate for non-normal distributions.
 
 % ============================================================================
 \section{Results}
@@ -374,7 +376,7 @@ decline compared to the normal baseline (Table~\ref{tab:ablation}).
 \begin{table}[t]
 \centering
 \caption{Criterion-ablation results ($n$=30 per condition).
-Normal baseline mean: 293.1 (median: 294, IQR: 282--310).
+Normal baseline mean: 293.1 (median: 294.5, IQR: 281.5--309.5).
 $\delta$=Cliff's delta [bootstrap 95\% CI].
 Seven one-sided tests, Holm-Bonferroni corrected at $\alpha=0.05$.
 $^{***}p<0.001$, $^{*}p<0.05$.}
@@ -415,8 +417,9 @@ Per-seed distributions are shown in Figure~\ref{fig:distributions}.
 
 At $T=500$ (before long-term population dynamics dominate),
 reproduction-ablated organisms retain higher survival
-($\bar{x}$=47.7 vs.\ 31.3 at $T=2000$), with 69\% decline relative to
-normal versus 89\% at $T=2000$.
+($\bar{x}$=47.7 vs.\ 31.3 at $T=2000$; normal baseline
+$\bar{x}_{\text{normal}}$=153.5 at $T=500$), with 69\% decline
+relative to normal versus 89\% at $T=2000$.
 This progressive widening confirms that the long-term effect is
 population-level (no replacement) rather than immediate individual-level
 failure---organisms can self-maintain without reproduction.
@@ -460,8 +463,9 @@ Thus, each criterion qualifies as a functional analogy, not a simplified proxy.
 Time-lagged cross-correlation of per-step population means under normal
 conditions confirms the coupling pathways in Table~\ref{tab:criteria}.
 Energy and boundary integrity show strong anti-correlation
-($r=-0.85$, $p<0.001$, lag~0), consistent with the
-energy$\to$boundary repair conversion pathway.
+($r=-0.85$, $p<0.001$, lag~0): repair continuously converts energy
+into boundary maintenance ($\Delta b_{\text{repair}} \propto e$),
+so higher boundary integrity corresponds to depleted energy reserves.
 Energy and internal state $s_0$ show strong positive correlation
 ($r=0.81$, $p<0.001$, lag~3 steps), confirming that metabolic state
 drives homeostatic regulation with a short delay.
@@ -631,9 +635,10 @@ produces higher diversity but lower populations than simpler alternatives),
 ruling out tautological definitions.
 
 \paragraph{Evolution at longer timescales.}
-The modest 2000-step evolution effect ($d$=0.57) grows to $d$=1.43 at
-10,000 steps and $d$=1.01 under environmental perturbation, confirming
-that evolutionary adaptation accumulates across generations.
+The modest 2000-step evolution effect ($d$=0.57, $\delta$=0.32) grows to
+$d$=1.43 ($\delta$=0.72) at 10,000 steps and $d$=1.01 ($\delta$=0.57)
+under environmental perturbation, confirming that evolutionary adaptation
+accumulates across generations.
 
 \paragraph{Are criteria merely engineered?}
 One might argue that criterion ablation merely reflects system
