@@ -27,6 +27,8 @@ STEPS = 2000
 SAMPLE_EVERY = 50
 SEEDS = list(range(100, 130))  # test set: seeds 100-129, n=30
 
+GRAPH_OVERRIDES = {"metabolism_mode": "graph"}
+
 CONDITIONS = {
     "normal": {},
     "no_metabolism": {"enable_metabolism": False},
@@ -59,7 +61,7 @@ def main():
 
         for seed in SEEDS:
             t0 = time.perf_counter()
-            result = run_single(seed, overrides, steps=STEPS, sample_every=SAMPLE_EVERY)
+            result = run_single(seed, {**GRAPH_OVERRIDES, **overrides}, steps=STEPS, sample_every=SAMPLE_EVERY)
             elapsed = time.perf_counter() - t0
             results.append(result)
 
@@ -72,7 +74,7 @@ def main():
         cond_elapsed = time.perf_counter() - cond_start
         log(f"  Condition time: {cond_elapsed:.1f}s")
 
-        raw_path = out_dir / f"final_{cond_name}.json"
+        raw_path = out_dir / f"final_graph_{cond_name}.json"
         with open(raw_path, "w") as f:
             json.dump(results, f, indent=2)
         log(f"  Saved: {raw_path}")

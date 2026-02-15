@@ -32,8 +32,8 @@ criteria---which we term \emph{functional analogy}.
 A criterion-ablation experiment ($n$=30 per condition, seeds held out from
 calibration) demonstrates that disabling any single criterion causes
 statistically significant population decline (Mann-Whitney $U$,
-Holm-Bonferroni corrected, all $p \leq 0.016$), with Cliff's $\delta$
-ranging from 0.32 to 1.00.
+Holm-Bonferroni corrected, all $p \leq 0.013$), with Cliff's $\delta$
+ranging from 0.34 to 1.00.
 Pairwise ablations reveal sub-additive interactions consistent with
 shared failure pathways, confirming that criteria damage overlapping
 subsystems rather than operating independently.
@@ -41,8 +41,8 @@ A proxy control comparison shows that metabolism implementations of
 differing complexity produce qualitatively distinct population dynamics,
 ruling out tautological criterion definitions.
 The strongest single-ablation effects arise from disabling reproduction
-($\Delta$=--89.3\%), response to stimuli ($\Delta$=--88.4\%), and metabolism
-($\Delta$=--84.3\%), confirming that these criteria function as necessary,
+($\Delta$=--90.8\%), response to stimuli ($\Delta$=--88.3\%), and metabolism
+($\Delta$=--86.5\%), confirming that these criteria function as necessary,
 interdependent components of organismal viability rather than decorative
 labels.
 \end{abstract}
@@ -389,7 +389,7 @@ decline compared to the normal baseline (Table~\ref{tab:ablation}).
 \begin{table}[t]
 \centering
 \caption{Criterion-ablation results ($n$=30 per condition).
-Normal baseline mean: 293.1 (median: 294.5, IQR: 281.5--309.5).
+Normal baseline mean: 341.3 (median: 340.5, IQR: 327.3--356.3).
 $\delta$=Cliff's delta [bootstrap 95\% CI].
 Seven one-sided tests, Holm-Bonferroni corrected at $\alpha=0.05$.
 $^{***}p<0.001$, $^{*}p<0.05$.}
@@ -399,38 +399,38 @@ $^{***}p<0.001$, $^{*}p<0.05$.}
 \toprule
 Condition & Mean & $\Delta$\% & $\delta$ [95\% CI] & $p_{\text{corr}}$ & Sig. \\
 \midrule
-No Reprod.  & 31.3 & $-$89.3 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
-No Response & 34.1 & $-$88.4 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
-No Metab.   & 46.0 & $-$84.3 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
-No Homeo.   & 68.3 & $-$76.7 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
-No Boundary & 121.8 & $-$58.5 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
-No Growth   & 185.6 & $-$36.7 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
-No Evol.    & 278.3 & $-$5.1  & 0.32 [0.02, 0.59] & .016 & $^{*}$ \\
+No Reprod.  & 31.3 & $-$90.8 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Response & 40.0 & $-$88.3 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Metab.   & 46.0 & $-$86.5 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Growth   & 185.6 & $-$45.6 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Homeo.   & 185.9 & $-$45.5 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Boundary & 235.2 & $-$31.1 & 0.98 [0.93, 1.00] & $<$.001 & $^{***}$ \\
+No Evol.    & 321.4 & $-$5.8  & 0.34 [0.06, 0.59] & .013 & $^{*}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Three ablations cause near-total population collapse ($>$84\% decline):
+Three ablations cause near-total population collapse ($>$86\% decline):
 reproduction, response to stimuli, and metabolism.
 These criteria form the core viability loop---without energy production,
 adaptive movement, or population renewal, organisms cannot sustain themselves.
 
 Figure~\ref{fig:timeseries} shows population trajectories across all
 conditions.
-The normal condition (black) stabilizes around 293 organisms by step~1900.
+The normal condition (black) stabilizes around 341 organisms by step~1900.
 Metabolic ablation (orange) causes rapid collapse within the first 200 steps,
 as organisms cannot produce energy to maintain boundaries.
 Reproduction ablation (blue) produces a slower but equally terminal decline,
 as the initial population ages and dies without replacement.
-Evolution ablation (purple) shows the weakest effect (Cliff's $\delta$=0.32),
+Evolution ablation (purple) shows the weakest effect (Cliff's $\delta$=0.34),
 with populations remaining viable but slightly smaller than normal---consistent
 with evolution operating as an optimization process rather than a survival
 necessity at these timescales.
 AUC of the alive-count curve corroborates $N_T$ rankings across all
-conditions (normal AUC=435{,}376 vs.\ 74{,}545--412{,}518 for ablations).
+conditions (normal AUC=510{,}890 vs.\ 74{,}545--470{,}837 for ablations).
 Median organism lifespan reveals an individual-vs-population distinction:
 reproduction-ablated organisms live longer individually (median 751 vs.\
-132 steps for normal) despite population collapse, confirming that the
+242 steps for normal) despite population collapse, confirming that the
 population decline reflects absent replacement rather than individual
 fragility.
 Per-seed distributions are shown in Figure~\ref{fig:distributions}.
@@ -438,8 +438,8 @@ Per-seed distributions are shown in Figure~\ref{fig:distributions}.
 At $T=500$ (before long-term population dynamics dominate),
 reproduction-ablated organisms retain higher survival
 ($\bar{x}$=47.7 vs.\ 31.3 at $T=2000$; normal baseline
-$\bar{x}_{\text{normal}}$=153.5 at $T=500$), with 69\% decline
-relative to normal versus 89\% at $T=2000$.
+$\bar{x}_{\text{normal}}$=179.0 at $T=500$), with 73\% decline
+relative to normal versus 91\% at $T=2000$.
 This progressive widening confirms that the long-term effect is
 population-level (no replacement) rather than immediate individual-level
 failure---organisms can self-maintain without reproduction.
@@ -463,9 +463,9 @@ by outliers.}
 \includegraphics[width=\textwidth]{figures/fig_timeseries.pdf}
 \caption{Population dynamics under criterion ablation. Lines show mean alive
 count across 30 seeds (100--129); shaded bands show $\pm$1 SEM. Normal
-baseline (thick black) stabilizes near 293 organisms by step~1900. Removing reproduction,
-response, or metabolism causes $>$84\% population collapse. Evolution ablation
-shows a modest 5\% decline (Cliff's $\delta$=0.32), consistent with optimization
+baseline (thick black) stabilizes near 341 organisms by step~1900. Removing reproduction,
+response, or metabolism causes $>$86\% population collapse. Evolution ablation
+shows a modest 6\% decline (Cliff's $\delta$=0.34), consistent with optimization
 rather than short-term survival necessity.}
 \label{fig:timeseries}
 \end{figure*}
@@ -559,13 +559,13 @@ degrades adaptive behavior, accelerating waste accumulation, which
 amplifies boundary decay via the waste-pressure term ($s_w \cdot w$
 in $\Delta b_{\text{decay}}$).
 Both routes converge on boundary failure, explaining why
-$\Delta_{AB} = 249.9$ falls far below the additive expectation of 472.0.
+$\Delta_{AB} = 298.1$ falls below the additive expectation of 450.7.
 
 \begin{table}[t]
 \centering
 \caption{Pairwise ablation synergy scores ($n$=30 per condition, Graph
 metabolism). Negative synergy indicates sub-additive interaction (shared
-failure pathways). Baseline $\bar{x}$=293.1, consistent with
+failure pathways). Baseline $\bar{x}$=341.3, consistent with
 Table~\ref{tab:ablation}.}
 \label{tab:pairwise}
 \small
@@ -573,12 +573,12 @@ Table~\ref{tab:ablation}.}
 \toprule
 Pair & $\Delta_{AB}$ & Exp. & Syn. & Ratio \\
 \midrule
-(Metab, Homeo)     & 249.9 & 472.0 & $-$222.0 & 0.53 \\
-(Metab, Resp.)     & 247.7 & 506.1 & $-$258.4 & 0.49 \\
-(Reprod, Growth)   & 261.9 & 369.4 & $-$107.5 & 0.71 \\
-(Bdry, Homeo)      & 181.9 & 396.2 & $-$214.3 & 0.46 \\
-(Resp., Homeo)     & 256.4 & 483.9 & $-$227.5 & 0.53 \\
-(Reprod, Evol)     & 261.9 & 276.7 & $-$14.9  & 0.95 \\
+(Metab, Homeo)     & 298.1 & 450.7 & $-$152.6 & 0.66 \\
+(Metab, Resp.)     & 295.9 & 596.6 & $-$300.7 & 0.50 \\
+(Reprod, Growth)   & 310.0 & 465.7 & $-$155.7 & 0.67 \\
+(Bdry, Homeo)      & 111.4 & 261.5 & $-$150.1 & 0.43 \\
+(Resp., Homeo)     & 303.8 & 456.7 & $-$152.9 & 0.67 \\
+(Reprod, Evol)     & 310.0 & 330.0 & $-$19.9  & 0.94 \\
 \bottomrule
 \multicolumn{5}{@{}l@{}}{\footnotesize Exp.\ = $\Delta_A{+}\Delta_B$; Ratio = $\Delta_{AB}$/Exp.}
 \end{tabular}
@@ -586,7 +586,7 @@ Pair & $\Delta_{AB}$ & Exp. & Syn. & Ratio \\
 
 \paragraph{Growth--reproduction interaction.}
 The (reproduction, growth) pair shows $\Delta_{AB} \approx
-\Delta_{\text{reproduction}}$ = 261.9, indicating that growth's
+\Delta_{\text{reproduction}}$ = 310.0, indicating that growth's
 population-level effect is dominated by the reproduction gate in the
 pairwise ablation context.
 However, the enriched developmental program creates independent viability
@@ -597,69 +597,32 @@ growth's functional contribution extends beyond reproduction gating.
 
 \subsection{Evolution Strengthening}
 
-The modest single-ablation effect of evolution ($d$=0.57, Cliff's
-$\delta$=0.32) reflects the 2000-step simulation horizon.
-To demonstrate evolution's contribution at longer timescales, we run two
-additional experiments:
-
-\paragraph{Long run.}
-Extending simulations to 10,000 steps ($n$=30) yields $d$=1.43, Cliff's
-$\delta$=0.72 ($p < 0.001$), a large effect compared to the modest
-2000-step result.
-Normal populations reach $\bar{x}$=358.1 organisms versus 327.1 for
-no-evolution ($\Delta$=$-$8.7\%), confirming that evolutionary adaptation
-accumulates across generations.
-
-\paragraph{Environmental shift.}
-At step 2,500 of a 5,000-step simulation, resource regeneration rate is
-halved (from 0.01 to 0.005 per cell per step).
-Evolved populations recover more effectively ($\bar{x}$=384.6 vs.\ 361.4,
-$d$=1.01, Cliff's $\delta$=0.57, $p < 0.001$), demonstrating that
-evolution enables adaptive response to environmental perturbation.
+The modest 2000-step evolution effect ($d$=0.58, $\delta$=0.34) grows
+substantially at longer timescales (Figure~\ref{fig:evolution}).
+At 10,000 steps ($n$=30), $d$=1.43, $\delta$=0.72 ($p < 0.001$);
+normal populations reach $\bar{x}$=358.1 vs.\ 327.1 for no-evolution
+($\Delta$=$-$8.7\%).
+Under environmental perturbation (resource halved at step~2,500 of
+5,000-step runs), evolved populations recover more effectively
+($\bar{x}$=384.6 vs.\ 361.4, $d$=1.01, $\delta$=0.57, $p < 0.001$).
 
 \begin{figure}[t]
 \centering
 \IfFileExists{figures/fig_evolution.pdf}%
   {\includegraphics[width=\columnwidth]{figures/fig_evolution.pdf}}%
   {\fbox{\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule}{%
-    \centering\vspace{2em}[fig\_evolution.pdf --- to be generated]\vspace{2em}}}}
-\caption{Evolution strengthening. Top: 10,000-step long run shows
-increasing divergence between normal and no-evolution conditions.
-Bottom: environmental shift at step 2,500 (dashed line) demonstrates
-evolved populations' superior recovery.
-Lines show mean across 30 seeds; shaded bands $\pm$1 SEM.}
+    \centering\vspace{2em}[fig\_evolution.pdf]\vspace{2em}}}}
+\caption{Evolution strengthening. Top: 10,000-step long run.
+Bottom: environmental shift at step 2,500 (dashed line).
+Lines: mean across 30 seeds; bands: $\pm$1 SEM.}
 \label{fig:evolution}
 \end{figure}
 
-\subsection{Homeostatic Regulation}
-
-Figure~\ref{fig:homeostasis} shows population-mean internal state
-trajectories for Normal versus No Homeostasis conditions.
-Under normal operation, the neural-network controller actively regulates
-internal state variable~$s_0$, maintaining it near 0.99 throughout
-the simulation (Panel~A, solid).
-When homeostasis is disabled, $s_0$ decays monotonically due to the
-passive decay term ($h_{\text{decay}} = 0.01$ per step), and the
-population exhibits high variance as organisms lack the ability to
-counteract perturbations (Panel~A, dashed; variance shown in Panel~B).
-This divergence confirms that the NN-driven homeostatic mechanism
-constitutes an active regulatory process---not a static parameter---that
-satisfies the functional-analogy requirement of sustained resource
-consumption with measurable degradation upon removal.
-
-\begin{figure}[t]
-\centering
-\IfFileExists{figures/fig_homeostasis.pdf}%
-  {\includegraphics[width=\columnwidth]{figures/fig_homeostasis.pdf}}%
-  {\fbox{\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule}{%
-    \centering\vspace{2em}[fig\_homeostasis.pdf --- to be generated]\vspace{2em}}}}
-\caption{Homeostatic regulation trajectories ($n$=30). (A)~Mean internal
-state variable~$s_0$ over time: Normal condition (solid) maintains
-regulation near 0.99, while No Homeostasis (dashed) shows passive decay.
-(B)~Population-level standard deviation of $s_0$: disabled homeostasis
-produces higher inter-organism variance. Shaded bands show $\pm$1 SEM.}
-\label{fig:homeostasis}
-\end{figure}
+\paragraph{Homeostatic regulation.}
+Under normal operation, the NN controller maintains internal state
+$s_0$ near 0.99; disabling homeostasis causes monotonic decay
+($h_{\text{decay}} = 0.01$/step) with high inter-organism variance,
+confirming active regulation rather than static parameterization.
 
 \subsection{Graded Metabolic Ablation}
 
@@ -667,7 +630,7 @@ To test whether criterion ablation effects reflect a continuous
 functional relationship rather than a binary on/off artifact, we sweep
 the metabolism efficiency multiplier over $\{1.0, 0.75, 0.5, 0.25, 0.0\}$
 ($n$=30 per level, 1,000 steps, graph metabolism).
-Figure~\ref{fig:graded} shows a monotonic dose-response: population
+Figure~\ref{fig:graded} (left) shows a monotonic dose-response: population
 viability decreases proportionally with metabolic efficiency
 (Jonckheere-Terpstra trend test, $p < 0.001$).
 This graded response demonstrates that metabolic contribution is
@@ -680,12 +643,18 @@ functional analogy.
 \IfFileExists{figures/fig_graded.pdf}%
   {\includegraphics[width=0.48\columnwidth]{figures/fig_graded.pdf}}%
   {\fbox{\parbox{0.45\columnwidth}{%
-    \centering\vspace{2em}[fig\_graded.pdf]\vspace{2em}}}}
-\caption{Graded metabolic ablation dose-response. Median final alive
-count (line) with IQR (shaded) across 30 seeds per level.
-Monotonic decline confirms continuous functional dependency
-($p < 0.001$, Jonckheere-Terpstra).}
+    \centering\vspace{2em}[graded]\vspace{2em}}}}
+\hfill
+\IfFileExists{figures/fig_cyclic.pdf}%
+  {\includegraphics[width=0.48\columnwidth]{figures/fig_cyclic.pdf}}%
+  {\fbox{\parbox{0.45\columnwidth}{%
+    \centering\vspace{2em}[cyclic]\vspace{2em}}}}
+\caption{Left: graded metabolic ablation dose-response (median $\pm$ IQR,
+$n$=30 per level; $p < 0.001$, Jonckheere-Terpstra).
+Right: cyclic environment test (period=2,000 steps); shaded bands mark
+low-resource phases; evolution-on populations recover faster.}
 \label{fig:graded}
+\label{fig:cyclic}
 \end{figure}
 
 \subsection{Cyclic Environment}
@@ -694,28 +663,10 @@ To assess whether evolved populations exhibit adaptive resilience beyond
 static conditions, we subject organisms to periodic resource modulation
 (period~=~2,000 steps; high phase: 0.01, low phase: 0.005 resource
 per cell per step) over 10,000 steps ($n$=30).
-Figure~\ref{fig:cyclic} compares evolution-on versus evolution-off
-populations across five complete resource cycles.
-Evolved populations ($\bar{x}$=336.0) significantly outperform
+Evolved populations ($\bar{x}$=384.3) significantly outperform
 non-evolving populations ($\bar{x}$=312.6) across all cycles
-($d$=1.10, Cliff's $\delta$=0.58, $p < 0.001$), showing faster
-recovery after each low-resource phase.
-This demonstrates that evolutionary adaptation provides measurable
-resilience to \emph{recurring} environmental stress, not just one-time
-perturbation.
-
-\begin{figure}[t]
-\centering
-\IfFileExists{figures/fig_cyclic.pdf}%
-  {\includegraphics[width=0.48\columnwidth]{figures/fig_cyclic.pdf}}%
-  {\fbox{\parbox{0.45\columnwidth}{%
-    \centering\vspace{2em}[fig\_cyclic.pdf]\vspace{2em}}}}
-\caption{Cyclic environment test. Population dynamics under periodic
-resource modulation (period~=~2,000 steps). Lightly shaded bands
-mark low-resource phases. Evolution-on populations recover faster
-after each stress phase. Lines: mean across 30 seeds; bands: $\pm$1 SEM.}
-\label{fig:cyclic}
-\end{figure}
+($d$=3.23, Cliff's $\delta$=0.99, $p < 0.001$; Figure~\ref{fig:graded},
+right), showing faster recovery after each low-resource phase.
 
 \paragraph{Sham ablation control.}
 To confirm that observed ablation effects are functional rather than
@@ -727,70 +678,42 @@ Comparing sham-on versus sham-off ($n$=30, 1,000 steps) yields no
 significant difference (Mann-Whitney $U$, $p > 0.05$), validating
 that criterion ablation effects reflect genuine functional dependencies.
 
-\subsection{Phenotype Clustering}
+\subsection{Additional Validation}
 
-Clustering analysis of per-seed organism traits (energy, waste, boundary
+\paragraph{Phenotype clustering.}
+PCA projection of per-seed organism traits (energy, waste, boundary
 integrity, genome diversity, generation count) reveals emergent phenotypic
-differentiation among evolved populations (Figure~\ref{fig:phenotype}).
-This suggests that the evolutionary dynamics of our system produce
-behaviorally distinct organism strategies---an emergent property not
-explicitly engineered into the criteria implementation.
+clusters among evolved populations (Figure~\ref{fig:phenotype}),
+suggesting behaviorally distinct strategies not explicitly engineered.
+
+\paragraph{Spatial cohesion.}
+Per-organism spatial cohesion (mean pairwise toroidal agent distance)
+under normal versus no-boundary conditions ($n$=30, 2,000 steps) confirms
+that boundary maintenance produces measurable spatial coherence, not merely
+scalar tracking (Figure~\ref{fig:phenotype}, center).
+
+\paragraph{Lineage structure.}
+Parent--child tracking across all reproduction events yields
+multi-generational lineage trees (Figure~\ref{fig:phenotype}, right),
+confirming genuine hereditary structure rather than random replacement.
 
 \begin{figure}[t]
 \centering
 \IfFileExists{figures/fig_phenotype.pdf}%
-  {\includegraphics[width=0.48\columnwidth]{figures/fig_phenotype.pdf}}%
-  {\fbox{\parbox{0.45\columnwidth}{%
-    \centering\vspace{2em}[fig\_phenotype.pdf]\vspace{2em}}}}
-\caption{Phenotype clustering via PCA projection of organism trait vectors.
-Clusters identified by $k$-means (optimal $k$ selected by silhouette score)
-suggest emergent behavioral strategies among evolved populations.}
-\label{fig:phenotype}
-\end{figure}
-
-\subsection{Spatial Cohesion Validation}
-
-To validate that boundary maintenance produces genuine spatial organization
-rather than merely tracking a scalar variable, we compute per-organism
-spatial cohesion as the mean pairwise toroidal distance between an
-organism's agents.
-Comparing normal versus no-boundary conditions ($n$=30, 2,000 steps),
-boundary-maintained organisms show significantly lower spatial dispersion,
-confirming that the boundary-repair mechanism produces measurable spatial
-coherence (Figure~\ref{fig:spatial}).
-
-\begin{figure}[t]
-\centering
+  {\includegraphics[width=0.32\columnwidth]{figures/fig_phenotype.pdf}}%
+  {\fbox{\parbox{0.30\columnwidth}{\centering\vspace{1em}[phenotype]\vspace{1em}}}}
+\hfill
 \IfFileExists{figures/fig_spatial.pdf}%
-  {\includegraphics[width=0.48\columnwidth]{figures/fig_spatial.pdf}}%
-  {\fbox{\parbox{0.45\columnwidth}{%
-    \centering\vspace{2em}[fig\_spatial.pdf]\vspace{2em}}}}
-\caption{Spatial cohesion under boundary ablation ($n$=30).
-Lower values indicate tighter agent clustering. Boundary maintenance
-produces significantly more spatially coherent organisms.}
-\label{fig:spatial}
-\end{figure}
-
-\subsection{Lineage Structure}
-
-The lineage tracking system records parent--child relationships for
-every reproduction event, enabling phylogenetic analysis.
-Under normal conditions, populations develop multi-generational
-lineage trees with measurable genealogical depth
-(Figure~\ref{fig:lineage}), confirming that the evolutionary
-dynamics produce genuine hereditary structure rather than random
-replacement.
-
-\begin{figure}[t]
-\centering
+  {\includegraphics[width=0.32\columnwidth]{figures/fig_spatial.pdf}}%
+  {\fbox{\parbox{0.30\columnwidth}{\centering\vspace{1em}[spatial]\vspace{1em}}}}
+\hfill
 \IfFileExists{figures/fig_lineage.pdf}%
-  {\includegraphics[width=0.48\columnwidth]{figures/fig_lineage.pdf}}%
-  {\fbox{\parbox{0.45\columnwidth}{%
-    \centering\vspace{2em}[fig\_lineage.pdf]\vspace{2em}}}}
-\caption{Lineage phylogeny. Each point represents a birth event;
-$y$-axis shows generation depth, color indicates seed.
-Multi-generational trees confirm hereditary structure.}
-\label{fig:lineage}
+  {\includegraphics[width=0.32\columnwidth]{figures/fig_lineage.pdf}}%
+  {\fbox{\parbox{0.30\columnwidth}{\centering\vspace{1em}[lineage]\vspace{1em}}}}
+\caption{Additional validation. Left: phenotype clustering via PCA
+($k$-means, silhouette-optimal $k$). Center: spatial cohesion under
+boundary ablation. Right: lineage phylogeny (generation depth vs.\ step).}
+\label{fig:phenotype}
 \end{figure}
 
 % ============================================================================
@@ -798,8 +721,8 @@ Multi-generational trees confirm hereditary structure.}
 
 \paragraph{Criterion interdependence.}
 Single ablations reveal a hierarchy: reproduction, response, and metabolism
-form an essential triad ($>$84\% decline), while homeostasis and boundary
-occupy a middle tier ($\sim$58--77\%).
+form an essential triad ($>$86\% decline), while growth and homeostasis
+occupy a middle tier ($\sim$46\%), followed by boundary ($\sim$31\%).
 Pairwise ablations show uniformly sub-additive interactions
 (Table~\ref{tab:pairwise}), consistent with \emph{shared failure pathways}
 rather than independent modules---criteria converge on overlapping viability
@@ -810,7 +733,7 @@ produces higher diversity but lower populations than simpler alternatives),
 ruling out tautological definitions.
 
 \paragraph{Evolution at longer timescales.}
-The modest 2000-step evolution effect ($d$=0.57, $\delta$=0.32) grows to
+The modest 2000-step evolution effect ($d$=0.58, $\delta$=0.34) grows to
 $d$=1.43 ($\delta$=0.72) at 10,000 steps and $d$=1.01 ($\delta$=0.57)
 under environmental perturbation, confirming that evolutionary adaptation
 accumulates across generations.
@@ -819,32 +742,19 @@ that evolved populations recover more rapidly from recurring resource
 stress, indicating adaptive resilience beyond one-time environmental shifts.
 
 \paragraph{Are criteria merely engineered?}
-One might argue that criterion ablation merely reflects system
-design---disabling any engineered subsystem would degrade performance.
-Four lines of evidence argue against this interpretation.
-First, the proxy control comparison shows that alternative metabolism
-implementations satisfying the same functional-analogy definition produce
-qualitatively distinct ecological dynamics (Figure~\ref{fig:proxy}),
-ruling out tautological definitions.
-Second, pairwise ablations reveal sub-additive interactions
-(Table~\ref{tab:pairwise}), indicating shared failure pathways
-inconsistent with independent modules.
-Third, the state-neutral sham ablation control (matching real
-criterion computational cost without modifying simulation state) produces
-no significant population difference, confirming that observed effects
-are functional, not computational artifacts.
-Fourth, graded metabolic ablation produces a proportional dose-response
-(Figure~\ref{fig:graded}), inconsistent with a binary on/off artifact.
+Four lines of evidence argue against this: (1)~proxy control shows
+alternative implementations produce distinct dynamics
+(Figure~\ref{fig:proxy}); (2)~pairwise ablations reveal sub-additive
+interactions inconsistent with independent modules
+(Table~\ref{tab:pairwise}); (3)~sham ablation control produces no
+significant difference; (4)~graded ablation yields proportional
+dose-response (Figure~\ref{fig:graded}).
 
 \paragraph{Criterion maturity.}
-Criteria are at varying levels of implementation maturity: six criteria
-(cellular organization, metabolism, homeostasis, growth, reproduction,
-response) reach Level~4 (multi-process interaction), while evolution
-is at Level~3 (dynamic single process).
-Growth now achieves Level~4 through its genome-encoded developmental
-program coupling to boundary repair, sensing, and metabolic efficiency.
-Evolution demonstrates heritable variation and differential survival,
-sufficient for functional analogy though not open-ended evolution (Level~5).
+Six criteria reach Level~4 (multi-process interaction); evolution is
+Level~3 (heritable variation, differential survival).
+Growth achieves Level~4 through genome-encoded developmental coupling
+to boundary repair, sensing, and metabolic efficiency.
 
 \subsection{Limitations}
 
@@ -878,8 +788,8 @@ standard distinguishing genuine criteria implementations from simplified
 proxies.
 
 Our results demonstrate that no criterion is decorative: removing any one
-causes statistically significant population decline ($p < 0.016$, Holm-Bonferroni
-corrected), with Cliff's $\delta$ ranging from 0.32 to 1.00.
+causes statistically significant population decline ($p \leq 0.013$, Holm-Bonferroni
+corrected), with Cliff's $\delta$ ranging from 0.34 to 1.00.
 Pairwise ablations further reveal shared failure pathways---sub-additive
 interactions consistent with criteria converging on overlapping viability
 subsystems rather than operating independently.
