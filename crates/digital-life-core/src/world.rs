@@ -153,6 +153,8 @@ pub enum WorldInitError {
     InvalidGrowthImmatureMetabolicEfficiency,
     InvalidResourceRegenerationRate,
     InvalidEnvironmentShiftResourceRate,
+    InvalidMetabolismEfficiencyMultiplier,
+    InvalidEnvironmentCycleLowRate,
     WorldSizeTooLarge { max: f64, actual: f64 },
     AgentCountOverflow,
     TooManyAgents { max: usize, actual: usize },
@@ -282,6 +284,18 @@ impl fmt::Display for WorldInitError {
                 write!(
                     f,
                     "environment_shift_resource_rate must be finite and non-negative"
+                )
+            }
+            WorldInitError::InvalidMetabolismEfficiencyMultiplier => {
+                write!(
+                    f,
+                    "metabolism_efficiency_multiplier must be finite and within [0,1]"
+                )
+            }
+            WorldInitError::InvalidEnvironmentCycleLowRate => {
+                write!(
+                    f,
+                    "environment_cycle_low_rate must be finite and non-negative"
                 )
             }
             WorldInitError::WorldSizeTooLarge { max, actual } => {
@@ -624,6 +638,16 @@ impl World {
             && config.environment_shift_resource_rate >= 0.0)
         {
             return Err(WorldInitError::InvalidEnvironmentShiftResourceRate);
+        }
+        if !(config.metabolism_efficiency_multiplier.is_finite()
+            && (0.0..=1.0).contains(&config.metabolism_efficiency_multiplier))
+        {
+            return Err(WorldInitError::InvalidMetabolismEfficiencyMultiplier);
+        }
+        if !(config.environment_cycle_low_rate.is_finite()
+            && config.environment_cycle_low_rate >= 0.0)
+        {
+            return Err(WorldInitError::InvalidEnvironmentCycleLowRate);
         }
         Ok(())
     }
@@ -1375,6 +1399,7 @@ impl World {
                 let pre_energy = org.metabolic_state.energy;
                 let engine = org.metabolism_engine.as_ref().unwrap_or(&self.metabolism);
                 let flux = engine.step(&mut org.metabolic_state, external, self.config.dt as f32);
+                // Graded ablation: scale metabolic energy gains by efficiency multiplier
                 // Growth: immature organisms have reduced metabolic efficiency (gains only)
                 {
                     let energy_delta = org.metabolic_state.energy - pre_energy;
@@ -1382,7 +1407,10 @@ impl World {
                         let growth_factor = self.config.growth_immature_metabolic_efficiency
                             + org.maturity
                                 * (1.0 - self.config.growth_immature_metabolic_efficiency);
-                        org.metabolic_state.energy = pre_energy + energy_delta * growth_factor;
+                        org.metabolic_state.energy = pre_energy
+                            + energy_delta
+                                * growth_factor
+                                * self.config.metabolism_efficiency_multiplier;
                     }
                     // energy losses from metabolism are preserved as-is
                 }
@@ -1452,12 +1480,46 @@ impl World {
             self.prune_dead_entities();
         }
 
+        // Sham process: compute pairwise agent distances (real work) but discard result.
+        // Matches computational cost of a real criterion update without functional effect.
+        if self.config.enable_sham_process {
+            for org in &self.organisms {
+                if !org.alive {
+                    continue;
+                }
+                let mut _sham_sum: f64 = 0.0;
+                for &aid in &org.agent_ids {
+                    if let Some(a) = self.agents.get(aid as usize) {
+                        let neighbor_count = spatial::count_neighbors(
+                            &tree,
+                            a.position,
+                            self.config.sensing_radius,
+                            a.id,
+                            self.config.world_size,
+                        );
+                        _sham_sum += neighbor_count as f64;
+                    }
+                }
+            }
+        }
+
         // Environment shift: change runtime resource rate at specified step.
         // Uses a separate field to keep self.config immutable at runtime.
         if self.config.environment_shift_step > 0
             && self.step_index == self.config.environment_shift_step
         {
             self.current_resource_rate = self.config.environment_shift_resource_rate;
+        }
+
+        // Cyclic environment: alternate resource rate between high and low phases.
+        // Separate from one-time environment_shift; this repeats every cycle_period steps.
+        if self.config.environment_cycle_period > 0 {
+            let phase = (self.step_index / self.config.environment_cycle_period) % 2;
+            self.current_resource_rate = if phase == 0 {
+                self.config.resource_regeneration_rate
+            } else {
+                self.config.environment_cycle_low_rate
+            };
         }
 
         if self.current_resource_rate > 0.0 {
@@ -2481,5 +2543,230 @@ mod tests {
             (world.current_resource_rate - 0.005).abs() < f32::EPSILON,
             "rate should change at shift step"
         );
+    }
+
+    // ── Graded ablation tests ──
+
+    #[test]
+    fn metabolism_efficiency_multiplier_defaults_to_one() {
+        let cfg = SimConfig::default();
+        assert!(
+            (cfg.metabolism_efficiency_multiplier - 1.0).abs() < f32::EPSILON,
+            "metabolism_efficiency_multiplier should default to 1.0"
+        );
+    }
+
+    #[test]
+    fn metabolism_efficiency_half_halves_metabolic_gain() {
+        // Two identical worlds: one with multiplier=1.0, one with 0.5
+        let mut world_full = make_world(10, 100.0);
+        world_full.config.enable_boundary_maintenance = false;
+        world_full.config.death_boundary_threshold = 0.0;
+        world_full.config.boundary_collapse_threshold = 0.0;
+        world_full.config.metabolism_efficiency_multiplier = 1.0;
+
+        let mut world_half = make_world(10, 100.0);
+        world_half.config.enable_boundary_maintenance = false;
+        world_half.config.death_boundary_threshold = 0.0;
+        world_half.config.boundary_collapse_threshold = 0.0;
+        world_half.config.metabolism_efficiency_multiplier = 0.5;
+
+        for _ in 0..100 {
+            world_full.step();
+            world_half.step();
+        }
+        let e_full = world_full.metabolic_state(0).energy;
+        let e_half = world_half.metabolic_state(0).energy;
+        assert!(
+            e_half < e_full,
+            "half-efficiency ({e_half}) should produce less energy than full ({e_full})"
+        );
+    }
+
+    #[test]
+    fn metabolism_efficiency_zero_produces_zero_metabolic_gain() {
+        let mut world = make_world(10, 100.0);
+        world.config.enable_boundary_maintenance = false;
+        world.config.death_boundary_threshold = 0.0;
+        world.config.boundary_collapse_threshold = 0.0;
+        world.config.metabolism_efficiency_multiplier = 0.0;
+        let initial_energy = world.metabolic_state(0).energy;
+
+        for _ in 0..50 {
+            world.step();
+        }
+        let final_energy = world.metabolic_state(0).energy;
+        assert!(
+            final_energy <= initial_energy,
+            "zero-efficiency should produce no net energy gain \
+             (initial={initial_energy}, final={final_energy})"
+        );
+    }
+
+    #[test]
+    fn metabolism_efficiency_one_matches_baseline() {
+        // Multiplier=1.0 should be identical to a world without the field set
+        let mut world_a = make_world(10, 100.0);
+        world_a.config.enable_boundary_maintenance = false;
+        world_a.config.death_boundary_threshold = 0.0;
+        world_a.config.boundary_collapse_threshold = 0.0;
+        world_a.config.metabolism_efficiency_multiplier = 1.0;
+
+        let mut world_b = make_world(10, 100.0);
+        world_b.config.enable_boundary_maintenance = false;
+        world_b.config.death_boundary_threshold = 0.0;
+        world_b.config.boundary_collapse_threshold = 0.0;
+        // world_b uses default (1.0) from SimConfig::default()
+
+        for _ in 0..100 {
+            world_a.step();
+            world_b.step();
+        }
+        let e_a = world_a.metabolic_state(0).energy;
+        let e_b = world_b.metabolic_state(0).energy;
+        assert!(
+            (e_a - e_b).abs() < f32::EPSILON,
+            "multiplier=1.0 ({e_a}) should match default ({e_b})"
+        );
+    }
+
+    // ── Cyclic environment tests ──
+
+    #[test]
+    fn environment_cycle_period_zero_means_no_cycling() {
+        let cfg = SimConfig::default();
+        assert_eq!(
+            cfg.environment_cycle_period, 0,
+            "environment_cycle_period should default to 0 (no cycling)"
+        );
+        let mut world = make_world(10, 100.0);
+        world.config.environment_cycle_period = 0;
+        let original_rate = world.current_resource_rate;
+        for _ in 0..200 {
+            world.step();
+        }
+        assert!(
+            (world.current_resource_rate - original_rate).abs() < f32::EPSILON,
+            "resource rate should not change when cycle_period=0"
+        );
+    }
+
+    #[test]
+    fn environment_cycle_alternates_resource_rate() {
+        let mut world = make_world(10, 100.0);
+        world.config.environment_cycle_period = 100;
+        world.config.resource_regeneration_rate = 0.01;
+        world.config.environment_cycle_low_rate = 0.005;
+        world.current_resource_rate = 0.01;
+
+        // Steps 1-100 → phase 0 (high rate): step_index 1..100, (step/100)%2 = 0
+        for _ in 0..99 {
+            world.step();
+        }
+        assert!(
+            (world.current_resource_rate - 0.01).abs() < f32::EPSILON,
+            "phase 0 should use normal rate, got {}",
+            world.current_resource_rate
+        );
+
+        // Step 100 → phase 1 (low rate): (100/100)%2 = 1
+        world.step();
+        assert!(
+            (world.current_resource_rate - 0.005).abs() < f32::EPSILON,
+            "phase 1 should use low rate, got {}",
+            world.current_resource_rate
+        );
+    }
+
+    #[test]
+    fn environment_cycle_returns_to_high_rate() {
+        let mut world = make_world(10, 100.0);
+        world.config.environment_cycle_period = 100;
+        world.config.resource_regeneration_rate = 0.01;
+        world.config.environment_cycle_low_rate = 0.005;
+        world.config.enable_metabolism = false;
+        world.config.enable_boundary_maintenance = false;
+        world.config.death_boundary_threshold = 0.0;
+        world.config.boundary_collapse_threshold = 0.0;
+        world.current_resource_rate = 0.01;
+
+        // Run 200 steps to reach phase 2 (which is (200/100)%2=0 → high)
+        for _ in 0..200 {
+            world.step();
+        }
+        assert!(
+            (world.current_resource_rate - 0.01).abs() < f32::EPSILON,
+            "phase 2 should return to normal rate, got {}",
+            world.current_resource_rate
+        );
+    }
+
+    // ── Sham ablation tests ──
+
+    #[test]
+    fn enable_sham_process_defaults_to_true() {
+        let cfg = SimConfig::default();
+        assert!(
+            cfg.enable_sham_process,
+            "enable_sham_process should default to true"
+        );
+    }
+
+    #[test]
+    fn sham_process_has_no_functional_effect() {
+        // Compare sham-on vs sham-off: population outcomes should be identical
+        // since sham computes distances but discards results
+        let mut world_on = make_world(10, 100.0);
+        world_on.config.enable_sham_process = true;
+        world_on.config.enable_boundary_maintenance = false;
+        world_on.config.death_boundary_threshold = 0.0;
+        world_on.config.boundary_collapse_threshold = 0.0;
+
+        let mut world_off = make_world(10, 100.0);
+        world_off.config.enable_sham_process = false;
+        world_off.config.enable_boundary_maintenance = false;
+        world_off.config.death_boundary_threshold = 0.0;
+        world_off.config.boundary_collapse_threshold = 0.0;
+
+        for _ in 0..200 {
+            world_on.step();
+            world_off.step();
+        }
+        let energy_on = world_on.metabolic_state(0).energy;
+        let energy_off = world_off.metabolic_state(0).energy;
+        assert!(
+            (energy_on - energy_off).abs() < f32::EPSILON,
+            "sham process should have no effect on energy (on={energy_on}, off={energy_off})"
+        );
+
+        let alive_on = world_on.organism_count();
+        let alive_off = world_off.organism_count();
+        assert_eq!(
+            alive_on, alive_off,
+            "sham process should have no effect on population"
+        );
+    }
+
+    // ── Legacy config backward compatibility ──
+
+    #[test]
+    fn legacy_config_gets_new_field_defaults() {
+        let legacy_json = r#"{
+            "seed": 42,
+            "world_size": 100.0,
+            "num_organisms": 1,
+            "agents_per_organism": 1
+        }"#;
+        let cfg: SimConfig = serde_json::from_str(legacy_json).expect("legacy config should parse");
+        assert!(
+            (cfg.metabolism_efficiency_multiplier - 1.0).abs() < f32::EPSILON,
+            "metabolism_efficiency_multiplier should default to 1.0"
+        );
+        assert_eq!(cfg.environment_cycle_period, 0);
+        assert!(
+            (cfg.environment_cycle_low_rate - 0.005).abs() < f32::EPSILON,
+            "environment_cycle_low_rate should default to 0.005"
+        );
+        assert!(cfg.enable_sham_process);
     }
 }

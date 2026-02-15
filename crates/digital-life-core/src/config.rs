@@ -107,6 +107,15 @@ pub struct SimConfig {
     pub environment_shift_step: usize,
     /// Resource regeneration rate to apply after the environment shift step.
     pub environment_shift_resource_rate: f32,
+    /// Multiplier applied to metabolic energy gains (graded ablation).
+    /// 1.0 = full efficiency, 0.0 = no metabolic gain.
+    pub metabolism_efficiency_multiplier: f32,
+    /// Period (in steps) for cyclic resource modulation (0 = no cycling).
+    pub environment_cycle_period: usize,
+    /// Resource regeneration rate during the low phase of cyclic modulation.
+    pub environment_cycle_low_rate: f32,
+    /// Toggle for sham (no-op) computational process control.
+    pub enable_sham_process: bool,
 }
 
 impl Default for SimConfig {
@@ -159,6 +168,10 @@ impl Default for SimConfig {
             resource_regeneration_rate: 0.01,
             environment_shift_step: 0,
             environment_shift_resource_rate: 0.01,
+            metabolism_efficiency_multiplier: 1.0,
+            environment_cycle_period: 0,
+            environment_cycle_low_rate: 0.005,
+            enable_sham_process: true,
         }
     }
 }
