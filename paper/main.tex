@@ -525,10 +525,11 @@ definitions, we compare three metabolism implementations on the same seeds
 multi-step network with catalytic nodes).
 All three satisfy ``dynamic resource consumption,'' yet produce
 qualitatively different dynamics (Figure~\ref{fig:proxy}).
-Graph metabolism supports the highest genome diversity (7.58 vs.\ 5.69 for
-Toy) despite sustaining fewer organisms (293 vs.\ 322 for Toy, 374 for
-Counter), indicating that metabolic complexity imposes greater selective
-pressure.
+Graph metabolism sustains the fewest organisms (341 vs.\ 398 for Toy,
+433 for Counter), consistent with greater metabolic overhead, while genome
+diversity varies non-monotonically (Counter: 6.67, Graph: 6.49, Toy: 5.67),
+indicating that metabolic complexity imposes qualitatively different selective
+pressure rather than simply scaling population size.
 This confirms that the specific implementation---not merely the presence---of
 a criterion shapes system behavior, ruling out tautological definitions.
 
@@ -539,10 +540,10 @@ a criterion shapes system behavior, ruling out tautological definitions.
   {\fbox{\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule}{%
     \centering\vspace{2em}[fig\_proxy.pdf --- to be generated]\vspace{2em}}}}
 \caption{Proxy control comparison. Three metabolism implementations of
-increasing complexity on the same seeds ($n$=30). Graph metabolism sustains
-fewer organisms but higher genome diversity and waste dynamics, demonstrating
-that metabolic complexity produces qualitatively distinct ecological dynamics
-rather than simply increasing population counts.}
+increasing complexity on the same seeds ($n$=30). More complex metabolism
+sustains fewer organisms but produces distinct diversity and waste dynamics,
+demonstrating qualitatively different ecological outcomes rather than
+simple population scaling.}
 \label{fig:proxy}
 \end{figure}
 
@@ -731,8 +732,8 @@ Pairwise ablations show uniformly sub-additive interactions
 rather than independent modules---criteria converge on overlapping viability
 subsystems.
 The proxy control comparison further demonstrates that the specific
-implementation of a criterion shapes ecological dynamics (graph metabolism
-produces higher diversity but lower populations than simpler alternatives),
+implementation of a criterion shapes ecological dynamics (more complex
+metabolism sustains fewer organisms with distinct diversity profiles),
 ruling out tautological definitions.
 
 \paragraph{Evolution at longer timescales.}
