@@ -720,6 +720,270 @@ def generate_phenotype() -> None:
     print(f"  Saved {FIG_DIR / 'fig_phenotype.pdf'}")
 
 
+def generate_coupling() -> None:
+    """Figure 10: Criterion coupling graph — directed edges with correlation coefficients."""
+    analysis_path = PROJECT_ROOT / "experiments" / "coupling_analysis.json"
+    if not analysis_path.exists():
+        print(f"  SKIP: {analysis_path} not found")
+        return
+
+    with open(analysis_path) as f:
+        analysis = json.load(f)
+
+    pairs = analysis.get("pairs", [])
+    if not pairs:
+        print("  SKIP: no coupling pairs found")
+        return
+
+    fig, ax = plt.subplots(figsize=(4.0, 4.0))
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.5, 1.5)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    # 7 criteria arranged in a circle
+    criteria = [
+        "Cellular Org.", "Metabolism", "Homeostasis",
+        "Growth/Dev.", "Reproduction", "Response", "Evolution",
+    ]
+    short_names = {
+        "energy_mean": "Metabolism",
+        "boundary_mean": "Cellular Org.",
+        "internal_state_mean_0": "Homeostasis",
+    }
+    n = len(criteria)
+    angles = [2 * np.pi * i / n - np.pi / 2 for i in range(n)]
+    positions = {name: (np.cos(a), np.sin(a)) for name, a in zip(criteria, angles)}
+
+    # Draw nodes
+    node_colors = ["#56B4E9", "#D55E00", "#009E73", "#CC79A7", "#0072B2", "#E69F00", "#CC79A7"]
+    for i, (name, (x, y)) in enumerate(positions.items()):
+        circle = plt.Circle((x, y), 0.18, facecolor=node_colors[i], alpha=0.3,
+                             edgecolor=node_colors[i], linewidth=1.2)
+        ax.add_patch(circle)
+        ax.text(x, y, name, ha="center", va="center", fontsize=5.5, fontweight="bold")
+
+    # Draw edges from coupling analysis
+    for pair in pairs:
+        var_a = short_names.get(pair["var_a"], pair["var_a"])
+        var_b = short_names.get(pair["var_b"], pair["var_b"])
+        r = pair["best_pearson_r"]
+        lag = pair["best_lag"]
+
+        if var_a not in positions or var_b not in positions:
+            continue
+
+        x1, y1 = positions[var_a]
+        x2, y2 = positions[var_b]
+
+        # Shorten arrow to not overlap nodes
+        dx, dy = x2 - x1, y2 - y1
+        dist = np.sqrt(dx**2 + dy**2)
+        if dist < 0.01:
+            continue
+        shrink = 0.22 / dist
+        sx1, sy1 = x1 + dx * shrink, y1 + dy * shrink
+        sx2, sy2 = x2 - dx * shrink, y2 - dy * shrink
+
+        lw = max(0.5, min(3.0, abs(r) * 4))
+        color = "#0072B2" if r > 0 else "#D55E00"
+        ax.annotate("", xy=(sx2, sy2), xytext=(sx1, sy1),
+                     arrowprops=dict(arrowstyle="->", color=color, lw=lw))
+
+        # Label at midpoint
+        mx, my = (sx1 + sx2) / 2, (sy1 + sy2) / 2
+        ax.text(mx, my + 0.08, f"r={r:.2f}\nlag={lag}",
+                ha="center", va="center", fontsize=5, color=color,
+                bbox=dict(boxstyle="round,pad=0.1", facecolor="white",
+                          edgecolor="none", alpha=0.8))
+
+    # Design-based edges (from Table 2)
+    design_edges = [
+        ("Growth/Dev.", "Reproduction", "gate"),
+        ("Metabolism", "Cellular Org.", "energy"),
+        ("Homeostasis", "Cellular Org.", "repair"),
+    ]
+    for src, dst, label in design_edges:
+        if src not in positions or dst not in positions:
+            continue
+        # Check if already drawn from data
+        already = any(
+            (short_names.get(p["var_a"]) == src and short_names.get(p["var_b"]) == dst)
+            or (short_names.get(p["var_a"]) == dst and short_names.get(p["var_b"]) == src)
+            for p in pairs
+        )
+        if already:
+            continue
+        x1, y1 = positions[src]
+        x2, y2 = positions[dst]
+        dx, dy = x2 - x1, y2 - y1
+        dist = np.sqrt(dx**2 + dy**2)
+        if dist < 0.01:
+            continue
+        shrink = 0.22 / dist
+        sx1, sy1 = x1 + dx * shrink, y1 + dy * shrink
+        sx2, sy2 = x2 - dx * shrink, y2 - dy * shrink
+        ax.annotate("", xy=(sx2, sy2), xytext=(sx1, sy1),
+                     arrowprops=dict(arrowstyle="->", color="#888888", lw=0.8,
+                                     linestyle="--"))
+
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "fig_coupling.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_coupling.pdf'}")
+
+
+def generate_spatial() -> None:
+    """Figure 11: Spatial cohesion under boundary ablation."""
+    exp_dir = PROJECT_ROOT / "experiments"
+
+    conditions = {
+        "normal": ("Normal", "#000000"),
+        "no_boundary": ("No Boundary", "#56B4E9"),
+    }
+
+    cond_data: dict[str, list[float]] = {}
+    for cond, (_label, _color) in conditions.items():
+        path = exp_dir / f"spatial_{cond}.json"
+        if not path.exists():
+            print(f"  SKIP: {path} not found")
+            return
+        results = load_json(path)
+        # Collect final spatial_cohesion_mean from each seed
+        finals = []
+        for r in results:
+            if r.get("samples"):
+                last = r["samples"][-1]
+                finals.append(last.get("spatial_cohesion_mean", 0.0))
+        cond_data[cond] = finals
+
+    if not all(cond_data.values()):
+        print("  SKIP: insufficient spatial data")
+        return
+
+    fig, ax = plt.subplots(figsize=(3.4, 2.8))
+
+    cond_list = list(conditions.keys())
+    data_list = [np.array(cond_data[c]) for c in cond_list]
+    labels = [conditions[c][0] for c in cond_list]
+    colors = [conditions[c][1] for c in cond_list]
+
+    bp = ax.boxplot(data_list, tick_labels=labels, patch_artist=True, widths=0.5)
+    for patch, color in zip(bp["boxes"], colors, strict=True):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.3)
+
+    # Overlay individual points
+    rng = np.random.default_rng(0)
+    for i, (vals, color) in enumerate(zip(data_list, colors, strict=True)):
+        jitter = rng.uniform(-0.1, 0.1, size=len(vals))
+        ax.scatter(i + 1 + jitter, vals, s=12, alpha=0.5,
+                   color=color, edgecolors="none", zorder=5)
+
+    ax.set_ylabel("Spatial Cohesion (mean pairwise dist.)")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "fig_spatial.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_spatial.pdf'}")
+
+
+def generate_lineage() -> None:
+    """Figure 12: Phylogenetic depth plot — generation vs step, colored by seed."""
+    analysis_path = PROJECT_ROOT / "experiments" / "lineage_analysis.json"
+    if not analysis_path.exists():
+        print(f"  SKIP: {analysis_path} not found")
+        return
+
+    with open(analysis_path) as f:
+        analysis = json.load(f)
+
+    events = analysis.get("events", [])
+    if len(events) < 5:
+        print("  SKIP: insufficient lineage events")
+        return
+
+    fig, ax = plt.subplots(figsize=(3.4, 2.8))
+
+    steps = [e["step"] for e in events]
+    gens = [e["generation"] for e in events]
+    seeds = [e["seed"] for e in events]
+
+    scatter = ax.scatter(steps, gens, c=seeds, s=4, alpha=0.4,
+                         cmap="viridis", edgecolors="none")
+    ax.set_xlabel("Simulation Step")
+    ax.set_ylabel("Generation")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # Depth stats annotation
+    ds = analysis.get("depth_stats", {})
+    if ds:
+        ax.text(0.98, 0.95,
+                f"Max gen: {ds.get('max', 0)}\nMean: {ds.get('mean', 0):.1f}",
+                transform=ax.transAxes, ha="right", va="top", fontsize=7,
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
+                          edgecolor="0.8", alpha=0.9))
+
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "fig_lineage.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_lineage.pdf'}")
+
+
+def generate_cyclic_sweep() -> None:
+    """Update cyclic figure with period sweep data."""
+    exp_dir = PROJECT_ROOT / "experiments"
+    periods = [500, 1000, 2000, 5000]
+
+    # Collect final alive counts per period x condition
+    period_data: dict[int, dict[str, list[float]]] = {}
+    for period in periods:
+        period_data[period] = {}
+        for evo_label in ["evo_on", "evo_off"]:
+            path = exp_dir / f"cyclic_sweep_sweep_p{period}_{evo_label}.json"
+            if not path.exists():
+                print(f"  SKIP: {path} not found")
+                return
+            results = load_json(path)
+            period_data[period][evo_label] = [
+                r["final_alive_count"] for r in results if "samples" in r
+            ]
+
+    fig, ax = plt.subplots(figsize=(3.4, 2.8))
+
+    x = np.arange(len(periods))
+    width = 0.35
+
+    evo_on_means = [np.mean(period_data[p]["evo_on"]) for p in periods]
+    evo_on_sems = [np.std(period_data[p]["evo_on"], ddof=1) / np.sqrt(len(period_data[p]["evo_on"]))
+                   for p in periods]
+    evo_off_means = [np.mean(period_data[p]["evo_off"]) for p in periods]
+    evo_off_sems = [np.std(period_data[p]["evo_off"], ddof=1) / np.sqrt(len(period_data[p]["evo_off"]))
+                    for p in periods]
+
+    ax.bar(x - width/2, evo_on_means, width, yerr=evo_on_sems,
+           label="Evolution On", color="#000000", alpha=0.6, capsize=3)
+    ax.bar(x + width/2, evo_off_means, width, yerr=evo_off_sems,
+           label="Evolution Off", color="#CC79A7", alpha=0.6, capsize=3)
+
+    ax.set_xlabel("Cycle Period (steps)")
+    ax.set_ylabel("Final Alive Count")
+    ax.set_xticks(x)
+    ax.set_xticklabels([str(p) for p in periods])
+    ax.set_ylim(bottom=0)
+    ax.legend(loc="best", fontsize=7)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "fig_cyclic_sweep.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_cyclic_sweep.pdf'}")
+
+
 if __name__ == "__main__":
     print("Generating paper figures...")
 
@@ -751,5 +1015,17 @@ if __name__ == "__main__":
 
     print("Figure 9: Phenotype clustering")
     generate_phenotype()
+
+    print("Figure 10: Coupling graph")
+    generate_coupling()
+
+    print("Figure 11: Spatial cohesion")
+    generate_spatial()
+
+    print("Figure 12: Lineage phylogeny")
+    generate_lineage()
+
+    print("Figure 13: Cyclic period sweep")
+    generate_cyclic_sweep()
 
     print("Done.")
