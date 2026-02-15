@@ -1051,6 +1051,19 @@ impl World {
         }
     }
 
+    /// Effective sensing radius for an organism, accounting for developmental stage.
+    fn effective_sensing_radius(&self, org_idx: usize) -> f64 {
+        let dev_sensing = if self.config.enable_growth {
+            self.organisms[org_idx]
+                .developmental_program
+                .stage_factors(self.organisms[org_idx].maturity)
+                .1
+        } else {
+            1.0
+        };
+        self.config.sensing_radius * dev_sensing as f64
+    }
+
     /// Compute mean pairwise agent distance per alive organism (toroidal-aware).
     /// Lower values indicate tighter spatial cohesion.
     fn compute_spatial_cohesion(&self) -> f32 {
@@ -1062,7 +1075,7 @@ impl World {
             let positions: Vec<[f64; 2]> = self
                 .agents
                 .iter()
-                .filter(|a| a.organism_id == org.id && org.agent_ids.contains(&a.id))
+                .filter(|a| a.organism_id == org.id)
                 .map(|a| a.position)
                 .collect();
             let n = positions.len();
@@ -1323,15 +1336,7 @@ impl World {
                 deltas.push([0.0; 4]);
                 continue;
             }
-            let dev_sensing = if self.config.enable_growth {
-                self.organisms[org_idx]
-                    .developmental_program
-                    .stage_factors(self.organisms[org_idx].maturity)
-                    .1
-            } else {
-                1.0
-            };
-            let effective_radius = self.config.sensing_radius * dev_sensing as f64;
+            let effective_radius = self.effective_sensing_radius(org_idx);
             let neighbor_count = spatial::count_neighbors(
                 &tree,
                 agent.position,
@@ -1601,15 +1606,7 @@ impl World {
                 if !self.organisms.get(org_idx).is_some_and(|o| o.alive) {
                     continue;
                 }
-                let dev_sensing = if self.config.enable_growth {
-                    self.organisms[org_idx]
-                        .developmental_program
-                        .stage_factors(self.organisms[org_idx].maturity)
-                        .1
-                } else {
-                    1.0
-                };
-                let effective_radius = self.config.sensing_radius * dev_sensing as f64;
+                let effective_radius = self.effective_sensing_radius(org_idx);
                 let neighbor_count = spatial::count_neighbors(
                     &tree,
                     agent.position,

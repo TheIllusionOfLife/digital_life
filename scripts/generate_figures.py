@@ -803,7 +803,7 @@ def generate_coupling() -> None:
         ("Metabolism", "Cellular Org.", "energy"),
         ("Homeostasis", "Cellular Org.", "repair"),
     ]
-    for src, dst, label in design_edges:
+    for src, dst, _label in design_edges:
         if src not in positions or dst not in positions:
             continue
         # Check if already drawn from data
@@ -911,8 +911,8 @@ def generate_lineage() -> None:
     gens = [e["generation"] for e in events]
     seeds = [e["seed"] for e in events]
 
-    scatter = ax.scatter(steps, gens, c=seeds, s=4, alpha=0.4,
-                         cmap="viridis", edgecolors="none")
+    ax.scatter(steps, gens, c=seeds, s=4, alpha=0.4,
+               cmap="viridis", edgecolors="none")
     ax.set_xlabel("Simulation Step")
     ax.set_ylabel("Generation")
     ax.spines["top"].set_visible(False)

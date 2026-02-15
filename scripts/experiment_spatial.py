@@ -25,9 +25,11 @@ STEPS = 2000
 SAMPLE_EVERY = 50
 SEEDS = list(range(100, 130))  # test set: seeds 100-129, n=30
 
+GRAPH_OVERRIDES = {"metabolism_mode": "graph"}
+
 CONDITIONS = {
-    "normal": {},
-    "no_boundary": {"enable_boundary_maintenance": False},
+    "normal": {**GRAPH_OVERRIDES},
+    "no_boundary": {**GRAPH_OVERRIDES, "enable_boundary_maintenance": False},
 }
 
 TSV_COLUMNS = [

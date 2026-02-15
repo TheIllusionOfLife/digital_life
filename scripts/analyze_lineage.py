@@ -47,13 +47,13 @@ def analyze_lineage(results: list[dict]) -> dict:
             all_depths.append(max_gen)
 
         # Compute breadth (number of children per parent)
-        for parent_id, children in children_map.items():
+        for _parent_id, children in children_map.items():
             all_breadths.append(len(children))
 
         # Collect events with seed index for visualization
         for e in events:
             all_events.append({
-                "seed": seed_idx,
+                "seed": seed_idx,  # 0-based run index within the results list
                 "step": e["step"],
                 "generation": e["generation"],
                 "parent_stable_id": e["parent_stable_id"],

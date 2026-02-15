@@ -54,10 +54,11 @@ impl Organism {
     }
 }
 
-/// Decoded developmental program from genome segment 3 (8 floats).
+/// Decoded developmental program from genome segment 3 (7 active floats of 8).
 ///
 /// Encodes a 3-stage (juvenile → adolescent → adult) developmental trajectory
 /// that affects boundary repair, sensing radius, and metabolic efficiency.
+/// The 8th float in the segment is reserved for future use.
 #[derive(Clone, Debug)]
 pub struct DevelopmentalProgram {
     /// g[0]: 2^(g.clamp(-2,2)) → [0.25, 4.0] — maturation speed modifier.
@@ -87,7 +88,7 @@ impl DevelopmentalProgram {
         lo + sig * (hi - lo)
     }
 
-    /// Decode genome segment 3 (8 floats) into developmental parameters.
+    /// Decode genome segment 3 (7 active of 8 floats) into developmental parameters.
     pub fn decode(segment: &[f32]) -> Self {
         assert!(segment.len() >= 7, "developmental segment needs ≥7 floats");
         let s = Self::sigmoid;
@@ -105,6 +106,11 @@ impl DevelopmentalProgram {
 
     /// Returns (boundary_repair_factor, sensing_factor, metabolic_factor) for the
     /// current maturity level. Adults (maturity ≥ 1.0) always return (1.0, 1.0, 1.0).
+    ///
+    /// Stage transitions may be discontinuous depending on genome-encoded parameters.
+    /// With default (zero) genomes, adolescent factors are higher than juvenile,
+    /// ensuring monotonic improvement. Evolved genomes may produce non-monotonic
+    /// transitions, which is by design — natural development can have trade-offs.
     pub fn stage_factors(&self, maturity: f32) -> (f32, f32, f32) {
         if maturity >= 1.0 {
             return (1.0, 1.0, 1.0);
@@ -183,6 +189,20 @@ mod tests {
         );
         assert!(
             (from_decode.adolescent_threshold - from_default.adolescent_threshold).abs()
+                < f32::EPSILON
+        );
+        assert!(
+            (from_decode.adolescent_boundary_repair - from_default.adolescent_boundary_repair)
+                .abs()
+                < f32::EPSILON
+        );
+        assert!(
+            (from_decode.adolescent_sensing - from_default.adolescent_sensing).abs() < f32::EPSILON
+        );
+        assert!(
+            (from_decode.juvenile_metabolic_efficiency
+                - from_default.juvenile_metabolic_efficiency)
+                .abs()
                 < f32::EPSILON
         );
     }

@@ -28,7 +28,7 @@ SAMPLE_EVERY = 100
 SEEDS = list(range(100, 130))  # test set: seeds 100-129, n=30
 
 PERIODS = [500, 1000, 2000, 5000]
-NORMAL_RATE = 0.01
+NORMAL_RATE = 0.01  # matches config default; not passed as override
 LOW_RATE = 0.005
 
 

@@ -7,7 +7,7 @@ Usage:
     uv run python scripts/experiment_final.py > experiments/final_data.tsv
 
 Output: TSV data to stdout + summary report to stderr.
-        Raw JSON saved to experiments/final_{condition}.json.
+        Raw JSON saved to experiments/final_graph_{condition}.json.
 """
 
 import json
