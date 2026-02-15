@@ -347,9 +347,11 @@ each comprising 25 swarm agents.
 Resources regenerate at 0.01 per cell per step with no diffusion and
 toroidal wrap boundary conditions.
 No early stopping is applied.
-Ablation toggles do not alter timestep duration or random event ordering;
-disabled processes are simply skipped, ensuring identical RNG sequences
-across conditions.
+Ablation toggles do not alter timestep duration or event ordering;
+disabled processes are simply skipped.
+Each seed produces a deterministic, reproducible outcome within a given
+condition, though RNG call sequences differ across conditions when
+ablated processes (e.g., reproduction) skip conditional RNG draws.
 
 \subsection{Statistical Design}
 
@@ -413,6 +415,13 @@ Evolution ablation (purple) shows the weakest effect (Cliff's $\delta$=0.32),
 with populations remaining viable but slightly smaller than normal---consistent
 with evolution operating as an optimization process rather than a survival
 necessity at these timescales.
+AUC of the alive-count curve corroborates $N_T$ rankings across all
+conditions (normal AUC=435{,}376 vs.\ 74{,}545--412{,}518 for ablations).
+Median organism lifespan reveals an individual-vs-population distinction:
+reproduction-ablated organisms live longer individually (median 751 vs.\
+132 steps for normal) despite population collapse, confirming that the
+population decline reflects absent replacement rather than individual
+fragility.
 Per-seed distributions are shown in Figure~\ref{fig:distributions}.
 
 At $T=500$ (before long-term population dynamics dominate),

@@ -46,8 +46,9 @@ def load_timeseries(path: Path) -> dict[str, np.ndarray]:
             step = s["step"]
             step_vals["energy_mean"][step].append(s["energy_mean"])
             step_vals["boundary_mean"][step].append(s["boundary_mean"])
-            is_mean = s.get("internal_state_mean", [0, 0, 0, 0])
-            step_vals["internal_state_mean_0"][step].append(is_mean[0])
+            is_mean = s.get("internal_state_mean")
+            if is_mean and len(is_mean) > 0:
+                step_vals["internal_state_mean_0"][step].append(is_mean[0])
 
     # Average across seeds for each step, ordered by step
     timeseries = {}
@@ -110,6 +111,10 @@ def main():
             continue
 
         correlations = cross_correlation(timeseries[var_a], timeseries[var_b], MAX_LAG)
+
+        if not correlations:
+            print(f"  SKIP: {label} (insufficient data for correlation)")
+            continue
 
         # Best lag (highest absolute Pearson r)
         best = max(correlations, key=lambda c: abs(c["pearson_r"]))

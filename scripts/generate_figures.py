@@ -520,6 +520,9 @@ def generate_ablation_distributions() -> None:
             [r["final_alive_count"] for r in results if "samples" in r]
         )
 
+    if condition_data["normal"].size == 0:
+        print("  SKIP: No valid 'normal' condition data found")
+        return
     normal_mean = float(np.mean(condition_data["normal"]))
 
     fig, ax = plt.subplots(figsize=(7, 3.0))
