@@ -12,6 +12,7 @@ Build and evolve the Digital Life simulation with reproducible, testable changes
 - Run full checks: `./scripts/check.sh`
 - Run spike benchmark: `cargo run -p digital-life-spike --release`
 - Build Python extension: `uv run maturin develop --manifest-path crates/digital-life-py/Cargo.toml`
+- Compile paper: `cd paper && tectonic main.tex`
 
 ## Code Style and Quality Rules
 
@@ -42,6 +43,7 @@ Build and evolve the Digital Life simulation with reproducible, testable changes
 ## Environment and Tooling Quirks
 
 - Use `uv` for Python-related tooling; avoid ad-hoc global package installs.
+- Use `tectonic` for LaTeX compilation (not `latexmk` or `pdflatex`). Run `cd paper && tectonic main.tex` to produce the PDF.
 - Running `cargo run -p digital-life-spike` without `--release` yields non-representative performance.
 - Local build artifacts (`target/`, extension binaries) should remain untracked.
 

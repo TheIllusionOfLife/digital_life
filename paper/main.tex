@@ -1,6 +1,14 @@
 \documentclass[letterpaper]{article}
 \usepackage{natbib,alifeconf}
-\usepackage{graphicx,amsmath,booktabs,xcolor,multirow}
+\usepackage{graphicx,amsmath,amssymb,booktabs,xcolor,multirow}
+\usepackage{url,hyperref}
+
+\newcommand\blfootnote[1]{%
+  \begingroup
+  \renewcommand\thefootnote{}\footnote{#1}%
+  \addtocounter{footnote}{-1}%
+  \endgroup
+}
 
 \title{Digital Life: Implementing Seven Biological Criteria\\Through Functional Analogy and Criterion-Ablation}
 \author{Anonymous}
@@ -38,6 +46,10 @@ The strongest single-ablation effects arise from disabling reproduction
 interdependent components of organismal viability rather than decorative
 labels.
 \end{abstract}
+
+Submission type: \textbf{Full Paper}\\
+Data/Code available at: \url{https://anonymous.4open.science/}
+\blfootnote{\textcopyright\ 2026 Authors. Published under a Creative Commons Attribution 4.0 International (CC BY 4.0) license.}
 
 % ============================================================================
 \section{Introduction}
@@ -197,18 +209,18 @@ pathways, and failure modes for each criterion. All criteria satisfy the three
 functional-analogy conditions (dynamic process, measurable degradation,
 feedback coupling).}
 \label{tab:criteria}
-\small
-\begin{tabular}{@{}p{1.3cm}p{2.2cm}p{2.6cm}p{3.8cm}p{2.4cm}@{}}
+\footnotesize
+\begin{tabular}{@{}p{1.5cm}p{2.0cm}p{2.6cm}p{4.0cm}p{2.2cm}@{}}
 \toprule
-Criterion & State Variables & Ablation Operator & Coupling ($\to$ mediator $\to$ target) & Failure Mode \\
+Criterion & State Vars & Ablation & Coupling & Failure \\
 \midrule
-Cell.\ Org. & $b \in [0,1]$ & Skip repair; decay only & $e \to$ repair rate $\to b$ & $b<0.1 \to$ death \\
-Metabolism & $e,r,w$; graph $\mathbf{p}$ & Freeze $(e,r,w)$ & throughput $\to e \to$ boundary repair & Energy depletion \\
-Homeostasis & $\mathbf{s} \in \mathbb{R}^3$ & Skip NN delta; decay only & $s_0 \to$ repair efficacy & State drift \\
-Growth & $m \in [0,1]$ & Freeze $m=0$ & maturity $\to$ reproduction gate & Cannot reproduce \\
-Reproduction & Population event & Skip division check & energy cost $\to$ parent $e$ & No replacement \\
-Response & $\mathbf{v}$ & Skip velocity delta & movement $\to$ resource access $\to r$ & Starvation \\
-Evolution & genome $\mathbf{g}$ & Copy without mutation & $\mathbf{g}$ variation $\to$ all criteria & No adaptation \\
+Cell.\ Org. & $b \in [0,1]$ & Skip repair; decay only & $e \to$ repair rate $\to b$ & $b{<}0.1 \to$ death \\
+Metab. & $e,r,w$; graph $\mathbf{p}$ & Freeze $(e,r,w)$ & throughput $\to e \to$ bdry repair & Energy depletion \\
+Homeo. & $\mathbf{s} \in \mathbb{R}^3$ & Skip NN delta; decay & $s_0 \to$ repair efficacy & State drift \\
+Growth & $m \in [0,1]$ & Freeze $m{=}0$ & maturity $\to$ reprod.\ gate & No reproduction \\
+Reprod. & Pop.\ event & Skip division check & energy cost $\to$ parent $e$ & No replacement \\
+Response & $\mathbf{v}$ & Skip velocity delta & movement $\to$ resource $\to r$ & Starvation \\
+Evolution & genome $\mathbf{g}$ & Copy w/o mutation & $\mathbf{g}$ variation $\to$ all & No adaptation \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -361,24 +373,24 @@ decline compared to the normal baseline (Table~\ref{tab:ablation}).
 
 \begin{table}[t]
 \centering
-\caption{Criterion-ablation results ($n$=30 independent seeds per condition;
-each seed maps to one $N_T$ scalar). Normal baseline
-mean: 293.1 (median: 294, IQR: 282--310). Seven one-sided tests
-(each ablation vs.\ normal baseline), Holm-Bonferroni corrected at
-$\alpha=0.05$. $^{***}p<0.001$, $^{*}p<0.05$.}
+\caption{Criterion-ablation results ($n$=30 per condition).
+Normal baseline mean: 293.1 (median: 294, IQR: 282--310).
+$\delta$=Cliff's delta [bootstrap 95\% CI].
+Seven one-sided tests, Holm-Bonferroni corrected at $\alpha=0.05$.
+$^{***}p<0.001$, $^{*}p<0.05$.}
 \label{tab:ablation}
 \small
-\begin{tabular}{@{}lrrrrr@{}}
+\begin{tabular}{@{}lr@{\hskip 4pt}r@{\hskip 4pt}l@{\hskip 4pt}r@{\hskip 4pt}r@{}}
 \toprule
-Condition & Mean & $\Delta$\% & Cliff's $\delta$ [95\% CI] & $p_{\text{corr}}$ & Sig. \\
+Condition & Mean & $\Delta$\% & $\delta$ [95\% CI] & $p_{\text{corr}}$ & Sig. \\
 \midrule
-No Reproduction & 31.3 & $-$89.3 & 1.00 [1.00, 1.00] & $<$0.001 & $^{***}$ \\
-No Response     & 34.1 & $-$88.4 & 1.00 [1.00, 1.00] & $<$0.001 & $^{***}$ \\
-No Metabolism   & 46.0 & $-$84.3 & 1.00 [1.00, 1.00] & $<$0.001 & $^{***}$ \\
-No Homeostasis  & 68.3 & $-$76.7 & 1.00 [1.00, 1.00] & $<$0.001 & $^{***}$ \\
-No Boundary     & 121.8 & $-$58.5 & 1.00 [1.00, 1.00] & $<$0.001 & $^{***}$ \\
-No Growth       & 185.6 & $-$36.7 & 1.00 [1.00, 1.00] & $<$0.001 & $^{***}$ \\
-No Evolution    & 278.3 & $-$5.1  & 0.32 [0.02, 0.59] & 0.016 & $^{*}$ \\
+No Reprod.  & 31.3 & $-$89.3 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Response & 34.1 & $-$88.4 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Metab.   & 46.0 & $-$84.3 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Homeo.   & 68.3 & $-$76.7 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Boundary & 121.8 & $-$58.5 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Growth   & 185.6 & $-$36.7 & 1.00 [1.00, 1.00] & $<$.001 & $^{***}$ \\
+No Evol.    & 278.3 & $-$5.1  & 0.32 [0.02, 0.59] & .016 & $^{*}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -514,18 +526,18 @@ failure pathways). Baseline $\bar{x}$=293.1, consistent with
 Table~\ref{tab:ablation}.}
 \label{tab:pairwise}
 \small
-\begin{tabular}{@{}lrrrr@{}}
+\begin{tabular}{@{}l@{\hskip 5pt}r@{\hskip 5pt}r@{\hskip 5pt}r@{\hskip 5pt}r@{}}
 \toprule
-Pair & $\Delta_{AB}$ & Expected & Synergy & Ratio \\
+Pair & $\Delta_{AB}$ & Exp. & Syn. & Ratio \\
 \midrule
-(Metab, Homeo)    & 249.9 & 472.0 & $-$222.0 & 0.53 \\
-(Metab, Response)  & 247.7 & 506.1 & $-$258.4 & 0.49 \\
+(Metab, Homeo)     & 249.9 & 472.0 & $-$222.0 & 0.53 \\
+(Metab, Resp.)     & 247.7 & 506.1 & $-$258.4 & 0.49 \\
 (Reprod, Growth)   & 261.9 & 369.4 & $-$107.5 & 0.71 \\
-(Boundary, Homeo)  & 181.9 & 396.2 & $-$214.3 & 0.46 \\
-(Response, Homeo)  & 256.4 & 483.9 & $-$227.5 & 0.53 \\
+(Bdry, Homeo)      & 181.9 & 396.2 & $-$214.3 & 0.46 \\
+(Resp., Homeo)     & 256.4 & 483.9 & $-$227.5 & 0.53 \\
 (Reprod, Evol)     & 261.9 & 276.7 & $-$14.9  & 0.95 \\
 \bottomrule
-\multicolumn{5}{l}{\footnotesize Expected = $\Delta_A + \Delta_B$ (additive null model); Ratio = $\Delta_{AB}$ / Expected.}
+\multicolumn{5}{@{}l@{}}{\footnotesize Exp.\ = $\Delta_A{+}\Delta_B$; Ratio = $\Delta_{AB}$/Exp.}
 \end{tabular}
 \end{table}
 
@@ -623,14 +635,14 @@ The modest 2000-step evolution effect ($d$=0.57) grows to $d$=1.43 at
 10,000 steps and $d$=1.01 under environmental perturbation, confirming
 that evolutionary adaptation accumulates across generations.
 
-\paragraph{Are criteria merely engineered subsystems?}
+\paragraph{Are criteria merely engineered?}
 One might argue that criterion ablation merely reflects system
 design---disabling any engineered subsystem would degrade performance.
-Three lines of evidence argue against this.
-First, the proxy control shows that alternative metabolism implementations
-satisfying the same functional-analogy definition produce qualitatively
-distinct dynamics (Figure~\ref{fig:proxy}), ruling out tautological
-definitions.
+Three lines of evidence argue against this interpretation.
+First, the proxy control comparison shows that alternative metabolism
+implementations satisfying the same functional-analogy definition produce
+qualitatively distinct ecological dynamics (Figure~\ref{fig:proxy}),
+ruling out tautological definitions.
 Second, pairwise ablations reveal sub-additive interactions
 (Table~\ref{tab:pairwise}), indicating shared failure pathways
 inconsistent with independent modules.
