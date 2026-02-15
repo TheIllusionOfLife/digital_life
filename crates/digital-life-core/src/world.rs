@@ -2574,17 +2574,19 @@ mod tests {
         for _ in 0..10 {
             world.step();
         }
-        if let Some(child) = world.organisms.iter().find(|o| o.generation == 1) {
-            // Child should have a decoded developmental program
-            assert!(
-                child.developmental_program.maturation_rate_modifier > 0.0,
-                "child should have decoded developmental program"
-            );
-            assert!(
-                child.parent_stable_id.is_some(),
-                "child should have parent_stable_id"
-            );
-        }
+        let child = world
+            .organisms
+            .iter()
+            .find(|o| o.generation == 1)
+            .expect("reproduction should produce a generation-1 child within 10 steps");
+        assert!(
+            child.developmental_program.maturation_rate_modifier > 0.0,
+            "child should have decoded developmental program"
+        );
+        assert!(
+            child.parent_stable_id.is_some(),
+            "child should have parent_stable_id"
+        );
     }
 
     #[test]

@@ -751,6 +751,14 @@ def generate_coupling() -> None:
         "boundary_mean": "Cellular Org.",
         "internal_state_mean_0": "Homeostasis",
     }
+    # Ensure all metric keys from coupling data have a mapping so no pairs are silently dropped
+    for pair in pairs:
+        for key in ("var_a", "var_b"):
+            metric = pair[key]
+            if metric not in short_names:
+                # Generate a readable fallback from the metric key
+                short_names[metric] = metric.replace("_", " ").title()
+
     n = len(criteria)
     angles = [2 * np.pi * i / n - np.pi / 2 for i in range(n)]
     positions = {name: (np.cos(a), np.sin(a)) for name, a in zip(criteria, angles)}
@@ -957,12 +965,18 @@ def generate_cyclic_sweep() -> None:
     x = np.arange(len(periods))
     width = 0.35
 
-    evo_on_means = [np.mean(period_data[p]["evo_on"]) for p in periods]
-    evo_on_sems = [np.std(period_data[p]["evo_on"], ddof=1) / np.sqrt(len(period_data[p]["evo_on"]))
-                   for p in periods]
-    evo_off_means = [np.mean(period_data[p]["evo_off"]) for p in periods]
-    evo_off_sems = [np.std(period_data[p]["evo_off"], ddof=1) / np.sqrt(len(period_data[p]["evo_off"]))
-                    for p in periods]
+    def safe_mean(arr: list[float]) -> float:
+        return float(np.mean(arr)) if len(arr) >= 1 else np.nan
+
+    def safe_sem(arr: list[float]) -> float:
+        if len(arr) < 2:
+            return 0.0
+        return float(np.std(arr, ddof=1) / np.sqrt(len(arr)))
+
+    evo_on_means = [safe_mean(period_data[p]["evo_on"]) for p in periods]
+    evo_on_sems = [safe_sem(period_data[p]["evo_on"]) for p in periods]
+    evo_off_means = [safe_mean(period_data[p]["evo_off"]) for p in periods]
+    evo_off_sems = [safe_sem(period_data[p]["evo_off"]) for p in periods]
 
     ax.bar(x - width/2, evo_on_means, width, yerr=evo_on_sems,
            label="Evolution On", color="#000000", alpha=0.6, capsize=3)
