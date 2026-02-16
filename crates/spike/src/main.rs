@@ -52,11 +52,12 @@ fn create_agents(config: &SimConfig) -> Vec<Agent> {
     for org in 0..config.num_organisms {
         for i in 0..config.agents_per_organism {
             let id = (org * config.agents_per_organism + i) as u32;
+            let organism_id = u16::try_from(org).expect("Organism ID overflow (max 65535)");
             let pos = [
                 rng.random::<f64>() * config.world_size,
                 rng.random::<f64>() * config.world_size,
             ];
-            agents.push(Agent::new(id, org as u16, pos));
+            agents.push(Agent::new(id, organism_id, pos));
         }
     }
     agents
@@ -182,8 +183,9 @@ fn main() {
         Commands::Run { config, out, steps } => {
             let file = File::open(&config).expect("failed to open config file");
             let reader = BufReader::new(file);
-            let sim_config: SimConfig = serde_json::from_reader(reader).expect("failed to parse config");
-            
+            let sim_config: SimConfig =
+                serde_json::from_reader(reader).expect("failed to parse config");
+
             // Validate config
             if let Err(e) = sim_config.validate() {
                 eprintln!("Config validation error: {}", e);
@@ -196,9 +198,9 @@ fn main() {
             let agents = create_agents(&sim_config);
             let nns = create_nns(&sim_config);
             let mut world = World::new(agents, nns, sim_config.clone());
-            
+
             let summary = world.run_experiment(steps, 100);
-            
+
             if let Some(out_dir) = out {
                 std::fs::create_dir_all(&out_dir).expect("failed to create output directory");
                 let summary_path = out_dir.join("summary.json");
@@ -206,7 +208,7 @@ fn main() {
                 serde_json::to_writer_pretty(file, &summary).expect("failed to write summary");
                 println!("Run complete. Results saved to {:?}", out_dir);
             } else {
-                 println!("Run complete. Final alive: {}", summary.final_alive_count);
+                println!("Run complete. Final alive: {}", summary.final_alive_count);
             }
         }
     }
