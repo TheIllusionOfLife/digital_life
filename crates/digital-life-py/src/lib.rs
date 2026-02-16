@@ -219,10 +219,10 @@ fn checked_total_agents(num_organisms: usize, agents_per_organism: usize) -> Res
     let total_agents = num_organisms
         .checked_mul(agents_per_organism)
         .ok_or_else(|| "num_organisms * agents_per_organism overflows usize".to_string())?;
-    if total_agents > World::MAX_TOTAL_AGENTS {
+    if total_agents > SimConfig::MAX_TOTAL_AGENTS {
         return Err(format!(
             "total agents ({total_agents}) exceeds supported maximum ({})",
-            World::MAX_TOTAL_AGENTS
+            SimConfig::MAX_TOTAL_AGENTS
         ));
     }
     Ok(total_agents)
@@ -258,16 +258,16 @@ mod tests {
 
     #[test]
     fn checked_total_agents_rejects_too_many() {
-        let result = checked_total_agents(1, World::MAX_TOTAL_AGENTS + 1);
+        let result = checked_total_agents(1, SimConfig::MAX_TOTAL_AGENTS + 1);
         assert!(result.is_err());
     }
 
     #[test]
     fn checked_total_agents_accepts_limit() {
-        let result = checked_total_agents(1, World::MAX_TOTAL_AGENTS);
+        let result = checked_total_agents(1, SimConfig::MAX_TOTAL_AGENTS);
         assert_eq!(
             result.expect("limit should be accepted"),
-            World::MAX_TOTAL_AGENTS
+            SimConfig::MAX_TOTAL_AGENTS
         );
     }
 

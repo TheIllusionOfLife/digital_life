@@ -39,3 +39,4 @@ paper/*.synctex.gz
 .vscode/
 *.swp
 *.swo
+out/

@@ -1,3 +1,4 @@
+use clap::{Parser, Subcommand};
 use digital_life_core::agent::Agent;
 use digital_life_core::config::{MetabolismMode, SimConfig};
 use digital_life_core::nn::NeuralNet;
@@ -5,11 +6,72 @@ use digital_life_core::world::World;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
+use std::fs::File;
+use std::io::BufReader;
+use std::path::PathBuf;
 
 const WORLD_SIZE: f64 = 100.0;
 const WARMUP_STEPS: usize = 10;
 const BENCHMARK_STEPS: usize = 200;
 const TARGET_SPS: f64 = 100.0;
+
+#[derive(Parser)]
+#[command(name = "digital-life")]
+#[command(about = "Digital Life Simulation CLI")]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Run a single simulation from a config file
+    Run {
+        /// Path to config file (JSON)
+        #[arg(long)]
+        config: PathBuf,
+
+        /// Output directory for results (optional)
+        #[arg(long)]
+        out: Option<PathBuf>,
+
+        /// Number of simulation steps to run (default: 10000)
+        #[arg(long, default_value_t = 10000)]
+        steps: usize,
+    },
+    /// Run the performance benchmark suite
+    Benchmark,
+    /// Dump the default configuration to stdout
+    DumpDefaultConfig,
+}
+
+fn create_agents(config: &SimConfig) -> Vec<Agent> {
+    let total_agents = config.num_organisms * config.agents_per_organism;
+    let mut rng = ChaCha12Rng::seed_from_u64(config.seed);
+    let mut agents = Vec::with_capacity(total_agents);
+    for org in 0..config.num_organisms {
+        for i in 0..config.agents_per_organism {
+            let id = (org * config.agents_per_organism + i) as u32;
+            let organism_id = u16::try_from(org).expect("Organism ID overflow (max 65535)");
+            let pos = [
+                rng.random::<f64>() * config.world_size,
+                rng.random::<f64>() * config.world_size,
+            ];
+            agents.push(Agent::new(id, organism_id, pos));
+        }
+    }
+    agents
+}
+
+fn create_nns(config: &SimConfig) -> Vec<NeuralNet> {
+    let mut rng = ChaCha12Rng::seed_from_u64(config.seed);
+    (0..config.num_organisms)
+        .map(|_| {
+            let weights = (0..NeuralNet::WEIGHT_COUNT).map(|_| rng.random::<f32>() * 2.0 - 1.0);
+            NeuralNet::from_weights(weights)
+        })
+        .collect()
+}
 
 fn run_benchmark(
     num_organisms: usize,
@@ -17,38 +79,23 @@ fn run_benchmark(
     seed: u64,
     metabolism_mode: MetabolismMode,
 ) {
-    let total_agents = num_organisms * agents_per_organism;
-    let mut rng = ChaCha12Rng::seed_from_u64(seed);
-
-    // Create agents
-    let mut agents = Vec::with_capacity(total_agents);
-    for org in 0..num_organisms {
-        for i in 0..agents_per_organism {
-            let id = (org * agents_per_organism + i) as u32;
-            let pos = [
-                rng.random::<f64>() * WORLD_SIZE,
-                rng.random::<f64>() * WORLD_SIZE,
-            ];
-            agents.push(Agent::new(id, org as u16, pos));
-        }
-    }
-
-    // Create NNs (one per organism)
-    let nns: Vec<NeuralNet> = (0..num_organisms)
-        .map(|_| {
-            let weights = (0..NeuralNet::WEIGHT_COUNT).map(|_| rng.random::<f32>() * 2.0 - 1.0);
-            NeuralNet::from_weights(weights)
-        })
-        .collect();
-
     let config = SimConfig {
         world_size: WORLD_SIZE,
         num_organisms,
         agents_per_organism,
         metabolism_mode,
+        seed, // Use provided seed
         ..SimConfig::default()
     };
-    let mut world = World::new(agents, nns, config);
+
+    if let Err(e) = config.validate() {
+        eprintln!("Benchmark config validation error: {}", e);
+        return;
+    }
+
+    let agents = create_agents(&config);
+    let nns = create_nns(&config);
+    let mut world = World::new(agents, nns, config.clone());
 
     // Warmup
     for _ in 0..WARMUP_STEPS {
@@ -72,6 +119,7 @@ fn run_benchmark(
     let avg_step_us = total_time as f64 / BENCHMARK_STEPS as f64;
     let steps_per_sec = 1_000_000.0 / avg_step_us;
 
+    let total_agents = num_organisms * agents_per_organism;
     println!(
         "--- {total_agents} agents ({num_organisms} organisms x {agents_per_organism} agents) ---"
     );
@@ -98,29 +146,70 @@ fn run_benchmark(
 }
 
 fn main() {
-    if cfg!(debug_assertions) {
-        eprintln!("WARNING: running in debug mode. Results are not representative.");
-        eprintln!("         Use: cargo run -p digital-life-spike --release");
-        eprintln!();
-    }
-    println!("=== Digital Life Feasibility Spike ===");
-    println!("Warmup: {WARMUP_STEPS} steps, Benchmark: {BENCHMARK_STEPS} steps");
-    println!("Target: >={TARGET_SPS} steps/sec for 2500 agents");
-    println!();
+    let cli = Cli::parse();
 
-    // Multiple configurations
-    let configs = [
-        (10, 10),  // 100 agents
-        (25, 25),  // 625 agents
-        (50, 50),  // 2500 agents (target)
-        (50, 100), // 5000 agents (stress test)
-    ];
+    match cli.command {
+        Commands::DumpDefaultConfig => {
+            let config = SimConfig::default();
+            println!("{}", serde_json::to_string_pretty(&config).unwrap());
+        }
+        Commands::Benchmark => {
+            if cfg!(debug_assertions) {
+                eprintln!("WARNING: running in debug mode. Results are not representative.");
+                eprintln!("         Use: cargo run -p digital-life-cli --release -- benchmark");
+                eprintln!();
+            }
+            println!("=== Digital Life Feasibility Spike ===");
+            println!("Warmup: {WARMUP_STEPS} steps, Benchmark: {BENCHMARK_STEPS} steps");
+            println!("Target: >={TARGET_SPS} steps/sec for 2500 agents");
+            println!();
 
-    let modes = [MetabolismMode::Toy, MetabolismMode::Graph];
-    for mode in modes {
-        println!("=== Mode: {:?} ===", mode);
-        for (orgs, apg) in configs {
-            run_benchmark(orgs, apg, 42, mode);
+            // Multiple configurations
+            let configs = [
+                (10, 10),  // 100 agents
+                (25, 25),  // 625 agents
+                (50, 50),  // 2500 agents (target)
+                (50, 100), // 5000 agents (stress test)
+            ];
+
+            let modes = [MetabolismMode::Toy, MetabolismMode::Graph];
+            for mode in modes {
+                println!("=== Mode: {:?} ===", mode);
+                for (orgs, apg) in configs {
+                    run_benchmark(orgs, apg, 42, mode);
+                }
+            }
+        }
+        Commands::Run { config, out, steps } => {
+            let file = File::open(&config).expect("failed to open config file");
+            let reader = BufReader::new(file);
+            let sim_config: SimConfig =
+                serde_json::from_reader(reader).expect("failed to parse config");
+
+            // Validate config
+            if let Err(e) = sim_config.validate() {
+                eprintln!("Config validation error: {}", e);
+                std::process::exit(1);
+            }
+
+            println!("Loaded config from {:?}", config);
+            println!("Simulating for {} steps...", steps);
+
+            let agents = create_agents(&sim_config);
+            let nns = create_nns(&sim_config);
+            let mut world = World::new(agents, nns, sim_config.clone());
+
+            let summary = world.run_experiment(steps, 100);
+
+            if let Some(out_dir) = out {
+                std::fs::create_dir_all(&out_dir).expect("failed to create output directory");
+                let summary_path = out_dir.join("summary.json");
+                let file = File::create(summary_path).expect("failed to create summary file");
+                serde_json::to_writer_pretty(file, &summary).expect("failed to write summary");
+                println!("Run complete. Results saved to {:?}", out_dir);
+            } else {
+                println!("Run complete. Final alive: {}", summary.final_alive_count);
+            }
         }
     }
 }

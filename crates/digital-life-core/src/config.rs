@@ -176,9 +176,469 @@ impl Default for SimConfig {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum SimConfigError {
+    InvalidNumOrganisms,
+    InvalidAgentsPerOrganism,
+    AgentCountOverflow,
+    TooManyAgents { max: usize, actual: usize },
+    InvalidWorldSize,
+    InvalidDt,
+    InvalidMaxSpeed,
+    InvalidSensingRadius,
+    InvalidNeighborNorm,
+    InvalidMetabolicViabilityFloor,
+    InvalidBoundaryDecayBaseRate,
+    InvalidBoundaryDecayEnergyScale,
+    InvalidBoundaryWastePressureScale,
+    InvalidBoundaryRepairWastePenaltyScale,
+    InvalidBoundaryRepairRate,
+    InvalidBoundaryCollapseThreshold,
+    InvalidDeathEnergyThreshold,
+    InvalidDeathBoundaryThreshold,
+    InvalidReproductionMinEnergy,
+    InvalidReproductionMinBoundary,
+    InvalidReproductionEnergyCost,
+    InvalidReproductionEnergyBalance,
+    InvalidReproductionChildMinAgents,
+    InvalidReproductionSpawnRadius,
+    InvalidCrowdingNeighborThreshold,
+    InvalidCrowdingBoundaryDecay,
+    InvalidMaxOrganismAgeSteps,
+    InvalidCompactionIntervalSteps,
+    InvalidMutationPointRate,
+    InvalidMutationPointScale,
+    InvalidMutationResetRate,
+    InvalidMutationScaleRate,
+    InvalidMutationScaleBounds,
+    InvalidMutationValueLimit,
+    InvalidMutationProbabilityBudget,
+    InvalidHomeostasisDecayRate,
+    InvalidGrowthMaturationSteps,
+    InvalidGrowthImmatureMetabolicEfficiency,
+    InvalidResourceRegenerationRate,
+    InvalidEnvironmentShiftResourceRate,
+    InvalidMetabolismEfficiencyMultiplier,
+    InvalidEnvironmentCycleLowRate,
+    ConflictingEnvironmentFeatures,
+    WorldSizeTooLarge { max: f64, actual: f64 },
+}
+
+impl std::fmt::Display for SimConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SimConfigError::InvalidNumOrganisms => {
+                write!(f, "num_organisms must be greater than 0")
+            }
+            SimConfigError::InvalidAgentsPerOrganism => {
+                write!(f, "agents_per_organism must be greater than 0")
+            }
+            SimConfigError::AgentCountOverflow => write!(f, "Total agent count overflow"),
+            SimConfigError::TooManyAgents { max, actual } => {
+                write!(f, "Too many agents: {} > max {}", actual, max)
+            }
+            SimConfigError::InvalidWorldSize => write!(f, "world_size must be positive and finite"),
+            SimConfigError::InvalidDt => write!(f, "dt must be positive and finite"),
+            SimConfigError::InvalidMaxSpeed => write!(f, "max_speed must be positive and finite"),
+            SimConfigError::InvalidSensingRadius => {
+                write!(f, "sensing_radius must be non-negative and finite")
+            }
+            SimConfigError::InvalidNeighborNorm => {
+                write!(f, "neighbor_norm must be positive and finite")
+            }
+            SimConfigError::InvalidMetabolicViabilityFloor => {
+                write!(
+                    f,
+                    "metabolic_viability_floor must be finite and non-negative"
+                )
+            }
+            SimConfigError::InvalidBoundaryDecayBaseRate => {
+                write!(
+                    f,
+                    "boundary_decay_base_rate must be finite and non-negative"
+                )
+            }
+            SimConfigError::InvalidBoundaryDecayEnergyScale => {
+                write!(
+                    f,
+                    "boundary_decay_energy_scale must be finite and non-negative"
+                )
+            }
+            SimConfigError::InvalidBoundaryWastePressureScale => {
+                write!(
+                    f,
+                    "boundary_waste_pressure_scale must be finite and non-negative"
+                )
+            }
+            SimConfigError::InvalidBoundaryRepairWastePenaltyScale => {
+                write!(
+                    f,
+                    "boundary_repair_waste_penalty_scale must be finite and non-negative"
+                )
+            }
+            SimConfigError::InvalidBoundaryRepairRate => {
+                write!(f, "boundary_repair_rate must be finite and non-negative")
+            }
+            SimConfigError::InvalidBoundaryCollapseThreshold => {
+                write!(
+                    f,
+                    "boundary_collapse_threshold must be finite and within [0,1]"
+                )
+            }
+            SimConfigError::InvalidDeathEnergyThreshold => {
+                write!(f, "death_energy_threshold must be finite and non-negative")
+            }
+            SimConfigError::InvalidDeathBoundaryThreshold => {
+                write!(
+                    f,
+                    "death_boundary_threshold must be finite and within [0,1]"
+                )
+            }
+            SimConfigError::InvalidReproductionMinEnergy => {
+                write!(f, "reproduction_min_energy must be finite and non-negative")
+            }
+            SimConfigError::InvalidReproductionMinBoundary => {
+                write!(
+                    f,
+                    "reproduction_min_boundary must be finite and within [0,1]"
+                )
+            }
+            SimConfigError::InvalidReproductionEnergyCost => {
+                write!(f, "reproduction_energy_cost must be finite and positive")
+            }
+            SimConfigError::InvalidReproductionEnergyBalance => {
+                write!(
+                    f,
+                    "reproduction_min_energy must be greater than or equal to reproduction_energy_cost"
+                )
+            }
+            SimConfigError::InvalidReproductionChildMinAgents => {
+                write!(f, "reproduction_child_min_agents must be positive")
+            }
+            SimConfigError::InvalidReproductionSpawnRadius => {
+                write!(
+                    f,
+                    "reproduction_spawn_radius must be finite and non-negative"
+                )
+            }
+            SimConfigError::InvalidCrowdingNeighborThreshold => {
+                write!(
+                    f,
+                    "crowding_neighbor_threshold must be finite and non-negative"
+                )
+            }
+            SimConfigError::InvalidCrowdingBoundaryDecay => {
+                write!(f, "crowding_boundary_decay must be finite and non-negative")
+            }
+            SimConfigError::InvalidMaxOrganismAgeSteps => {
+                write!(f, "max_organism_age_steps must be positive")
+            }
+            SimConfigError::InvalidCompactionIntervalSteps => {
+                write!(f, "compaction_interval_steps must be positive")
+            }
+            SimConfigError::InvalidMutationPointRate => {
+                write!(f, "mutation_point_rate must be finite and within [0,1]")
+            }
+            SimConfigError::InvalidMutationPointScale => {
+                write!(f, "mutation_point_scale must be finite and non-negative")
+            }
+            SimConfigError::InvalidMutationResetRate => {
+                write!(f, "mutation_reset_rate must be finite and within [0,1]")
+            }
+            SimConfigError::InvalidMutationScaleRate => {
+                write!(f, "mutation_scale_rate must be finite and within [0,1]")
+            }
+            SimConfigError::InvalidMutationScaleBounds => {
+                write!(
+                    f,
+                    "mutation_scale_min/mutation_scale_max must be finite, positive, and ordered"
+                )
+            }
+            SimConfigError::InvalidMutationValueLimit => {
+                write!(f, "mutation_value_limit must be finite and positive")
+            }
+            SimConfigError::InvalidMutationProbabilityBudget => {
+                write!(
+                    f,
+                    "mutation_point_rate + mutation_reset_rate + mutation_scale_rate must be <= 1.0"
+                )
+            }
+            SimConfigError::InvalidHomeostasisDecayRate => {
+                write!(f, "homeostasis_decay_rate must be finite and non-negative")
+            }
+            SimConfigError::InvalidGrowthMaturationSteps => {
+                write!(f, "growth_maturation_steps must be positive")
+            }
+            SimConfigError::InvalidGrowthImmatureMetabolicEfficiency => {
+                write!(
+                    f,
+                    "growth_immature_metabolic_efficiency must be finite and within [0,1]"
+                )
+            }
+            SimConfigError::InvalidResourceRegenerationRate => {
+                write!(
+                    f,
+                    "resource_regeneration_rate must be finite and non-negative"
+                )
+            }
+            SimConfigError::InvalidEnvironmentShiftResourceRate => {
+                write!(
+                    f,
+                    "environment_shift_resource_rate must be finite and non-negative"
+                )
+            }
+            SimConfigError::InvalidMetabolismEfficiencyMultiplier => {
+                write!(
+                    f,
+                    "metabolism_efficiency_multiplier must be finite and within [0,1]"
+                )
+            }
+            SimConfigError::ConflictingEnvironmentFeatures => {
+                write!(
+                    f,
+                    "environment_shift_step and environment_cycle_period are mutually exclusive"
+                )
+            }
+            SimConfigError::InvalidEnvironmentCycleLowRate => {
+                write!(
+                    f,
+                    "environment_cycle_low_rate must be finite and non-negative"
+                )
+            }
+            SimConfigError::WorldSizeTooLarge { max, actual } => {
+                write!(f, "world_size ({actual}) exceeds supported maximum ({max})")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SimConfigError {}
+
+impl SimConfig {
+    pub const MAX_WORLD_SIZE: f64 = 2048.0;
+
+    pub const MAX_TOTAL_AGENTS: usize = 250_000;
+
+    pub fn validate(&self) -> Result<(), SimConfigError> {
+        if self.num_organisms == 0 {
+            return Err(SimConfigError::InvalidNumOrganisms);
+        }
+        if self.agents_per_organism == 0 {
+            return Err(SimConfigError::InvalidAgentsPerOrganism);
+        }
+        let total_agents = self
+            .num_organisms
+            .checked_mul(self.agents_per_organism)
+            .ok_or(SimConfigError::AgentCountOverflow)?;
+        if total_agents > Self::MAX_TOTAL_AGENTS {
+            return Err(SimConfigError::TooManyAgents {
+                max: Self::MAX_TOTAL_AGENTS,
+                actual: total_agents,
+            });
+        }
+        if !(self.world_size.is_finite() && self.world_size > 0.0) {
+            return Err(SimConfigError::InvalidWorldSize);
+        }
+        if self.world_size > Self::MAX_WORLD_SIZE {
+            return Err(SimConfigError::WorldSizeTooLarge {
+                max: Self::MAX_WORLD_SIZE,
+                actual: self.world_size,
+            });
+        }
+        if !(self.dt.is_finite() && self.dt > 0.0) {
+            return Err(SimConfigError::InvalidDt);
+        }
+        if !(self.max_speed.is_finite() && self.max_speed > 0.0) {
+            return Err(SimConfigError::InvalidMaxSpeed);
+        }
+        if !(self.sensing_radius.is_finite() && self.sensing_radius >= 0.0) {
+            return Err(SimConfigError::InvalidSensingRadius);
+        }
+        if !(self.neighbor_norm.is_finite() && self.neighbor_norm > 0.0) {
+            return Err(SimConfigError::InvalidNeighborNorm);
+        }
+        if !(self.metabolic_viability_floor.is_finite() && self.metabolic_viability_floor >= 0.0) {
+            return Err(SimConfigError::InvalidMetabolicViabilityFloor);
+        }
+        if !(self.boundary_decay_base_rate.is_finite() && self.boundary_decay_base_rate >= 0.0) {
+            return Err(SimConfigError::InvalidBoundaryDecayBaseRate);
+        }
+        if !(self.boundary_decay_energy_scale.is_finite()
+            && self.boundary_decay_energy_scale >= 0.0)
+        {
+            return Err(SimConfigError::InvalidBoundaryDecayEnergyScale);
+        }
+        if !(self.boundary_waste_pressure_scale.is_finite()
+            && self.boundary_waste_pressure_scale >= 0.0)
+        {
+            return Err(SimConfigError::InvalidBoundaryWastePressureScale);
+        }
+        if !(self.boundary_repair_waste_penalty_scale.is_finite()
+            && self.boundary_repair_waste_penalty_scale >= 0.0)
+        {
+            return Err(SimConfigError::InvalidBoundaryRepairWastePenaltyScale);
+        }
+        if !(self.boundary_repair_rate.is_finite() && self.boundary_repair_rate >= 0.0) {
+            return Err(SimConfigError::InvalidBoundaryRepairRate);
+        }
+        if !(self.boundary_collapse_threshold.is_finite()
+            && (0.0..=1.0).contains(&self.boundary_collapse_threshold))
+        {
+            return Err(SimConfigError::InvalidBoundaryCollapseThreshold);
+        }
+        if !(self.death_energy_threshold.is_finite() && self.death_energy_threshold >= 0.0) {
+            return Err(SimConfigError::InvalidDeathEnergyThreshold);
+        }
+        if !(self.death_boundary_threshold.is_finite()
+            && (0.0..=1.0).contains(&self.death_boundary_threshold))
+        {
+            return Err(SimConfigError::InvalidDeathBoundaryThreshold);
+        }
+        if !(self.reproduction_min_energy.is_finite() && self.reproduction_min_energy >= 0.0) {
+            return Err(SimConfigError::InvalidReproductionMinEnergy);
+        }
+        if !(self.reproduction_min_boundary.is_finite()
+            && (0.0..=1.0).contains(&self.reproduction_min_boundary))
+        {
+            return Err(SimConfigError::InvalidReproductionMinBoundary);
+        }
+        if !(self.reproduction_energy_cost.is_finite() && self.reproduction_energy_cost > 0.0) {
+            return Err(SimConfigError::InvalidReproductionEnergyCost);
+        }
+        if self.reproduction_min_energy < self.reproduction_energy_cost {
+            return Err(SimConfigError::InvalidReproductionEnergyBalance);
+        }
+        if self.reproduction_child_min_agents == 0 {
+            return Err(SimConfigError::InvalidReproductionChildMinAgents);
+        }
+        if !(self.reproduction_spawn_radius.is_finite() && self.reproduction_spawn_radius >= 0.0) {
+            return Err(SimConfigError::InvalidReproductionSpawnRadius);
+        }
+        if !(self.crowding_neighbor_threshold.is_finite()
+            && self.crowding_neighbor_threshold >= 0.0)
+        {
+            return Err(SimConfigError::InvalidCrowdingNeighborThreshold);
+        }
+        if !(self.crowding_boundary_decay.is_finite() && self.crowding_boundary_decay >= 0.0) {
+            return Err(SimConfigError::InvalidCrowdingBoundaryDecay);
+        }
+        if self.max_organism_age_steps == 0 {
+            return Err(SimConfigError::InvalidMaxOrganismAgeSteps);
+        }
+        if self.compaction_interval_steps == 0 {
+            return Err(SimConfigError::InvalidCompactionIntervalSteps);
+        }
+        if !(self.mutation_point_rate.is_finite()
+            && (0.0..=1.0).contains(&self.mutation_point_rate))
+        {
+            return Err(SimConfigError::InvalidMutationPointRate);
+        }
+        if !(self.mutation_point_scale.is_finite() && self.mutation_point_scale >= 0.0) {
+            return Err(SimConfigError::InvalidMutationPointScale);
+        }
+        if !(self.mutation_reset_rate.is_finite()
+            && (0.0..=1.0).contains(&self.mutation_reset_rate))
+        {
+            return Err(SimConfigError::InvalidMutationResetRate);
+        }
+        if !(self.mutation_scale_rate.is_finite()
+            && (0.0..=1.0).contains(&self.mutation_scale_rate))
+        {
+            return Err(SimConfigError::InvalidMutationScaleRate);
+        }
+        if !(self.mutation_scale_min.is_finite()
+            && self.mutation_scale_max.is_finite()
+            && self.mutation_scale_min > 0.0
+            && self.mutation_scale_max > 0.0
+            && self.mutation_scale_min <= self.mutation_scale_max)
+        {
+            return Err(SimConfigError::InvalidMutationScaleBounds);
+        }
+        if !(self.mutation_value_limit.is_finite() && self.mutation_value_limit > 0.0) {
+            return Err(SimConfigError::InvalidMutationValueLimit);
+        }
+        let mutation_budget =
+            self.mutation_point_rate + self.mutation_reset_rate + self.mutation_scale_rate;
+        if mutation_budget > 1.0 + f32::EPSILON {
+            return Err(SimConfigError::InvalidMutationProbabilityBudget);
+        }
+        if !(self.homeostasis_decay_rate.is_finite() && self.homeostasis_decay_rate >= 0.0) {
+            return Err(SimConfigError::InvalidHomeostasisDecayRate);
+        }
+        if self.growth_maturation_steps == 0 {
+            return Err(SimConfigError::InvalidGrowthMaturationSteps);
+        }
+        if !(self.growth_immature_metabolic_efficiency.is_finite()
+            && (0.0..=1.0).contains(&self.growth_immature_metabolic_efficiency))
+        {
+            return Err(SimConfigError::InvalidGrowthImmatureMetabolicEfficiency);
+        }
+        if !(self.resource_regeneration_rate.is_finite() && self.resource_regeneration_rate >= 0.0)
+        {
+            return Err(SimConfigError::InvalidResourceRegenerationRate);
+        }
+        if !(self.environment_shift_resource_rate.is_finite()
+            && self.environment_shift_resource_rate >= 0.0)
+        {
+            return Err(SimConfigError::InvalidEnvironmentShiftResourceRate);
+        }
+        if !(self.metabolism_efficiency_multiplier.is_finite()
+            && (0.0..=1.0).contains(&self.metabolism_efficiency_multiplier))
+        {
+            return Err(SimConfigError::InvalidMetabolismEfficiencyMultiplier);
+        }
+        if !(self.environment_cycle_low_rate.is_finite() && self.environment_cycle_low_rate >= 0.0)
+        {
+            return Err(SimConfigError::InvalidEnvironmentCycleLowRate);
+        }
+        if self.environment_shift_step > 0 && self.environment_cycle_period > 0 {
+            return Err(SimConfigError::ConflictingEnvironmentFeatures);
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn validate_accepts_default() {
+        let config = SimConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_invalid_world_size() {
+        let config = SimConfig {
+            world_size: -1.0,
+            ..SimConfig::default()
+        };
+        assert_eq!(config.validate(), Err(SimConfigError::InvalidWorldSize));
+
+        let config = SimConfig {
+            world_size: SimConfig::MAX_WORLD_SIZE + 1.0,
+            ..SimConfig::default()
+        };
+        assert!(matches!(
+            config.validate(),
+            Err(SimConfigError::WorldSizeTooLarge { .. })
+        ));
+    }
+
+    #[test]
+    fn validate_rejects_invalid_mutation_budget() {
+        let config = SimConfig {
+            mutation_point_rate: 0.5,
+            mutation_reset_rate: 0.5,
+            mutation_scale_rate: 0.1,
+            ..SimConfig::default()
+        };
+        assert_eq!(
+            config.validate(),
+            Err(SimConfigError::InvalidMutationProbabilityBudget)
+        );
+    }
 
     #[test]
     fn legacy_config_json_deserializes_with_defaults() {
@@ -207,5 +667,34 @@ mod tests {
         assert!(cfg.enable_reproduction);
         assert!(cfg.enable_evolution);
         assert!(cfg.enable_growth);
+    }
+
+    #[test]
+    fn validate_rejects_invalid_counts() {
+        let config = SimConfig {
+            num_organisms: 0,
+            ..SimConfig::default()
+        };
+        assert_eq!(config.validate(), Err(SimConfigError::InvalidNumOrganisms));
+
+        let config = SimConfig {
+            num_organisms: 1,
+            agents_per_organism: 0,
+            ..SimConfig::default()
+        };
+        assert_eq!(
+            config.validate(),
+            Err(SimConfigError::InvalidAgentsPerOrganism)
+        );
+
+        let config = SimConfig {
+            num_organisms: SimConfig::MAX_TOTAL_AGENTS + 1,
+            agents_per_organism: 1,
+            ..SimConfig::default()
+        };
+        match config.validate() {
+            Err(SimConfigError::TooManyAgents { .. }) => (),
+            _ => panic!("Expected TooManyAgents error"),
+        }
     }
 }

@@ -1,5 +1,5 @@
 use crate::agent::Agent;
-use crate::config::{MetabolismMode, SimConfig};
+use crate::config::{MetabolismMode, SimConfig, SimConfigError};
 use crate::genome::{Genome, MutationRates};
 use crate::metabolism::{MetabolicState, MetabolismEngine};
 use crate::nn::NeuralNet;
@@ -99,8 +99,14 @@ pub struct SnapshotFrame {
     pub organisms: Vec<OrganismSnapshot>,
 }
 
+fn default_schema_version() -> u32 {
+    1
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RunSummary {
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
     pub steps: usize,
     pub sample_every: usize,
     pub final_alive_count: usize,
@@ -152,46 +158,7 @@ pub struct World {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorldInitError {
-    InvalidWorldSize,
-    InvalidDt,
-    InvalidMaxSpeed,
-    InvalidSensingRadius,
-    InvalidNeighborNorm,
-    InvalidMetabolicViabilityFloor,
-    InvalidBoundaryDecayBaseRate,
-    InvalidBoundaryDecayEnergyScale,
-    InvalidBoundaryWastePressureScale,
-    InvalidBoundaryRepairWastePenaltyScale,
-    InvalidBoundaryRepairRate,
-    InvalidBoundaryCollapseThreshold,
-    InvalidDeathEnergyThreshold,
-    InvalidDeathBoundaryThreshold,
-    InvalidReproductionMinEnergy,
-    InvalidReproductionMinBoundary,
-    InvalidReproductionEnergyCost,
-    InvalidReproductionEnergyBalance,
-    InvalidReproductionChildMinAgents,
-    InvalidReproductionSpawnRadius,
-    InvalidCrowdingNeighborThreshold,
-    InvalidCrowdingBoundaryDecay,
-    InvalidMaxOrganismAgeSteps,
-    InvalidCompactionIntervalSteps,
-    InvalidMutationPointRate,
-    InvalidMutationPointScale,
-    InvalidMutationResetRate,
-    InvalidMutationScaleRate,
-    InvalidMutationScaleBounds,
-    InvalidMutationValueLimit,
-    InvalidMutationProbabilityBudget,
-    InvalidHomeostasisDecayRate,
-    InvalidGrowthMaturationSteps,
-    InvalidGrowthImmatureMetabolicEfficiency,
-    InvalidResourceRegenerationRate,
-    InvalidEnvironmentShiftResourceRate,
-    InvalidMetabolismEfficiencyMultiplier,
-    InvalidEnvironmentCycleLowRate,
-    ConflictingEnvironmentFeatures,
-    WorldSizeTooLarge { max: f64, actual: f64 },
+    Config(SimConfigError),
     AgentCountOverflow,
     TooManyAgents { max: usize, actual: usize },
     NumOrganismsMismatch { expected: usize, actual: usize },
@@ -202,147 +169,7 @@ pub enum WorldInitError {
 impl fmt::Display for WorldInitError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            WorldInitError::InvalidWorldSize => write!(f, "world_size must be positive and finite"),
-            WorldInitError::InvalidDt => write!(f, "dt must be positive and finite"),
-            WorldInitError::InvalidMaxSpeed => write!(f, "max_speed must be positive and finite"),
-            WorldInitError::InvalidSensingRadius => {
-                write!(f, "sensing_radius must be non-negative and finite")
-            }
-            WorldInitError::InvalidNeighborNorm => {
-                write!(f, "neighbor_norm must be positive and finite")
-            }
-            WorldInitError::InvalidMetabolicViabilityFloor => {
-                write!(f, "metabolic_viability_floor must be finite and non-negative")
-            }
-            WorldInitError::InvalidBoundaryDecayBaseRate => {
-                write!(f, "boundary_decay_base_rate must be finite and non-negative")
-            }
-            WorldInitError::InvalidBoundaryDecayEnergyScale => {
-                write!(f, "boundary_decay_energy_scale must be finite and non-negative")
-            }
-            WorldInitError::InvalidBoundaryWastePressureScale => {
-                write!(f, "boundary_waste_pressure_scale must be finite and non-negative")
-            }
-            WorldInitError::InvalidBoundaryRepairWastePenaltyScale => {
-                write!(
-                    f,
-                    "boundary_repair_waste_penalty_scale must be finite and non-negative"
-                )
-            }
-            WorldInitError::InvalidBoundaryRepairRate => {
-                write!(f, "boundary_repair_rate must be finite and non-negative")
-            }
-            WorldInitError::InvalidBoundaryCollapseThreshold => {
-                write!(f, "boundary_collapse_threshold must be finite and within [0,1]")
-            }
-            WorldInitError::InvalidDeathEnergyThreshold => {
-                write!(f, "death_energy_threshold must be finite and non-negative")
-            }
-            WorldInitError::InvalidDeathBoundaryThreshold => {
-                write!(f, "death_boundary_threshold must be finite and within [0,1]")
-            }
-            WorldInitError::InvalidReproductionMinEnergy => {
-                write!(f, "reproduction_min_energy must be finite and non-negative")
-            }
-            WorldInitError::InvalidReproductionMinBoundary => {
-                write!(f, "reproduction_min_boundary must be finite and within [0,1]")
-            }
-            WorldInitError::InvalidReproductionEnergyCost => {
-                write!(f, "reproduction_energy_cost must be finite and positive")
-            }
-            WorldInitError::InvalidReproductionEnergyBalance => {
-                write!(
-                    f,
-                    "reproduction_min_energy must be greater than or equal to reproduction_energy_cost"
-                )
-            }
-            WorldInitError::InvalidReproductionChildMinAgents => {
-                write!(f, "reproduction_child_min_agents must be positive")
-            }
-            WorldInitError::InvalidReproductionSpawnRadius => {
-                write!(f, "reproduction_spawn_radius must be finite and non-negative")
-            }
-            WorldInitError::InvalidCrowdingNeighborThreshold => {
-                write!(f, "crowding_neighbor_threshold must be finite and non-negative")
-            }
-            WorldInitError::InvalidCrowdingBoundaryDecay => {
-                write!(f, "crowding_boundary_decay must be finite and non-negative")
-            }
-            WorldInitError::InvalidMaxOrganismAgeSteps => {
-                write!(f, "max_organism_age_steps must be positive")
-            }
-            WorldInitError::InvalidCompactionIntervalSteps => {
-                write!(f, "compaction_interval_steps must be positive")
-            }
-            WorldInitError::InvalidMutationPointRate => {
-                write!(f, "mutation_point_rate must be finite and within [0,1]")
-            }
-            WorldInitError::InvalidMutationPointScale => {
-                write!(f, "mutation_point_scale must be finite and non-negative")
-            }
-            WorldInitError::InvalidMutationResetRate => {
-                write!(f, "mutation_reset_rate must be finite and within [0,1]")
-            }
-            WorldInitError::InvalidMutationScaleRate => {
-                write!(f, "mutation_scale_rate must be finite and within [0,1]")
-            }
-            WorldInitError::InvalidMutationScaleBounds => {
-                write!(
-                    f,
-                    "mutation_scale_min/mutation_scale_max must be finite, positive, and ordered"
-                )
-            }
-            WorldInitError::InvalidMutationValueLimit => {
-                write!(f, "mutation_value_limit must be finite and positive")
-            }
-            WorldInitError::InvalidMutationProbabilityBudget => {
-                write!(
-                    f,
-                    "mutation_point_rate + mutation_reset_rate + mutation_scale_rate must be <= 1.0"
-                )
-            }
-            WorldInitError::InvalidHomeostasisDecayRate => {
-                write!(f, "homeostasis_decay_rate must be finite and non-negative")
-            }
-            WorldInitError::InvalidGrowthMaturationSteps => {
-                write!(f, "growth_maturation_steps must be positive")
-            }
-            WorldInitError::InvalidGrowthImmatureMetabolicEfficiency => {
-                write!(
-                    f,
-                    "growth_immature_metabolic_efficiency must be finite and within [0,1]"
-                )
-            }
-            WorldInitError::InvalidResourceRegenerationRate => {
-                write!(f, "resource_regeneration_rate must be finite and non-negative")
-            }
-            WorldInitError::InvalidEnvironmentShiftResourceRate => {
-                write!(
-                    f,
-                    "environment_shift_resource_rate must be finite and non-negative"
-                )
-            }
-            WorldInitError::InvalidMetabolismEfficiencyMultiplier => {
-                write!(
-                    f,
-                    "metabolism_efficiency_multiplier must be finite and within [0,1]"
-                )
-            }
-            WorldInitError::ConflictingEnvironmentFeatures => {
-                write!(
-                    f,
-                    "environment_shift_step and environment_cycle_period are mutually exclusive"
-                )
-            }
-            WorldInitError::InvalidEnvironmentCycleLowRate => {
-                write!(
-                    f,
-                    "environment_cycle_low_rate must be finite and non-negative"
-                )
-            }
-            WorldInitError::WorldSizeTooLarge { max, actual } => {
-                write!(f, "world_size ({actual}) exceeds supported maximum ({max})")
-            }
+            WorldInitError::Config(e) => write!(f, "{}", e),
             WorldInitError::AgentCountOverflow => {
                 write!(f, "num_organisms * agents_per_organism overflows usize")
             }
@@ -364,7 +191,20 @@ impl fmt::Display for WorldInitError {
     }
 }
 
-impl Error for WorldInitError {}
+impl From<SimConfigError> for WorldInitError {
+    fn from(err: SimConfigError) -> Self {
+        WorldInitError::Config(err)
+    }
+}
+
+impl Error for WorldInitError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            WorldInitError::Config(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExperimentError {
@@ -394,7 +234,7 @@ impl Error for ExperimentError {}
 
 impl World {
     pub const MAX_WORLD_SIZE: f64 = 2048.0;
-    pub const MAX_TOTAL_AGENTS: usize = 250_000;
+
     pub const MAX_EXPERIMENT_STEPS: usize = 1_000_000;
     pub const MAX_EXPERIMENT_SAMPLES: usize = 50_000;
 
@@ -407,7 +247,7 @@ impl World {
         nns: Vec<NeuralNet>,
         config: SimConfig,
     ) -> Result<Self, WorldInitError> {
-        Self::validate_config_common(&config)?;
+        config.validate()?;
         if config.num_organisms != nns.len() {
             return Err(WorldInitError::NumOrganismsMismatch {
                 expected: config.num_organisms,
@@ -418,9 +258,9 @@ impl World {
             .num_organisms
             .checked_mul(config.agents_per_organism)
             .ok_or(WorldInitError::AgentCountOverflow)?;
-        if expected_agent_count > Self::MAX_TOTAL_AGENTS {
+        if expected_agent_count > SimConfig::MAX_TOTAL_AGENTS {
             return Err(WorldInitError::TooManyAgents {
-                max: Self::MAX_TOTAL_AGENTS,
+                max: SimConfig::MAX_TOTAL_AGENTS,
                 actual: expected_agent_count,
             });
         }
@@ -532,182 +372,13 @@ impl World {
         }
     }
 
-    fn validate_config_common(config: &SimConfig) -> Result<(), WorldInitError> {
-        if !(config.world_size.is_finite() && config.world_size > 0.0) {
-            return Err(WorldInitError::InvalidWorldSize);
-        }
-        if config.world_size > Self::MAX_WORLD_SIZE {
-            return Err(WorldInitError::WorldSizeTooLarge {
-                max: Self::MAX_WORLD_SIZE,
-                actual: config.world_size,
-            });
-        }
-        if !(config.dt.is_finite() && config.dt > 0.0) {
-            return Err(WorldInitError::InvalidDt);
-        }
-        if !(config.max_speed.is_finite() && config.max_speed > 0.0) {
-            return Err(WorldInitError::InvalidMaxSpeed);
-        }
-        if !(config.sensing_radius.is_finite() && config.sensing_radius >= 0.0) {
-            return Err(WorldInitError::InvalidSensingRadius);
-        }
-        if !(config.neighbor_norm.is_finite() && config.neighbor_norm > 0.0) {
-            return Err(WorldInitError::InvalidNeighborNorm);
-        }
-        if !(config.metabolic_viability_floor.is_finite()
-            && config.metabolic_viability_floor >= 0.0)
-        {
-            return Err(WorldInitError::InvalidMetabolicViabilityFloor);
-        }
-        if !(config.boundary_decay_base_rate.is_finite() && config.boundary_decay_base_rate >= 0.0)
-        {
-            return Err(WorldInitError::InvalidBoundaryDecayBaseRate);
-        }
-        if !(config.boundary_decay_energy_scale.is_finite()
-            && config.boundary_decay_energy_scale >= 0.0)
-        {
-            return Err(WorldInitError::InvalidBoundaryDecayEnergyScale);
-        }
-        if !(config.boundary_waste_pressure_scale.is_finite()
-            && config.boundary_waste_pressure_scale >= 0.0)
-        {
-            return Err(WorldInitError::InvalidBoundaryWastePressureScale);
-        }
-        if !(config.boundary_repair_waste_penalty_scale.is_finite()
-            && config.boundary_repair_waste_penalty_scale >= 0.0)
-        {
-            return Err(WorldInitError::InvalidBoundaryRepairWastePenaltyScale);
-        }
-        if !(config.boundary_repair_rate.is_finite() && config.boundary_repair_rate >= 0.0) {
-            return Err(WorldInitError::InvalidBoundaryRepairRate);
-        }
-        if !(config.boundary_collapse_threshold.is_finite()
-            && (0.0..=1.0).contains(&config.boundary_collapse_threshold))
-        {
-            return Err(WorldInitError::InvalidBoundaryCollapseThreshold);
-        }
-        if !(config.death_energy_threshold.is_finite() && config.death_energy_threshold >= 0.0) {
-            return Err(WorldInitError::InvalidDeathEnergyThreshold);
-        }
-        if !(config.death_boundary_threshold.is_finite()
-            && (0.0..=1.0).contains(&config.death_boundary_threshold))
-        {
-            return Err(WorldInitError::InvalidDeathBoundaryThreshold);
-        }
-        if !(config.reproduction_min_energy.is_finite() && config.reproduction_min_energy >= 0.0) {
-            return Err(WorldInitError::InvalidReproductionMinEnergy);
-        }
-        if !(config.reproduction_min_boundary.is_finite()
-            && (0.0..=1.0).contains(&config.reproduction_min_boundary))
-        {
-            return Err(WorldInitError::InvalidReproductionMinBoundary);
-        }
-        if !(config.reproduction_energy_cost.is_finite() && config.reproduction_energy_cost > 0.0) {
-            return Err(WorldInitError::InvalidReproductionEnergyCost);
-        }
-        if config.reproduction_min_energy < config.reproduction_energy_cost {
-            return Err(WorldInitError::InvalidReproductionEnergyBalance);
-        }
-        if config.reproduction_child_min_agents == 0 {
-            return Err(WorldInitError::InvalidReproductionChildMinAgents);
-        }
-        if !(config.reproduction_spawn_radius.is_finite()
-            && config.reproduction_spawn_radius >= 0.0)
-        {
-            return Err(WorldInitError::InvalidReproductionSpawnRadius);
-        }
-        if !(config.crowding_neighbor_threshold.is_finite()
-            && config.crowding_neighbor_threshold >= 0.0)
-        {
-            return Err(WorldInitError::InvalidCrowdingNeighborThreshold);
-        }
-        if !(config.crowding_boundary_decay.is_finite() && config.crowding_boundary_decay >= 0.0) {
-            return Err(WorldInitError::InvalidCrowdingBoundaryDecay);
-        }
-        if config.max_organism_age_steps == 0 {
-            return Err(WorldInitError::InvalidMaxOrganismAgeSteps);
-        }
-        if config.compaction_interval_steps == 0 {
-            return Err(WorldInitError::InvalidCompactionIntervalSteps);
-        }
-        if !(config.mutation_point_rate.is_finite()
-            && (0.0..=1.0).contains(&config.mutation_point_rate))
-        {
-            return Err(WorldInitError::InvalidMutationPointRate);
-        }
-        if !(config.mutation_point_scale.is_finite() && config.mutation_point_scale >= 0.0) {
-            return Err(WorldInitError::InvalidMutationPointScale);
-        }
-        if !(config.mutation_reset_rate.is_finite()
-            && (0.0..=1.0).contains(&config.mutation_reset_rate))
-        {
-            return Err(WorldInitError::InvalidMutationResetRate);
-        }
-        if !(config.mutation_scale_rate.is_finite()
-            && (0.0..=1.0).contains(&config.mutation_scale_rate))
-        {
-            return Err(WorldInitError::InvalidMutationScaleRate);
-        }
-        if !(config.mutation_scale_min.is_finite()
-            && config.mutation_scale_max.is_finite()
-            && config.mutation_scale_min > 0.0
-            && config.mutation_scale_max > 0.0
-            && config.mutation_scale_min <= config.mutation_scale_max)
-        {
-            return Err(WorldInitError::InvalidMutationScaleBounds);
-        }
-        if !(config.mutation_value_limit.is_finite() && config.mutation_value_limit > 0.0) {
-            return Err(WorldInitError::InvalidMutationValueLimit);
-        }
-        let mutation_budget =
-            config.mutation_point_rate + config.mutation_reset_rate + config.mutation_scale_rate;
-        if mutation_budget > 1.0 + f32::EPSILON {
-            return Err(WorldInitError::InvalidMutationProbabilityBudget);
-        }
-        if !(config.homeostasis_decay_rate.is_finite() && config.homeostasis_decay_rate >= 0.0) {
-            return Err(WorldInitError::InvalidHomeostasisDecayRate);
-        }
-        if config.growth_maturation_steps == 0 {
-            return Err(WorldInitError::InvalidGrowthMaturationSteps);
-        }
-        if !(config.growth_immature_metabolic_efficiency.is_finite()
-            && (0.0..=1.0).contains(&config.growth_immature_metabolic_efficiency))
-        {
-            return Err(WorldInitError::InvalidGrowthImmatureMetabolicEfficiency);
-        }
-        if !(config.resource_regeneration_rate.is_finite()
-            && config.resource_regeneration_rate >= 0.0)
-        {
-            return Err(WorldInitError::InvalidResourceRegenerationRate);
-        }
-        if !(config.environment_shift_resource_rate.is_finite()
-            && config.environment_shift_resource_rate >= 0.0)
-        {
-            return Err(WorldInitError::InvalidEnvironmentShiftResourceRate);
-        }
-        if !(config.metabolism_efficiency_multiplier.is_finite()
-            && (0.0..=1.0).contains(&config.metabolism_efficiency_multiplier))
-        {
-            return Err(WorldInitError::InvalidMetabolismEfficiencyMultiplier);
-        }
-        if !(config.environment_cycle_low_rate.is_finite()
-            && config.environment_cycle_low_rate >= 0.0)
-        {
-            return Err(WorldInitError::InvalidEnvironmentCycleLowRate);
-        }
-        if config.environment_shift_step > 0 && config.environment_cycle_period > 0 {
-            return Err(WorldInitError::ConflictingEnvironmentFeatures);
-        }
-        Ok(())
-    }
-
     pub fn config(&self) -> &SimConfig {
         &self.config
     }
 
     pub fn set_config(&mut self, config: SimConfig) -> Result<(), WorldInitError> {
         let mode_changed = self.config.metabolism_mode != config.metabolism_mode;
-        Self::validate_config_common(&config)?;
+        config.validate()?;
         if config.num_organisms != self.organisms.len() {
             return Err(WorldInitError::NumOrganismsMismatch {
                 expected: config.num_organisms,
@@ -1171,6 +842,7 @@ impl World {
             }
         }
         Ok(RunSummary {
+            schema_version: 1,
             steps,
             sample_every,
             final_alive_count: self.alive_count(),
@@ -1272,6 +944,7 @@ impl World {
             }
         }
         Ok(RunSummary {
+            schema_version: 1,
             steps,
             sample_every,
             final_alive_count: self.alive_count(),
@@ -1321,7 +994,7 @@ impl World {
                 .agents
                 .len()
                 .checked_add(child_agents)
-                .map(|n| n > Self::MAX_TOTAL_AGENTS)
+                .map(|n| n > SimConfig::MAX_TOTAL_AGENTS)
                 .unwrap_or(true)
             {
                 break;
@@ -1930,7 +1603,10 @@ mod tests {
             ..SimConfig::default()
         };
         let result = World::try_new(Vec::new(), vec![nn.clone(), nn.clone(), nn], cfg);
-        assert!(matches!(result, Err(WorldInitError::AgentCountOverflow)));
+        assert!(matches!(
+            result,
+            Err(WorldInitError::Config(SimConfigError::AgentCountOverflow))
+        ));
     }
 
     #[test]
@@ -1938,11 +1614,14 @@ mod tests {
         let nn = NeuralNet::from_weights(std::iter::repeat_n(0.0f32, NeuralNet::WEIGHT_COUNT));
         let cfg = SimConfig {
             num_organisms: 1,
-            agents_per_organism: World::MAX_TOTAL_AGENTS + 1,
+            agents_per_organism: SimConfig::MAX_TOTAL_AGENTS + 1,
             ..SimConfig::default()
         };
         let result = World::try_new(Vec::new(), vec![nn], cfg);
-        assert!(matches!(result, Err(WorldInitError::TooManyAgents { .. })));
+        assert!(matches!(
+            result,
+            Err(WorldInitError::Config(SimConfigError::TooManyAgents { .. }))
+        ));
     }
 
     #[test]
@@ -1951,7 +1630,10 @@ mod tests {
         let mut cfg = world.config().clone();
         cfg.dt = -0.1;
         let result = world.set_config(cfg);
-        assert!(matches!(result, Err(WorldInitError::InvalidDt)));
+        assert!(matches!(
+            result,
+            Err(WorldInitError::Config(SimConfigError::InvalidDt))
+        ));
     }
 
     #[test]
@@ -2057,7 +1739,9 @@ mod tests {
         let result = World::try_new(agents, vec![nn], cfg);
         assert!(matches!(
             result,
-            Err(WorldInitError::InvalidBoundaryDecayBaseRate)
+            Err(WorldInitError::Config(
+                SimConfigError::InvalidBoundaryDecayBaseRate
+            ))
         ));
     }
 
@@ -2076,7 +1760,9 @@ mod tests {
         let result = World::try_new(agents, vec![nn], cfg);
         assert!(matches!(
             result,
-            Err(WorldInitError::InvalidMutationProbabilityBudget)
+            Err(WorldInitError::Config(
+                SimConfigError::InvalidMutationProbabilityBudget
+            ))
         ));
     }
 
@@ -2094,7 +1780,9 @@ mod tests {
         let result = World::try_new(agents, vec![nn], cfg);
         assert!(matches!(
             result,
-            Err(WorldInitError::InvalidReproductionEnergyBalance)
+            Err(WorldInitError::Config(
+                SimConfigError::InvalidReproductionEnergyBalance
+            ))
         ));
     }
 
@@ -3270,7 +2958,9 @@ mod tests {
         let result = world.set_config(world.config.clone());
         assert!(matches!(
             result,
-            Err(WorldInitError::ConflictingEnvironmentFeatures)
+            Err(WorldInitError::Config(
+                SimConfigError::ConflictingEnvironmentFeatures
+            ))
         ));
     }
 }
