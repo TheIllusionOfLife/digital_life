@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import adjusted_rand_score, silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from experiment_common import log
@@ -52,13 +52,15 @@ def extract_organism_traits(results: list[dict]) -> np.ndarray:
         if "samples" not in r or not r["samples"]:
             continue
         final = r["samples"][-1]
-        traits.append([
-            final.get("energy_mean", 0),
-            final.get("waste_mean", 0),
-            final.get("boundary_mean", 0),
-            final.get("genome_diversity", 0),
-            final.get("mean_generation", 0),
-        ])
+        traits.append(
+            [
+                final.get("energy_mean", 0),
+                final.get("waste_mean", 0),
+                final.get("boundary_mean", 0),
+                final.get("genome_diversity", 0),
+                final.get("mean_generation", 0),
+            ]
+        )
     return np.array(traits) if traits else np.empty((0, 5))
 
 
@@ -87,8 +89,13 @@ def cluster_phenotypes(traits: np.ndarray, max_k: int = 5) -> dict:
 
     # Compute per-cluster trait means
     cluster_profiles = []
-    trait_names = ["energy_mean", "waste_mean", "boundary_mean",
-                   "genome_diversity", "mean_generation"]
+    trait_names = [
+        "energy_mean",
+        "waste_mean",
+        "boundary_mean",
+        "genome_diversity",
+        "mean_generation",
+    ]
     for c in range(best_k):
         mask = labels == c
         profile = {
@@ -107,6 +114,112 @@ def cluster_phenotypes(traits: np.ndarray, max_k: int = 5) -> dict:
         "labels": [int(label) for label in labels],
         "trait_names": trait_names,
         "traits": [[round(float(v), 4) for v in row] for row in traits],
+    }
+
+
+def _extract_traits_at_step(results: list[dict], target_step: int) -> np.ndarray:
+    """Extract trait vectors from the sample closest to target_step."""
+    trait_names = [
+        "energy_mean",
+        "waste_mean",
+        "boundary_mean",
+        "genome_diversity",
+        "mean_generation",
+    ]
+    traits = []
+    for r in results:
+        if "samples" not in r or not r["samples"]:
+            continue
+        # Find sample closest to target_step
+        best = min(r["samples"], key=lambda s: abs(s.get("step", 0) - target_step))
+        traits.append([best.get(name, 0) for name in trait_names])
+    return np.array(traits) if traits else np.empty((0, 5))
+
+
+def analyze_temporal_persistence(exp_dir: Path) -> dict:
+    """Analyze persistence of phenotypic clusters across early and late windows.
+
+    Compares k-means clustering at an early window (~step 750) and late window
+    (~step 1750) using adjusted Rand index to measure temporal stability.
+    """
+    path = exp_dir / "final_graph_normal.json"
+    if not path.exists():
+        return {"error": "final_graph_normal.json not found"}
+
+    with open(path) as f:
+        results = json.load(f)
+    log(f"  Loaded {len(results)} seeds for temporal persistence analysis")
+
+    trait_names = [
+        "energy_mean",
+        "waste_mean",
+        "boundary_mean",
+        "genome_diversity",
+        "mean_generation",
+    ]
+
+    early_traits = _extract_traits_at_step(results, 750)
+    late_traits = _extract_traits_at_step(results, 1750)
+
+    if len(early_traits) < 4 or len(late_traits) < 4:
+        return {"error": "insufficient data for temporal analysis"}
+
+    # Standardize and cluster each window independently
+    k = 2
+    early_scaled = StandardScaler().fit_transform(early_traits)
+    late_scaled = StandardScaler().fit_transform(late_traits)
+
+    early_km = KMeans(n_clusters=k, n_init=10, random_state=42)
+    late_km = KMeans(n_clusters=k, n_init=10, random_state=42)
+
+    early_labels = early_km.fit_predict(early_scaled)
+    late_labels = late_km.fit_predict(late_scaled)
+
+    # Compute adjusted Rand index
+    ari = adjusted_rand_score(early_labels, late_labels)
+
+    def _cluster_summary(labels, traits_raw):
+        profiles = []
+        proportions = []
+        for c in range(k):
+            mask = labels == c
+            count = int(mask.sum())
+            proportions.append(round(count / len(labels), 4))
+            profile = {"cluster_id": c, "count": count}
+            for i, name in enumerate(trait_names):
+                profile[name] = round(float(traits_raw[mask, i].mean()), 4)
+            profiles.append(profile)
+        return {
+            "n_clusters": k,
+            "cluster_proportions": proportions,
+            "cluster_profiles": profiles,
+        }
+
+    early_summary = _cluster_summary(early_labels, early_traits)
+    late_summary = _cluster_summary(late_labels, late_traits)
+
+    if ari > 0.6:
+        interp = (
+            f"Strong temporal persistence (ARI={ari:.3f}): phenotypic "
+            f"clusters remain stable from early to late windows."
+        )
+    elif ari > 0.3:
+        interp = (
+            f"Moderate temporal persistence (ARI={ari:.3f}): clusters "
+            f"partially reorganize between early and late windows."
+        )
+    else:
+        interp = (
+            f"Weak temporal persistence (ARI={ari:.3f}): cluster "
+            f"assignments change substantially between windows."
+        )
+
+    log(f"  Temporal persistence ARI={ari:.3f}")
+    return {
+        "early_clusters": early_summary,
+        "late_clusters": late_summary,
+        "adjusted_rand_index": round(float(ari), 4),
+        "interpretation": interp,
     }
 
 
@@ -132,19 +245,27 @@ def main():
 
     log("Clustering phenotypes...")
     analysis = cluster_phenotypes(traits)
-    log(f"  Best k={analysis['n_clusters']}, "
-        f"silhouette={analysis.get('silhouette_score', 'N/A')}")
+    log(
+        f"  Best k={analysis['n_clusters']}, "
+        f"silhouette={analysis.get('silhouette_score', 'N/A')}"
+    )
 
     for cp in analysis.get("cluster_profiles", []):
-        log(f"  Cluster {cp['cluster_id']}: n={cp['count']}, "
+        log(
+            f"  Cluster {cp['cluster_id']}: n={cp['count']}, "
             f"energy={cp['energy_mean']:.3f}, "
-            f"boundary={cp['boundary_mean']:.3f}")
+            f"boundary={cp['boundary_mean']:.3f}"
+        )
+
+    log("Analyzing temporal persistence...")
+    temporal = analyze_temporal_persistence(exp_dir)
 
     output = {
         "analysis": "phenotype_clustering",
         "n_seeds": len(results),
         "n_trait_vectors": traits.shape[0],
         **analysis,
+        "temporal_persistence": temporal,
     }
 
     print(json.dumps(output, indent=2))

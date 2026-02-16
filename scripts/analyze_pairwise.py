@@ -86,6 +86,16 @@ def main():
             print(f"  no_{criterion}: MISSING", file=sys.stderr)
 
     # Analyze each pair
+    # Cache per-seed alive arrays for single ablations (needed for bootstrap)
+    single_alive = {}
+    for criterion in set(c for pair in PAIRS for c in pair):
+        path = Path(f"{single_prefix}_no_{criterion}.json")
+        results = load_json(path)
+        if results:
+            single_alive[criterion] = np.array(
+                extract_final_alive(results), dtype=float
+            )
+
     pair_results = []
     for a, b in PAIRS:
         pair_name = f"no_{a}_no_{b}"
@@ -145,11 +155,132 @@ def main():
             file=sys.stderr,
         )
 
+    # --- Robust synergy on multiple scales ---
+    print("\n--- Robust synergy (log & percent scales) ---", file=sys.stderr)
+    robust_synergy = []
+    for entry in pair_results:
+        a, b = entry["pair"]
+        a_mean = baseline_mean - entry["decline_a"]
+        b_mean = baseline_mean - entry["decline_b"]
+        ab_mean = entry["ab_mean"]
+
+        # Log scale synergy
+        log_bl = np.log(baseline_mean + 1)
+        log_ab = np.log(ab_mean + 1)
+        log_a = np.log(a_mean + 1)
+        log_b = np.log(b_mean + 1)
+        synergy_log = (log_bl - log_ab) - ((log_bl - log_a) + (log_bl - log_b))
+
+        # Percent scale synergy
+        if baseline_mean > 0:
+            pct_a = (baseline_mean - a_mean) / baseline_mean * 100
+            pct_b = (baseline_mean - b_mean) / baseline_mean * 100
+            pct_ab = (baseline_mean - ab_mean) / baseline_mean * 100
+            synergy_pct = pct_ab - (pct_a + pct_b)
+        else:
+            pct_a = pct_b = pct_ab = synergy_pct = 0.0
+
+        robust_entry = {
+            "pair": [a, b],
+            "synergy_raw": entry["synergy"],
+            "synergy_log": round(float(synergy_log), 4),
+            "synergy_pct": round(float(synergy_pct), 2),
+            "pct_decline_a": round(float(pct_a), 2),
+            "pct_decline_b": round(float(pct_b), 2),
+            "pct_decline_ab": round(float(pct_ab), 2),
+        }
+        robust_synergy.append(robust_entry)
+        print(
+            f"  ({a}, {b}): raw={entry['synergy']}, "
+            f"log={synergy_log:.4f}, pct={synergy_pct:.2f}%",
+            file=sys.stderr,
+        )
+
+    # --- Floor effect check ---
+    print("\n--- Floor effect analysis ---", file=sys.stderr)
+    FLOOR_THRESHOLD = 5
+    floor_analysis = {}
+
+    # Normal condition
+    normal_floor = float(np.mean(np.array(normal_alive) <= FLOOR_THRESHOLD))
+    floor_analysis["normal"] = {
+        "fraction_at_floor": round(normal_floor, 4),
+        "n": len(normal_alive),
+    }
+    print(f"  normal: floor_frac={normal_floor:.4f}", file=sys.stderr)
+
+    # Single ablations
+    for criterion, alive_arr in single_alive.items():
+        frac = float(np.mean(alive_arr <= FLOOR_THRESHOLD))
+        floor_analysis[f"no_{criterion}"] = {
+            "fraction_at_floor": round(frac, 4),
+            "n": len(alive_arr),
+        }
+        print(f"  no_{criterion}: floor_frac={frac:.4f}", file=sys.stderr)
+
+    # Pairwise ablations
+    for entry in pair_results:
+        a, b = entry["pair"]
+        pair_name = entry["pair_name"]
+        path = Path(f"{pairwise_prefix}_{pair_name}.json")
+        results = load_json(path)
+        if results:
+            alive_arr = np.array(extract_final_alive(results), dtype=float)
+            frac = float(np.mean(alive_arr <= FLOOR_THRESHOLD))
+            floor_analysis[pair_name] = {
+                "fraction_at_floor": round(frac, 4),
+                "n": len(alive_arr),
+            }
+            print(f"  {pair_name}: floor_frac={frac:.4f}", file=sys.stderr)
+
+    # --- Bootstrap CI for synergy ---
+    print("\n--- Bootstrap CI for synergy (2000 resamples) ---", file=sys.stderr)
+    rng = np.random.default_rng(42)
+    N_BOOT = 2000
+    for entry, robust_entry in zip(pair_results, robust_synergy):
+        a, b = entry["pair"]
+        if a not in single_alive or b not in single_alive:
+            continue
+
+        pair_name = entry["pair_name"]
+        path = Path(f"{pairwise_prefix}_{pair_name}.json")
+        results = load_json(path)
+        if not results:
+            continue
+        ab_arr = np.array(extract_final_alive(results), dtype=float)
+        normal_arr = np.array(normal_alive, dtype=float)
+        a_arr = single_alive[a]
+        b_arr = single_alive[b]
+
+        boot_synergy = np.empty(N_BOOT)
+        n = len(normal_arr)
+        for i in range(N_BOOT):
+            idx_n = rng.integers(0, len(normal_arr), size=n)
+            idx_a = rng.integers(0, len(a_arr), size=n)
+            idx_b = rng.integers(0, len(b_arr), size=n)
+            idx_ab = rng.integers(0, len(ab_arr), size=n)
+            bl = float(np.mean(normal_arr[idx_n]))
+            dec_a = bl - float(np.mean(a_arr[idx_a]))
+            dec_b = bl - float(np.mean(b_arr[idx_b]))
+            dec_ab = bl - float(np.mean(ab_arr[idx_ab]))
+            boot_synergy[i] = dec_ab - (dec_a + dec_b)
+
+        ci_lo = float(np.percentile(boot_synergy, 2.5))
+        ci_hi = float(np.percentile(boot_synergy, 97.5))
+        entry["bootstrap_ci_95"] = [round(ci_lo, 2), round(ci_hi, 2)]
+        robust_entry["bootstrap_ci_95"] = [round(ci_lo, 2), round(ci_hi, 2)]
+        print(
+            f"  ({a}, {b}): 95% CI = [{ci_lo:.2f}, {ci_hi:.2f}]",
+            file=sys.stderr,
+        )
+
     output = {
         "experiment": "pairwise_ablation",
         "baseline_mean": round(baseline_mean, 2),
         "n_per_condition": len(normal_alive),
         "pairs": pair_results,
+        "robust_synergy": robust_synergy,
+        "floor_analysis": floor_analysis,
     }
 
     print(json.dumps(output, indent=2))

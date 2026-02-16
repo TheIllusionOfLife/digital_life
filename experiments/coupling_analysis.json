@@ -5,55 +5,55 @@
       "var_b": "boundary_mean",
       "label": "metabolism \u2192 cellular org",
       "best_lag": 0,
-      "best_pearson_r": -0.854,
-      "best_pearson_p": 2.464227381702735e-12,
+      "best_pearson_r": -0.781,
+      "best_pearson_p": 2.7669091387724845e-09,
       "correlations": [
         {
           "lag": 0,
-          "pearson_r": -0.854,
-          "pearson_p": 2.464227381702735e-12,
-          "spearman_r": -0.8602,
-          "spearman_p": 1.1369391504984398e-12,
+          "pearson_r": -0.781,
+          "pearson_p": 2.7669091387724845e-09,
+          "spearman_r": -0.8161,
+          "spearman_p": 1.384943340900139e-10,
           "n": 40
         },
         {
           "lag": 1,
-          "pearson_r": -0.1907,
-          "pearson_p": 0.24490854738712103,
-          "spearman_r": -0.6506,
-          "spearman_p": 7.3319156420337905e-06,
+          "pearson_r": -0.0924,
+          "pearson_p": 0.5760444403006737,
+          "spearman_r": -0.6397,
+          "spearman_p": 1.1639239865321061e-05,
           "n": 39
         },
         {
           "lag": 2,
-          "pearson_r": 0.3835,
-          "pearson_p": 0.01745673789094352,
-          "spearman_r": -0.4853,
-          "spearman_p": 0.00201387033608064,
+          "pearson_r": 0.7223,
+          "pearson_p": 3.071660412766592e-07,
+          "spearman_r": -0.3791,
+          "spearman_p": 0.018898169154895304,
           "n": 38
         },
         {
           "lag": 3,
-          "pearson_r": 0.1134,
-          "pearson_p": 0.5037738559269287,
-          "spearman_r": -0.6005,
-          "spearman_p": 8.51390183534569e-05,
+          "pearson_r": 0.771,
+          "pearson_p": 2.3674986677660035e-08,
+          "spearman_r": -0.2584,
+          "spearman_p": 0.12251622250358156,
           "n": 37
         },
         {
           "lag": 4,
-          "pearson_r": -0.2999,
-          "pearson_p": 0.07559052925278706,
-          "spearman_r": -0.7351,
-          "spearman_p": 3.288346866455043e-07,
+          "pearson_r": 0.5601,
+          "pearson_p": 0.0003814041291629474,
+          "spearman_r": -0.3359,
+          "spearman_p": 0.04518397391301821,
           "n": 36
         },
         {
           "lag": 5,
-          "pearson_r": -0.487,
-          "pearson_p": 0.0030074233668055277,
-          "spearman_r": -0.7193,
-          "spearman_p": 1.1226707556224557e-06,
+          "pearson_r": 0.091,
+          "pearson_p": 0.603174548443816,
+          "spearman_r": -0.398,
+          "spearman_p": 0.017879669730642866,
           "n": 35
         }
       ]
@@ -63,55 +63,55 @@
       "var_b": "internal_state_mean_0",
       "label": "metabolism \u2192 homeostasis",
       "best_lag": 3,
-      "best_pearson_r": 0.8125,
-      "best_pearson_p": 1.0159992041659923e-09,
+      "best_pearson_r": 0.7537,
+      "best_pearson_p": 7.262735652313976e-08,
       "correlations": [
         {
           "lag": 0,
-          "pearson_r": 0.7477,
-          "pearson_p": 2.964634023449506e-08,
-          "spearman_r": 0.8026,
-          "spearman_p": 4.694156180149506e-10,
+          "pearson_r": 0.6779,
+          "pearson_p": 1.5404714938751847e-06,
+          "spearman_r": 0.6957,
+          "spearman_p": 6.25982690471602e-07,
           "n": 40
         },
         {
           "lag": 1,
-          "pearson_r": 0.7888,
-          "pearson_p": 2.457541687276957e-09,
-          "spearman_r": 0.7962,
-          "spearman_p": 1.3650183664389172e-09,
+          "pearson_r": 0.7165,
+          "pearson_p": 2.9068308405834106e-07,
+          "spearman_r": 0.686,
+          "spearman_p": 1.4327882857801095e-06,
           "n": 39
         },
         {
           "lag": 2,
-          "pearson_r": 0.8074,
-          "pearson_p": 9.070678878706539e-10,
-          "spearman_r": 0.7792,
-          "spearman_p": 8.287233968412211e-09,
+          "pearson_r": 0.7407,
+          "pearson_p": 1.058889862661487e-07,
+          "spearman_r": 0.6844,
+          "spearman_p": 2.15363950094551e-06,
           "n": 38
         },
         {
           "lag": 3,
-          "pearson_r": 0.8125,
-          "pearson_p": 1.0159992041659923e-09,
-          "spearman_r": 0.7634,
-          "spearman_p": 3.913283777869284e-08,
+          "pearson_r": 0.7537,
+          "pearson_p": 7.262735652313976e-08,
+          "spearman_r": 0.6733,
+          "spearman_p": 4.959646090054498e-06,
           "n": 37
         },
         {
           "lag": 4,
-          "pearson_r": 0.8006,
-          "pearson_p": 4.567981374828359e-09,
-          "spearman_r": 0.7601,
-          "spearman_p": 7.555704097530404e-08,
+          "pearson_r": 0.7494,
+          "pearson_p": 1.4498027635588046e-07,
+          "spearman_r": 0.6644,
+          "spearman_p": 9.946469675241496e-06,
           "n": 36
         },
         {
           "lag": 5,
-          "pearson_r": 0.7816,
-          "pearson_p": 2.9743705252367614e-08,
-          "spearman_r": 0.7585,
-          "spearman_p": 1.2958086600498565e-07,
+          "pearson_r": 0.7391,
+          "pearson_p": 3.954740450992264e-07,
+          "spearman_r": 0.6499,
+          "spearman_p": 2.3922218699377058e-05,
           "n": 35
         }
       ]
@@ -120,59 +120,289 @@
       "var_a": "boundary_mean",
       "var_b": "internal_state_mean_0",
       "label": "cellular org \u2192 homeostasis",
-      "best_lag": 3,
-      "best_pearson_r": -0.5541,
-      "best_pearson_p": 0.0003739385066839979,
+      "best_lag": 4,
+      "best_pearson_r": -0.3338,
+      "best_pearson_p": 0.04665076096715015,
       "correlations": [
         {
           "lag": 0,
-          "pearson_r": -0.4519,
-          "pearson_p": 0.003417536722381081,
-          "spearman_r": -0.6529,
-          "spearman_p": 4.9649278414982995e-06,
+          "pearson_r": -0.2111,
+          "pearson_p": 0.1910837334013613,
+          "spearman_r": -0.4411,
+          "spearman_p": 0.004386757305678561,
           "n": 40
         },
         {
           "lag": 1,
-          "pearson_r": -0.508,
-          "pearson_p": 0.0009622324343979571,
-          "spearman_r": -0.6496,
-          "spearman_p": 7.658355940242218e-06,
+          "pearson_r": -0.2657,
+          "pearson_p": 0.10207018148076662,
+          "spearman_r": -0.4407,
+          "spearman_p": 0.00498732953807477,
           "n": 39
         },
         {
           "lag": 2,
-          "pearson_r": -0.5345,
-          "pearson_p": 0.0005468972000418432,
-          "spearman_r": -0.6286,
-          "spearman_p": 2.3753161790364222e-05,
+          "pearson_r": -0.3,
+          "pearson_p": 0.067260386767726,
+          "spearman_r": -0.4376,
+          "spearman_p": 0.006008336470108042,
           "n": 38
         },
         {
           "lag": 3,
-          "pearson_r": -0.5541,
-          "pearson_p": 0.0003739385066839979,
-          "spearman_r": -0.6107,
-          "spearman_p": 5.963480609616424e-05,
+          "pearson_r": -0.3276,
+          "pearson_p": 0.047746201418622056,
+          "spearman_r": -0.4234,
+          "spearman_p": 0.00901966247637365,
           "n": 37
         },
         {
           "lag": 4,
-          "pearson_r": -0.5451,
-          "pearson_p": 0.0005872928693787004,
-          "spearman_r": -0.6005,
-          "spearman_p": 0.00010791285558218915,
+          "pearson_r": -0.3338,
+          "pearson_p": 0.04665076096715015,
+          "spearman_r": -0.4008,
+          "spearman_p": 0.015423488232173616,
           "n": 36
         },
         {
           "lag": 5,
-          "pearson_r": -0.526,
-          "pearson_p": 0.0011718251754199052,
-          "spearman_r": -0.5961,
-          "spearman_p": 0.0001578058548577939,
+          "pearson_r": -0.3188,
+          "pearson_p": 0.06197979009922659,
+          "spearman_r": -0.3773,
+          "spearman_p": 0.02545359848278665,
           "n": 35
         }
       ]
     }
-  ]
+  ],
+  "intervention_effects": {
+    "matrix": [
+      {
+        "ablated_criterion": "metabolism",
+        "energy_mean": 38.16,
+        "waste_mean": 100.0,
+        "boundary_mean": -41.22,
+        "internal_state_mean_0": 40.53
+      },
+      {
+        "ablated_criterion": "boundary",
+        "energy_mean": -0.17,
+        "waste_mean": -0.52,
+        "boundary_mean": 0.03,
+        "internal_state_mean_0": 41.47
+      },
+      {
+        "ablated_criterion": "homeostasis",
+        "energy_mean": 5.48,
+        "waste_mean": 5.81,
+        "boundary_mean": 8.9,
+        "internal_state_mean_0": 71.88
+      },
+      {
+        "ablated_criterion": "response",
+        "energy_mean": 80.25,
+        "waste_mean": 99.91,
+        "boundary_mean": -31.4,
+        "internal_state_mean_0": 21.48
+      },
+      {
+        "ablated_criterion": "reproduction",
+        "energy_mean": -23.65,
+        "waste_mean": -8.25,
+        "boundary_mean": -51.0,
+        "internal_state_mean_0": 13.67
+      },
+      {
+        "ablated_criterion": "evolution",
+        "energy_mean": 2.01,
+        "waste_mean": 0.17,
+        "boundary_mean": -0.26,
+        "internal_state_mean_0": 2.25
+      },
+      {
+        "ablated_criterion": "growth",
+        "energy_mean": -2.67,
+        "waste_mean": -1.32,
+        "boundary_mean": -16.69,
+        "internal_state_mean_0": 5.63
+      }
+    ],
+    "details": [
+      {
+        "ablated_criterion": "metabolism",
+        "effects": {
+          "energy_mean": {
+            "normal": 0.8085,
+            "ablated": 0.5,
+            "pct_change": 38.16
+          },
+          "waste_mean": {
+            "normal": 0.9229,
+            "ablated": 0.0,
+            "pct_change": 100.0
+          },
+          "boundary_mean": {
+            "normal": 0.6219,
+            "ablated": 0.8782,
+            "pct_change": -41.22
+          },
+          "internal_state_mean_0": {
+            "normal": 0.9336,
+            "ablated": 0.5552,
+            "pct_change": 40.53
+          }
+        }
+      },
+      {
+        "ablated_criterion": "boundary",
+        "effects": {
+          "energy_mean": {
+            "normal": 0.8085,
+            "ablated": 0.8099,
+            "pct_change": -0.17
+          },
+          "waste_mean": {
+            "normal": 0.9229,
+            "ablated": 0.9278,
+            "pct_change": -0.52
+          },
+          "boundary_mean": {
+            "normal": 0.6219,
+            "ablated": 0.6217,
+            "pct_change": 0.03
+          },
+          "internal_state_mean_0": {
+            "normal": 0.9336,
+            "ablated": 0.5465,
+            "pct_change": 41.47
+          }
+        }
+      },
+      {
+        "ablated_criterion": "homeostasis",
+        "effects": {
+          "energy_mean": {
+            "normal": 0.8085,
+            "ablated": 0.7642,
+            "pct_change": 5.48
+          },
+          "waste_mean": {
+            "normal": 0.9229,
+            "ablated": 0.8693,
+            "pct_change": 5.81
+          },
+          "boundary_mean": {
+            "normal": 0.6219,
+            "ablated": 0.5665,
+            "pct_change": 8.9
+          },
+          "internal_state_mean_0": {
+            "normal": 0.9336,
+            "ablated": 0.2626,
+            "pct_change": 71.88
+          }
+        }
+      },
+      {
+        "ablated_criterion": "response",
+        "effects": {
+          "energy_mean": {
+            "normal": 0.8085,
+            "ablated": 0.1597,
+            "pct_change": 80.25
+          },
+          "waste_mean": {
+            "normal": 0.9229,
+            "ablated": 0.0008,
+            "pct_change": 99.91
+          },
+          "boundary_mean": {
+            "normal": 0.6219,
+            "ablated": 0.8171,
+            "pct_change": -31.4
+          },
+          "internal_state_mean_0": {
+            "normal": 0.9336,
+            "ablated": 0.733,
+            "pct_change": 21.48
+          }
+        }
+      },
+      {
+        "ablated_criterion": "reproduction",
+        "effects": {
+          "energy_mean": {
+            "normal": 0.8085,
+            "ablated": 0.9997,
+            "pct_change": -23.65
+          },
+          "waste_mean": {
+            "normal": 0.9229,
+            "ablated": 0.9991,
+            "pct_change": -8.25
+          },
+          "boundary_mean": {
+            "normal": 0.6219,
+            "ablated": 0.939,
+            "pct_change": -51.0
+          },
+          "internal_state_mean_0": {
+            "normal": 0.9336,
+            "ablated": 0.806,
+            "pct_change": 13.67
+          }
+        }
+      },
+      {
+        "ablated_criterion": "evolution",
+        "effects": {
+          "energy_mean": {
+            "normal": 0.8085,
+            "ablated": 0.7923,
+            "pct_change": 2.01
+          },
+          "waste_mean": {
+            "normal": 0.9229,
+            "ablated": 0.9214,
+            "pct_change": 0.17
+          },
+          "boundary_mean": {
+            "normal": 0.6219,
+            "ablated": 0.6235,
+            "pct_change": -0.26
+          },
+          "internal_state_mean_0": {
+            "normal": 0.9336,
+            "ablated": 0.9126,
+            "pct_change": 2.25
+          }
+        }
+      },
+      {
+        "ablated_criterion": "growth",
+        "effects": {
+          "energy_mean": {
+            "normal": 0.8085,
+            "ablated": 0.8301,
+            "pct_change": -2.67
+          },
+          "waste_mean": {
+            "normal": 0.9229,
+            "ablated": 0.9352,
+            "pct_change": -1.32
+          },
+          "boundary_mean": {
+            "normal": 0.6219,
+            "ablated": 0.7257,
+            "pct_change": -16.69
+          },
+          "internal_state_mean_0": {
+            "normal": 0.9336,
+            "ablated": 0.8811,
+            "pct_change": 5.63
+          }
+        }
+      }
+    ]
+  }
 }

@@ -57,7 +57,7 @@ Data/Code available at: \url{https://anonymous.4open.science/}
 What distinguishes a living system from a merely complex one?
 Biology textbooks identify seven criteria---cellular organization, metabolism,
 homeostasis, growth and development, reproduction, response to stimuli, and
-evolution \citep{urry_2020_campbell}---but artificial life (ALife) research has
+evolution \citep{urry_2020_campbell}---one of several such lists in biology education, which we adopt as a working set---but artificial life (ALife) research has
 struggled to integrate all seven into a single computational system.
 Most existing platforms implement a subset: evolutionary dynamics without
 metabolism \citep{ofria_2004_avida}, pattern formation without reproduction
@@ -324,7 +324,8 @@ For each of the seven criteria, we disable that criterion while keeping all
 others active, and compare the resulting population dynamics against the
 fully enabled baseline (``normal'' condition).
 This yields eight conditions: one normal baseline and seven single-criterion
-ablations.
+ablations. Ablations are applied at initialization (step~0), not mid-run;
+organisms never experience criterion loss after operating normally.
 
 \subsection{Outcome Measures}
 
@@ -338,6 +339,23 @@ Secondary DVs include the area under the alive-count curve (AUC,
 trapezoidal rule) and median organism lifespan.
 We additionally report short-horizon viability at $T=500$ to separate
 individual survival from population replacement effects.
+
+To address potential construct overlap between viability and criterion
+definitions, we supplement the primary outcome ($N_T$) with two
+criterion-orthogonal metrics: \emph{spatial cohesion} (mean pairwise
+toroidal agent distance at step $T$) and \emph{median lifespan}
+(per-seed median organism lifetime). These metrics capture structural
+and temporal aspects of population health that are not directly entailed
+by any single criterion's definition. Under ablation, spatial cohesion
+shows significant degradation only for response ablation ($\delta$=1.00,
+$p < 0.001$), while median lifespan reveals significant effects for
+response ($\delta$=1.00), growth ($\delta$=1.00), and evolution
+($\delta$=0.47, $p$=0.005) ablations. Notably, metabolism and
+reproduction ablations \emph{increase} individual lifespan (median 1,129
+and 752 vs.\ 245 steps for normal) despite population collapse,
+confirming that population decline reflects absent resource cycling and
+replacement rather than individual fragility
+(Figure~\ref{fig:orthogonal}).
 
 \subsection{Data Separation}
 
@@ -383,6 +401,17 @@ for the primary ablation comparisons, with Cohen's $d$ additionally reported
 for evolution-strengthening experiments to facilitate parametric comparison,
 with percentile bootstrap 95\% confidence intervals (2000 resamples,
 seed-fixed RNG), appropriate for non-normal distributions.
+
+The unit of replication is an independent simulation run identified by a
+unique random seed; $n$=30 counts the number of such runs per condition.
+Seeds are sequential integers 100--129; seeds 0--99 were used exclusively
+for parameter calibration and threshold selection during development and
+never appear in reported results. Outcomes are aggregated as:
+(1)~$N_T$ at the final step $T$=2000 for each seed (primary),
+(2)~AUC via trapezoidal integration of the alive-count trajectory over
+all sampled steps (secondary). Bootstrap 95\% confidence intervals for
+Cliff's $\delta$ are computed using the percentile method with 2,000
+resamples and a fixed RNG seed for reproducibility.
 
 % ============================================================================
 \section{Results}
@@ -502,6 +531,16 @@ sensing radius, and metabolic efficiency through the genome-encoded
 developmental program, and gates reproduction through the maturity
 threshold---forming four independent coupling pathways.
 
+We further quantify coupling via intervention-based causal effects
+(Table~\ref{tab:intervention}): ablating metabolism reduces waste
+production by 100\% and energy by 38\%, while \emph{increasing} boundary
+integrity by 41\% (no energy expenditure on repair attempts); ablating
+response reduces energy by 80\% (organisms cannot reach resources) and
+waste by 100\%. Ablating homeostasis produces the largest internal-state
+change ($-$72\%), confirming its regulatory role. These cross-criterion
+effects demonstrate that criteria are not modular: disabling one
+systematically alters others' process rates.
+
 \begin{figure}[t]
 \centering
 \IfFileExists{figures/fig_coupling.pdf}%
@@ -516,6 +555,26 @@ Node layout: 7 criteria arranged by functional proximity.}
 \label{fig:coupling}
 \end{figure}
 
+\begin{table}[t]
+\centering
+\caption{Intervention-based causal effects: percent change in criterion process rates when each criterion is ablated. Top effects shown; full matrix in supplementary.}
+\label{tab:intervention}
+\footnotesize
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Ablated & Energy & Waste & Boundary & Int.\ State \\
+\midrule
+Metabolism & $-$38\% & $-$100\% & +41\% & $-$41\% \\
+Boundary & $<$1\% & $<$1\% & $<$1\% & $-$41\% \\
+Homeostasis & $-$5\% & $-$6\% & $-$9\% & $-$72\% \\
+Response & $-$80\% & $-$100\% & +31\% & $-$21\% \\
+Reproduction & +24\% & +8\% & +51\% & $-$14\% \\
+Evolution & $-$2\% & $<$1\% & $<$1\% & $-$2\% \\
+Growth & +3\% & +1\% & +17\% & $-$6\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Proxy Control Comparison}
 
 To test whether criterion ablation merely reflects tautological
@@ -524,7 +583,9 @@ definitions, we compare three metabolism implementations on the same seeds
 \textbf{Toy} (single-step with waste dynamics), and \textbf{Graph} (full
 multi-step network with catalytic nodes).
 All three satisfy ``dynamic resource consumption,'' yet produce
-qualitatively different dynamics (Figure~\ref{fig:proxy}).
+qualitatively different dynamics (Figure~\ref{fig:proxy}):
+population size differs by 27\% (Counter 433 vs.\ Graph 341), and
+genome diversity varies non-monotonically across implementations.
 Graph metabolism sustains the fewest organisms (341 vs.\ 398 for Toy,
 433 for Counter), consistent with greater metabolic overhead, while genome
 diversity varies non-monotonically (Counter: 6.67, Graph: 6.49, Toy: 5.67),
@@ -552,6 +613,17 @@ simple population scaling.}
 To test for interaction effects beyond individual necessity, we disable
 pairs of criteria and compute synergy:
 $\text{synergy}_{A,B} = \Delta_{A \cup B} - (\Delta_A + \Delta_B)$.
+We define the interaction metric formally as
+$\text{synergy}_{A,B} = \Delta_{AB} - (\Delta_A + \Delta_B)$ where
+$\Delta_X = \bar{N}_{\text{normal}} - \bar{N}_X$ on the raw alive-count
+scale. Results are robust across scales: on $\log(N_T + 1)$ and
+percentage-decline scales, all five sub-additive pairs remain
+sub-additive and the one super-additive pair (boundary, homeostasis)
+remains super-additive (bootstrap 95\% CI excludes zero for 5/6 pairs).
+Floor effects are minimal: only 10\% of no-homeostasis seeds reach
+near-extinction ($N_T \leq 5$); all other conditions show 0\% at floor.
+Sub-additivity thus reflects genuine shared failure pathways rather than
+mechanical floor compression.
 Table~\ref{tab:pairwise} reports scores for six pairs.
 All show sub-additive synergy (negative), indicating \emph{shared failure
 pathways}: individual ablations already collapse populations to near
@@ -610,6 +682,24 @@ normal populations reach $\bar{x}$=436.3 vs.\ 381.8 for no-evolution
 Under environmental perturbation (resource halved at step~2,500 of
 5,000-step runs), evolved populations recover more effectively
 ($\bar{x}$=439.5 vs.\ 413.5, $d$=0.86, $\delta$=0.50, $p < 0.001$).
+
+Multiple lines of evidence confirm that evolutionary dynamics are
+adaptive rather than neutral drift. First, analytical heritability is
+high ($h^2 \approx 0.99$): given point mutation rate 0.01 per gene and
+scale 0.1, mutation variance ($V_m = 0.026$) is small relative to
+standing genetic variation ($V_g = 3.19$, measured as genome diversity
+at the final step). Second, genome drift trajectories diverge
+monotonically between evolved and non-evolved populations over 10,000
+steps (Figure~\ref{fig:evo_evidence}A; Cliff's $\delta$=1.00,
+$p < 0.001$), with evolved populations accumulating drift at a steady
+rate ($\bar{d}_{10K} = 0.087$) while non-evolved populations remain at
+zero. Third, under cyclic resource stress (period=2,000 steps), evolved
+populations exhibit faster per-cycle recovery rates
+($\bar{r}_{\text{evo}} = 0.068$ vs.\
+$\bar{r}_{\text{no\text{-}evo}} = 0.037$; pooled $p = 0.010$;
+Figure~\ref{fig:evo_evidence}B), with the advantage persisting across
+successive cycles, consistent with adaptive tuning of resource
+acquisition strategies.
 
 \begin{figure}[t]
 \centering
@@ -686,9 +776,19 @@ that criterion ablation effects reflect genuine functional dependencies.
 
 \paragraph{Phenotype clustering.}
 PCA projection of per-seed organism traits (energy, waste, boundary
-integrity, genome diversity, generation count) reveals emergent phenotypic
-clusters among evolved populations (Figure~\ref{fig:phenotype}),
-suggesting behaviorally distinct strategies not explicitly engineered.
+integrity, genome diversity, generation count) reveals two emergent
+phenotypic clusters among evolved populations ($k$=2, silhouette=0.41;
+Figure~\ref{fig:phenotype}). To test whether these clusters represent
+persistent ecological strategies rather than transient snapshots, we
+perform temporal persistence analysis: independent $k$-means clustering
+at early (step~750) and late (step~1,750) windows within 2,000-step
+simulations yields an adjusted Rand index of $-$0.04, indicating that
+cluster assignments are not stable across time windows at this
+timescale. This suggests that while phenotypic differentiation emerges
+within any given snapshot, stable ecological niches may require longer
+evolutionary timescales---consistent with the modest 2,000-step
+evolution effect ($\delta$=0.34) observed in single-ablation
+experiments.
 
 \paragraph{Spatial cohesion.}
 Per-organism spatial cohesion (mean pairwise toroidal agent distance)
@@ -718,6 +818,35 @@ confirming genuine hereditary structure rather than random replacement.
 ($k$-means, silhouette-optimal $k$). Center: spatial cohesion under
 boundary ablation. Right: lineage phylogeny (generation depth vs.\ step).}
 \label{fig:phenotype}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/fig_orthogonal.pdf}%
+  {\includegraphics[width=\columnwidth]{figures/fig_orthogonal.pdf}}%
+  {\fbox{\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule}{%
+    \centering\vspace{2em}[fig\_orthogonal.pdf --- to be generated]\vspace{2em}}}}
+\caption{Criterion-orthogonal outcome measures ($n$=30 per condition).
+Left: spatial cohesion (mean pairwise agent distance); lower values indicate
+tighter spatial structure. Right: median organism lifespan per seed.
+Diamonds mark medians; dotted line shows normal baseline.
+Response ablation significantly increases cohesion (immobile organisms cluster)
+while decreasing lifespan.}
+\label{fig:orthogonal}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/fig_evolution_evidence.pdf}%
+  {\includegraphics[width=\columnwidth]{figures/fig_evolution_evidence.pdf}}%
+  {\fbox{\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule}{%
+    \centering\vspace{2em}[fig\_evolution\_evidence.pdf --- to be generated]\vspace{2em}}}}
+\caption{Evolution evidence. (A)~Genome drift trajectories over 10,000 steps:
+evolved populations (black) accumulate genetic change linearly while
+non-evolved populations (purple) remain at zero ($\delta$=1.00).
+(B)~Per-cycle recovery rates under cyclic resource stress: evolved
+populations recover faster after each low-resource phase (pooled $p$=0.010).}
+\label{fig:evo_evidence}
 \end{figure}
 
 % ============================================================================

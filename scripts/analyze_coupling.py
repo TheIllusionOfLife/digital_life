@@ -38,7 +38,9 @@ def load_timeseries(path: Path) -> dict[str, np.ndarray]:
         results = json.load(f)
 
     # Collect per-step values across all seeds
-    step_vals: dict[str, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
+    step_vals: dict[str, dict[int, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
     for r in results:
         if "samples" not in r:
             continue
@@ -79,14 +81,16 @@ def cross_correlation(x: np.ndarray, y: np.ndarray, max_lag: int) -> list[dict]:
         r_pearson, p_pearson = stats.pearsonr(x_slice, y_slice)
         r_spearman, p_spearman = stats.spearmanr(x_slice, y_slice)
 
-        results.append({
-            "lag": lag,
-            "pearson_r": round(float(r_pearson), 4),
-            "pearson_p": float(p_pearson),
-            "spearman_r": round(float(r_spearman), 4),
-            "spearman_p": float(p_spearman),
-            "n": len(x_slice),
-        })
+        results.append(
+            {
+                "lag": lag,
+                "pearson_r": round(float(r_pearson), 4),
+                "pearson_p": float(p_pearson),
+                "spearman_r": round(float(r_spearman), 4),
+                "spearman_p": float(p_spearman),
+                "n": len(x_slice),
+            }
+        )
     return results
 
 
@@ -139,6 +143,81 @@ def main():
                 f"Spearman r={c['spearman_r']:.4f} "
                 f"(p={c['spearman_p']:.4e}){marker}"
             )
+
+    # --- Intervention-based causal effects ---
+    print("\n--- Intervention-based causal effects ---")
+    CRITERIA = [
+        "metabolism",
+        "boundary",
+        "homeostasis",
+        "response",
+        "reproduction",
+        "evolution",
+        "growth",
+    ]
+    VARIABLES = ["energy_mean", "waste_mean", "boundary_mean", "internal_state_mean_0"]
+
+    def extract_final_step_means(path: Path) -> dict[str, float]:
+        """Extract population-mean values at the final sampled step, averaged across seeds."""
+        if not path.exists():
+            return {}
+        with open(path) as f:
+            results = json.load(f)
+        vals: dict[str, list[float]] = defaultdict(list)
+        for r in results:
+            if "samples" not in r or not r["samples"]:
+                continue
+            last = r["samples"][-1]
+            vals["energy_mean"].append(last["energy_mean"])
+            vals["waste_mean"].append(last["waste_mean"])
+            vals["boundary_mean"].append(last["boundary_mean"])
+            is_mean = last.get("internal_state_mean")
+            if is_mean and len(is_mean) > 0:
+                vals["internal_state_mean_0"].append(is_mean[0])
+        return {k: float(np.mean(v)) for k, v in vals.items() if v}
+
+    normal_finals = extract_final_step_means(DATA_PATH)
+    if not normal_finals:
+        print("  WARNING: no normal baseline data for intervention analysis")
+    else:
+        intervention_effects = {"matrix": [], "details": []}
+        for criterion in CRITERIA:
+            ablation_path = (
+                PROJECT_ROOT / "experiments" / f"final_graph_no_{criterion}.json"
+            )
+            ablated_finals = extract_final_step_means(ablation_path)
+            if not ablated_finals:
+                print(f"  SKIP: no_{criterion} (missing data)")
+                continue
+
+            row = {"ablated_criterion": criterion}
+            detail = {"ablated_criterion": criterion, "effects": {}}
+            for var in VARIABLES:
+                normal_val = normal_finals.get(var)
+                ablated_val = ablated_finals.get(var)
+                if (
+                    normal_val is not None
+                    and ablated_val is not None
+                    and normal_val != 0
+                ):
+                    pct_change = (normal_val - ablated_val) / abs(normal_val) * 100
+                    row[var] = round(pct_change, 2)
+                    detail["effects"][var] = {
+                        "normal": round(normal_val, 4),
+                        "ablated": round(ablated_val, 4),
+                        "pct_change": round(pct_change, 2),
+                    }
+                else:
+                    row[var] = None
+
+            intervention_effects["matrix"].append(row)
+            intervention_effects["details"].append(detail)
+            effects_str = ", ".join(
+                f"{v}={row[v]:.1f}%" for v in VARIABLES if row[v] is not None
+            )
+            print(f"  no_{criterion}: {effects_str}")
+
+        output["intervention_effects"] = intervention_effects
 
     with open(OUTPUT_PATH, "w") as f:
         json.dump(output, f, indent=2)
