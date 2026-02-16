@@ -95,6 +95,33 @@ fn run_experiment_json_impl(
         .map_err(|e| format!("failed to serialize experiment summary: {e}"))
 }
 
+#[pyfunction]
+fn run_niche_experiment_json(
+    config_json: &str,
+    steps: usize,
+    sample_every: usize,
+    snapshot_steps_json: &str,
+) -> PyResult<String> {
+    run_niche_experiment_json_impl(config_json, steps, sample_every, snapshot_steps_json)
+        .map_err(PyValueError::new_err)
+}
+
+fn run_niche_experiment_json_impl(
+    config_json: &str,
+    steps: usize,
+    sample_every: usize,
+    snapshot_steps_json: &str,
+) -> Result<String, String> {
+    let snapshot_steps: Vec<usize> = serde_json::from_str(snapshot_steps_json)
+        .map_err(|e| format!("invalid snapshot_steps json: {e}"))?;
+    let mut world = world_from_config_json(config_json)?;
+    let summary = world
+        .try_run_experiment_with_snapshots(steps, sample_every, &snapshot_steps)
+        .map_err(|e| format!("invalid experiment parameters: {e}"))?;
+    serde_json::to_string(&summary)
+        .map_err(|e| format!("failed to serialize experiment summary: {e}"))
+}
+
 fn run_evolution_experiment_json_impl(
     config_json: &str,
     steps: usize,
@@ -209,6 +236,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(step_once, m)?)?;
     m.add_function(wrap_pyfunction!(run_experiment_json, m)?)?;
     m.add_function(wrap_pyfunction!(run_evolution_experiment_json, m)?)?;
+    m.add_function(wrap_pyfunction!(run_niche_experiment_json, m)?)?;
     Ok(())
 }
 
@@ -374,5 +402,24 @@ mod tests {
             differs,
             "different seeds should produce different positions"
         );
+    }
+
+    #[test]
+    fn run_niche_experiment_json_impl_returns_snapshots() {
+        let config_json = serde_json::to_string(&SimConfig {
+            num_organisms: 2,
+            agents_per_organism: 8,
+            ..SimConfig::default()
+        })
+        .expect("config should serialize");
+        let output = run_niche_experiment_json_impl(&config_json, 10, 5, "[5, 10]")
+            .expect("niche experiment should run");
+        let payload: serde_json::Value =
+            serde_json::from_str(&output).expect("output should be valid json");
+        assert!(payload["organism_snapshots"].is_array());
+        let snapshots = payload["organism_snapshots"].as_array().unwrap();
+        assert_eq!(snapshots.len(), 2);
+        assert_eq!(snapshots[0]["step"].as_u64(), Some(5));
+        assert!(snapshots[0]["organisms"].is_array());
     }
 }

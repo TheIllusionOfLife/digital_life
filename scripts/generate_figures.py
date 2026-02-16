@@ -1467,8 +1467,9 @@ def generate_evolution_evidence() -> None:
 
 
 def generate_persistent_clusters() -> None:
-    """Figure 16: Persistent phenotype clusters — PCA scatter of early vs late windows."""
+    """Figure 16: Per-organism phenotype clusters — PCA scatter at early vs late windows."""
     from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
 
     analysis_path = PROJECT_ROOT / "experiments" / "phenotype_analysis.json"
     if not analysis_path.exists():
@@ -1478,80 +1479,52 @@ def generate_persistent_clusters() -> None:
     with open(analysis_path) as f:
         analysis = json.load(f)
 
-    tp = analysis.get("temporal_persistence")
-    if not tp:
-        print("  SKIP: no temporal_persistence data in phenotype_analysis.json")
+    olp = analysis.get("organism_level_persistence")
+    if not olp or "error" in olp:
+        print("  SKIP: no organism_level_persistence data in phenotype_analysis.json")
         return
 
-    ari = tp.get("adjusted_rand_index", 0.0)
-
-    # Build synthetic trait vectors from cluster profiles for PCA visualization
-    # Each cluster profile has mean trait values; generate points around them
+    ari = olp.get("adjusted_rand_index", 0.0)
     cluster_colors = ["#0072B2", "#D55E00"]
-    trait_keys = [
-        "energy_mean",
-        "waste_mean",
-        "boundary_mean",
-        "genome_diversity",
-        "mean_generation",
-    ]
 
     fig, axes = plt.subplots(1, 2, figsize=(7, 3.0))
 
-    for panel_idx, (window_key, title) in enumerate(
+    n_shared_early = olp["early_window"]["n_shared_organisms"]
+    n_shared_late = olp["late_window"]["n_shared_organisms"]
+
+    for panel_idx, (traits_key, labels_key, window_key, title) in enumerate(
         [
-            ("early_clusters", "(A) Early Window Clusters"),
-            ("late_clusters", "(B) Late Window Clusters"),
+            ("early_traits", "early_labels", "early_window",
+             f"(A) Early Window (n={n_shared_early})"),
+            ("late_traits", "late_labels", "late_window",
+             f"(B) Late Window (n={n_shared_late})"),
         ]
     ):
         ax = axes[panel_idx]
-        window = tp.get(window_key, {})
-        profiles = window.get("cluster_profiles", [])
-        proportions = window.get("cluster_proportions", [])
+        raw_traits = olp.get(traits_key, [])
+        raw_labels = olp.get(labels_key, [])
 
-        if not profiles:
+        if len(raw_traits) < 4:
             ax.text(
-                0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes
+                0.5, 0.5, "Insufficient data",
+                ha="center", va="center", transform=ax.transAxes,
             )
             continue
 
-        # Build trait matrix: use centroid ± small jitter to create visible clusters
-        all_traits = []
-        all_labels = []
-        rng = np.random.default_rng(42 + panel_idx)
-        for profile in profiles:
-            count = profile["count"]
-            centroid = np.array([profile[k] for k in trait_keys])
-            # Add small Gaussian noise proportional to trait scale
-            noise = rng.normal(0, 0.02, size=(count, len(trait_keys)))
-            points = centroid + noise * centroid
-            all_traits.append(points)
-            all_labels.extend([profile["cluster_id"]] * count)
+        traits = np.array(raw_traits)
+        labels = np.array(raw_labels)
 
-        traits = np.vstack(all_traits)
-        labels = np.array(all_labels)
-
-        if traits.shape[0] < 4:
-            ax.text(
-                0.5,
-                0.5,
-                "Insufficient data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            continue
-
+        scaled = StandardScaler().fit_transform(traits)
         pca = PCA(n_components=2, random_state=42)
-        proj = pca.fit_transform(traits)
+        proj = pca.fit_transform(scaled)
 
-        for c in range(len(profiles)):
+        for c in sorted(set(raw_labels)):
             mask = labels == c
             ax.scatter(
                 proj[mask, 0],
                 proj[mask, 1],
-                s=15,
-                alpha=0.6,
+                s=12,
+                alpha=0.5,
                 color=cluster_colors[c % len(cluster_colors)],
                 label=f"Cluster {c} (n={mask.sum()})",
                 edgecolors="none",
@@ -1564,31 +1537,28 @@ def generate_persistent_clusters() -> None:
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-        # Annotate proportions
+        # Annotate cluster proportions and silhouette
+        window = olp.get(window_key, {})
+        proportions = window.get("cluster_proportions", [])
+        sil = window.get("silhouette_score", 0.0)
         prop_text = ", ".join(f"{p:.0%}" for p in proportions) if proportions else ""
         ax.text(
-            0.02,
-            0.98,
-            f"Proportions: {prop_text}",
-            transform=ax.transAxes,
-            ha="left",
-            va="top",
-            fontsize=6,
+            0.02, 0.98,
+            f"Prop: {prop_text}\nSil: {sil:.3f}",
+            transform=ax.transAxes, ha="left", va="top", fontsize=6,
             bbox=dict(
-                boxstyle="round,pad=0.2", facecolor="white", edgecolor="0.8", alpha=0.9
+                boxstyle="round,pad=0.2", facecolor="white",
+                edgecolor="0.8", alpha=0.9,
             ),
         )
 
-    # ARI annotation spanning both panels
     fig.text(
-        0.5,
-        0.01,
-        f"Adjusted Rand Index: {ari:.3f}",
-        ha="center",
-        va="bottom",
-        fontsize=8,
+        0.5, 0.01,
+        f"Organism-level ARI: {ari:.3f} (early vs late window)",
+        ha="center", va="bottom", fontsize=8,
         bbox=dict(
-            boxstyle="round,pad=0.3", facecolor="#FFF9C4", edgecolor="0.8", alpha=0.9
+            boxstyle="round,pad=0.3", facecolor="#FFF9C4",
+            edgecolor="0.8", alpha=0.9,
         ),
     )
 

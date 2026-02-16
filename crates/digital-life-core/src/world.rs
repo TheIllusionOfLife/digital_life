@@ -80,6 +80,26 @@ pub struct LineageEvent {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OrganismSnapshot {
+    pub stable_id: u64,
+    pub generation: u32,
+    pub age_steps: usize,
+    pub energy: f32,
+    pub waste: f32,
+    pub boundary_integrity: f32,
+    pub maturity: f32,
+    pub center_x: f64,
+    pub center_y: f64,
+    pub n_agents: usize,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SnapshotFrame {
+    pub step: usize,
+    pub organisms: Vec<OrganismSnapshot>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RunSummary {
     pub steps: usize,
     pub sample_every: usize,
@@ -91,6 +111,8 @@ pub struct RunSummary {
     pub total_reproduction_events: usize,
     #[serde(default)]
     pub lineage_events: Vec<LineageEvent>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub organism_snapshots: Vec<SnapshotFrame>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -1156,6 +1178,108 @@ impl World {
             lifespans: std::mem::take(&mut self.lifespans),
             total_reproduction_events: self.total_births - births_before,
             lineage_events: std::mem::take(&mut self.lineage_events),
+            organism_snapshots: Vec::new(),
+        })
+    }
+
+    /// Collect a snapshot of all alive organisms at the current step.
+    ///
+    /// Uses the toroidal sums already computed during the metabolism update
+    /// to derive organism centers without re-scanning agents.
+    fn collect_organism_snapshots(&self, step: usize) -> SnapshotFrame {
+        let world_size = self.config.world_size;
+        let organisms: Vec<OrganismSnapshot> = self
+            .organisms
+            .iter()
+            .enumerate()
+            .filter(|(_, org)| org.alive)
+            .map(|(idx, org)| {
+                let (cx, cy) = if self.org_counts[idx] > 0 {
+                    (
+                        Self::toroidal_mean_coord(
+                            self.org_toroidal_sums[idx][0],
+                            self.org_toroidal_sums[idx][1],
+                            world_size,
+                        ),
+                        Self::toroidal_mean_coord(
+                            self.org_toroidal_sums[idx][2],
+                            self.org_toroidal_sums[idx][3],
+                            world_size,
+                        ),
+                    )
+                } else {
+                    (0.0, 0.0)
+                };
+                OrganismSnapshot {
+                    stable_id: org.stable_id,
+                    generation: org.generation,
+                    age_steps: org.age_steps,
+                    energy: org.metabolic_state.energy,
+                    waste: org.metabolic_state.waste,
+                    boundary_integrity: org.boundary_integrity,
+                    maturity: org.maturity,
+                    center_x: cx,
+                    center_y: cy,
+                    n_agents: self.org_counts[idx],
+                }
+            })
+            .collect();
+        SnapshotFrame { step, organisms }
+    }
+
+    /// Run an experiment like `try_run_experiment`, but also collect per-organism
+    /// snapshots at the specified steps.
+    pub fn try_run_experiment_with_snapshots(
+        &mut self,
+        steps: usize,
+        sample_every: usize,
+        snapshot_steps: &[usize],
+    ) -> Result<RunSummary, ExperimentError> {
+        if sample_every == 0 {
+            return Err(ExperimentError::InvalidSampleEvery);
+        }
+        if steps > Self::MAX_EXPERIMENT_STEPS {
+            return Err(ExperimentError::TooManySteps {
+                max: Self::MAX_EXPERIMENT_STEPS,
+                actual: steps,
+            });
+        }
+        let estimated_samples = if steps == 0 {
+            0
+        } else {
+            ((steps - 1) / sample_every) + 1
+        };
+        if estimated_samples > Self::MAX_EXPERIMENT_SAMPLES {
+            return Err(ExperimentError::TooManySamples {
+                max: Self::MAX_EXPERIMENT_SAMPLES,
+                actual: estimated_samples,
+            });
+        }
+
+        self.lifespans.clear();
+        self.lineage_events.clear();
+        let births_before = self.total_births;
+        let mut samples = Vec::with_capacity(estimated_samples);
+        let mut snapshots = Vec::with_capacity(snapshot_steps.len());
+
+        for step in 1..=steps {
+            self.step();
+            if step % sample_every == 0 || step == steps {
+                samples.push(self.collect_step_metrics(step));
+            }
+            if snapshot_steps.contains(&step) {
+                snapshots.push(self.collect_organism_snapshots(step));
+            }
+        }
+        Ok(RunSummary {
+            steps,
+            sample_every,
+            final_alive_count: self.alive_count(),
+            samples,
+            lifespans: std::mem::take(&mut self.lifespans),
+            total_reproduction_events: self.total_births - births_before,
+            lineage_events: std::mem::take(&mut self.lineage_events),
+            organism_snapshots: snapshots,
         })
     }
 
@@ -1979,6 +2103,44 @@ mod tests {
         let mut world = make_world(1, 100.0);
         let result = world.try_run_experiment(World::MAX_EXPERIMENT_STEPS + 1, 1);
         assert!(matches!(result, Err(ExperimentError::TooManySteps { .. })));
+    }
+
+    #[test]
+    fn snapshot_experiment_collects_frames_at_requested_steps() {
+        let mut world = make_world(10, 100.0);
+        let summary = world
+            .try_run_experiment_with_snapshots(10, 5, &[5])
+            .expect("experiment should succeed");
+        assert_eq!(summary.organism_snapshots.len(), 1);
+        assert_eq!(summary.organism_snapshots[0].step, 5);
+        assert!(
+            !summary.organism_snapshots[0].organisms.is_empty(),
+            "snapshot should contain at least one organism"
+        );
+    }
+
+    #[test]
+    fn snapshot_experiment_skips_out_of_range_steps() {
+        let mut world = make_world(10, 100.0);
+        let summary = world
+            .try_run_experiment_with_snapshots(10, 5, &[0, 20])
+            .expect("experiment should succeed");
+        // step 0 is never reached (loop is 1..=steps), step 20 > 10
+        assert!(summary.organism_snapshots.is_empty());
+    }
+
+    #[test]
+    fn snapshot_organisms_have_valid_fields() {
+        let mut world = make_world(10, 100.0);
+        let summary = world
+            .try_run_experiment_with_snapshots(5, 1, &[3])
+            .expect("experiment should succeed");
+        assert_eq!(summary.organism_snapshots.len(), 1);
+        for org in &summary.organism_snapshots[0].organisms {
+            assert!(org.energy >= 0.0);
+            assert!(org.boundary_integrity >= 0.0 && org.boundary_integrity <= 1.0);
+            assert!(org.maturity >= 0.0);
+        }
     }
 
     #[test]

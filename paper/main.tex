@@ -778,17 +778,30 @@ that criterion ablation effects reflect genuine functional dependencies.
 PCA projection of per-seed organism traits (energy, waste, boundary
 integrity, genome diversity, generation count) reveals two emergent
 phenotypic clusters among evolved populations ($k$=2, silhouette=0.41;
-Figure~\ref{fig:phenotype}). To test whether these clusters represent
-persistent ecological strategies rather than transient snapshots, we
-perform temporal persistence analysis: independent $k$-means clustering
-at early (step~750) and late (step~1,750) windows within 2,000-step
-simulations yields an adjusted Rand index of $-$0.04, indicating that
-cluster assignments are not stable across time windows at this
-timescale. This suggests that while phenotypic differentiation emerges
-within any given snapshot, stable ecological niches may require longer
-evolutionary timescales---consistent with the modest 2,000-step
-evolution effect ($\delta$=0.34) observed in single-ablation
-experiments.
+Figure~\ref{fig:phenotype}).
+To test whether individual organisms differentiate into persistent
+ecological strategies, we run 5,000-step simulations ($n$=10 seeds)
+and collect per-organism trait snapshots (energy, waste, boundary
+integrity, maturity, generation) at paired time windows separated
+by 200 steps (steps 2,000/2,200 and 4,500/4,700).
+Organisms present in both snapshots of a pair ($n$=1,262 shared)
+are matched by stable ID and clustered independently via $k$-means
+($k$=2) on standardized traits (silhouette 0.39--0.51;
+Figure~\ref{fig:persistent_clusters}).
+Despite meaningful within-snapshot cluster separation (two distinct
+strategies: high-energy/low-boundary vs.\ low-energy/high-boundary),
+the adjusted Rand index between paired windows is low (ARI=0.04--0.09),
+indicating that individual organisms transition between ecological
+roles even over short ($\sim$200-step) timescales.
+Cross-pair analysis (steps 2,000 to 4,700) finds near-zero organism
+overlap, confirming that median lifespan ($\sim$245 steps) prevents
+long-horizon individual persistence.
+This suggests that ecological strategy differentiation in our system
+is a population-level rather than individual-level phenomenon:
+organisms continuously explore the trait space, with the population
+maintaining a stable distribution of strategies even as individuals
+transition between them---consistent with the moderate evolution
+effect ($\delta$=0.34) observed in single-ablation experiments.
 
 \paragraph{Spatial cohesion.}
 Per-organism spatial cohesion (mean pairwise toroidal agent distance)
@@ -818,6 +831,21 @@ confirming genuine hereditary structure rather than random replacement.
 ($k$-means, silhouette-optimal $k$). Center: spatial cohesion under
 boundary ablation. Right: lineage phylogeny (generation depth vs.\ step).}
 \label{fig:phenotype}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/fig_persistent_clusters.pdf}%
+  {\includegraphics[width=\columnwidth]{figures/fig_persistent_clusters.pdf}}%
+  {\fbox{\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule}{%
+    \centering\vspace{2em}[fig\_persistent\_clusters.pdf --- to be generated]\vspace{2em}}}}
+\caption{Per-organism ecological niche persistence. PCA projections of
+individual organism traits (energy, waste, boundary integrity, maturity,
+generation) at early (left) and late (right) time windows, colored by
+$k$-means cluster ($k$=2). Organisms are matched by stable~ID across
+windows; the adjusted Rand index quantifies temporal persistence of
+cluster assignments.}
+\label{fig:persistent_clusters}
 \end{figure}
 
 \begin{figure}[t]
