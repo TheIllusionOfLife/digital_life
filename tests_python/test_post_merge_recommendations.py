@@ -143,6 +143,10 @@ steps.
     assert report["ok"] is False
     assert any("steps invalid in manifest" in issue for issue in report["issues"])
     assert any("sample_every invalid in manifest" in issue for issue in report["issues"])
+    assert not any(
+        "steps mismatch:" in issue or "sample_every mismatch:" in issue
+        for issue in report["issues"]
+    )
 
 
 def test_manuscript_consistency_reports_all_missing_inputs(tmp_path: Path) -> None:

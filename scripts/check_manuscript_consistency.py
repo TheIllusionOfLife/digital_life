@@ -55,12 +55,12 @@ def run_checks(paper_path: Path, manifest_path: Path, registry_path: Path) -> di
         try:
             manifest_steps_int = int(manifest_steps)
         except (TypeError, ValueError):
-            manifest_steps_int = None
             issues.append(f"steps invalid in manifest: {manifest_steps}")
-        if manifest_steps_int != reported_steps:
-            issues.append(
-                f"steps mismatch: paper={reported_steps} manifest={manifest_steps}"
-            )
+        else:
+            if manifest_steps_int != reported_steps:
+                issues.append(
+                    f"steps mismatch: paper={reported_steps} manifest={manifest_steps}"
+                )
     else:
         issues.append("could not parse timing steps from paper")
 
@@ -70,13 +70,13 @@ def run_checks(paper_path: Path, manifest_path: Path, registry_path: Path) -> di
         try:
             manifest_sample_every_int = int(manifest_sample_every)
         except (TypeError, ValueError):
-            manifest_sample_every_int = None
             issues.append(f"sample_every invalid in manifest: {manifest_sample_every}")
-        if manifest_sample_every_int != reported_sample_every:
-            issues.append(
-                "sample_every mismatch: "
-                f"paper={reported_sample_every} manifest={manifest_sample_every}"
-            )
+        else:
+            if manifest_sample_every_int != reported_sample_every:
+                issues.append(
+                    "sample_every mismatch: "
+                    f"paper={reported_sample_every} manifest={manifest_sample_every}"
+                )
     else:
         issues.append("could not parse sample_every from paper")
 

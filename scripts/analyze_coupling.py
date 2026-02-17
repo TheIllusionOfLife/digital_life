@@ -34,7 +34,7 @@ TE_BINS = 5
 TE_PERMUTATIONS = 400
 TE_BIN_SETTINGS = [3, 5, 7]
 TE_PERMUTATION_SETTINGS = [200, 400, 800]
-TE_PHASE_SURROGATE_SAMPLES = 200
+TE_PHASE_SURROGATE_SAMPLES = 100
 MAX_DROPPED_SEED_FRACTION = 0.10
 INCLUDE_SEED_DETAILS = True
 
@@ -336,8 +336,12 @@ def phase_randomize(series: np.ndarray, rng: np.random.Generator) -> np.ndarray:
         return series.copy()
     spectrum = np.fft.rfft(series)
     randomized = spectrum.copy()
-    phases = rng.uniform(0.0, 2.0 * np.pi, size=len(spectrum) - 2)
-    randomized[1:-1] = np.abs(randomized[1:-1]) * np.exp(1j * phases)
+    if n % 2 == 0:
+        phases = rng.uniform(0.0, 2.0 * np.pi, size=len(spectrum) - 2)
+        randomized[1:-1] = np.abs(randomized[1:-1]) * np.exp(1j * phases)
+    else:
+        phases = rng.uniform(0.0, 2.0 * np.pi, size=len(spectrum) - 1)
+        randomized[1:] = np.abs(randomized[1:]) * np.exp(1j * phases)
     surrogate = np.fft.irfft(randomized, n=n)
     return np.asarray(surrogate, dtype=float)
 
@@ -354,14 +358,16 @@ def te_robustness_summary(
     rows: list[dict] = []
     for bins in bin_settings:
         for permutations in permutation_settings:
-            te_rng = np.random.default_rng(rng_seed + bins * 1000 + permutations)
+            te_seed = np.random.SeedSequence([rng_seed, bins, permutations, 1])
+            te_rng = np.random.default_rng(te_seed)
             te = transfer_entropy_lag1(
                 x, y, bins=bins, permutations=permutations, rng=te_rng
             )
             if te is None:
                 continue
 
-            phase_rng = np.random.default_rng(rng_seed + bins * 100000 + permutations)
+            phase_seed = np.random.SeedSequence([rng_seed, bins, permutations, 2])
+            phase_rng = np.random.default_rng(phase_seed)
             surrogate_te = np.empty(TE_PHASE_SURROGATE_SAMPLES, dtype=float)
             for i in range(TE_PHASE_SURROGATE_SAMPLES):
                 x_surrogate = phase_randomize(x, phase_rng)
@@ -446,6 +452,7 @@ def main() -> None:
             "te_robustness_bin_settings": TE_BIN_SETTINGS,
             "te_robustness_permutation_settings": TE_PERMUTATION_SETTINGS,
             "te_phase_surrogate_samples": TE_PHASE_SURROGATE_SAMPLES,
+            "te_robustness_on_mean": True,
             "pair_level_correction": "holm_bonferroni",
             "seed_level_p_combination": "fisher",
             "include_seed_details": INCLUDE_SEED_DETAILS,
@@ -535,6 +542,8 @@ def main() -> None:
                 )
                 if seed_te_p
                 else 0.0,
+                "robustness_on_mean": True,
+                # Robustness is computed on population means to keep this pass tractable.
                 "robustness": te_robustness_summary(
                     mean_a,
                     mean_b,
