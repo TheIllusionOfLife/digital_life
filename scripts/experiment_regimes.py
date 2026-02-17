@@ -16,7 +16,7 @@ from experiment_utils import CONDITIONS, log, run_single, safe_path
 
 STEPS = 2000
 SAMPLE_EVERY = 50
-SEEDS = list(range(100, 110))  # test set subset: n=10 for robustness check
+SEEDS = list(range(100, 130))  # test set: seeds 100-129, n=30
 
 GRAPH_OVERRIDES = {"metabolism_mode": "graph"}
 
