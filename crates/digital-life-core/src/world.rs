@@ -1001,102 +1001,111 @@ impl World {
                 break;
             }
 
-            let center = centers
-                .get(parent_idx)
-                .and_then(|c| *c)
-                .unwrap_or([0.0, 0.0]);
-            let (parent_generation, parent_stable_id, parent_ancestor, mut child_genome) = {
-                let parent = &self.organisms[parent_idx];
-                if !parent.alive
-                    || parent.metabolic_state.energy < self.config.reproduction_energy_cost
-                {
-                    continue;
-                }
-                (
-                    parent.generation,
-                    parent.stable_id,
-                    parent.ancestor_genome.clone(),
-                    parent.genome.clone(),
-                )
-            };
-
-            self.organisms[parent_idx].metabolic_state.energy -=
-                self.config.reproduction_energy_cost;
-
-            if self.config.enable_evolution {
-                child_genome.mutate(&mut self.rng, &self.mutation_rates);
-            }
-            let child_weights = if child_genome.nn_weights().len() == NeuralNet::WEIGHT_COUNT {
-                child_genome.nn_weights().to_vec()
-            } else {
-                self.organisms[parent_idx].nn.to_weight_vec()
-            };
-            let child_nn = NeuralNet::from_weights(child_weights.into_iter());
             let child_id = match u16::try_from(self.organisms.len()) {
                 Ok(id) => id,
                 Err(_) => break,
             };
-            let mut child_agent_ids = Vec::with_capacity(child_agents);
 
-            for _ in 0..child_agents {
-                let theta = self.rng.random::<f64>() * 2.0 * PI;
-                let radius =
-                    self.rng.random::<f64>().sqrt() * self.config.reproduction_spawn_radius;
-                let pos = [
-                    (center[0] + radius * theta.cos()).rem_euclid(self.config.world_size),
-                    (center[1] + radius * theta.sin()).rem_euclid(self.config.world_size),
-                ];
-                let Some(id) = self.next_agent_id_checked() else {
-                    break;
-                };
-                let mut agent = Agent::new(id, child_id, pos);
-                agent.internal_state[2] = 1.0;
-                child_agent_ids.push(id);
-                self.agents.push(agent);
-            }
-            if child_agent_ids.is_empty() {
-                break;
-            }
+            let center = centers
+                .get(parent_idx)
+                .and_then(|c| *c)
+                .unwrap_or([0.0, 0.0]);
 
-            let metabolic_state = MetabolicState {
-                energy: self.config.reproduction_energy_cost,
-                ..MetabolicState::default()
-            };
-            let child_metabolism_engine =
-                decode_organism_metabolism(&child_genome, self.config.metabolism_mode);
-            let developmental_program = DevelopmentalProgram::decode(child_genome.segment_data(3));
-            let child_stable_id = self.next_organism_stable_id;
-            let child_generation = parent_generation + 1;
-            let child = OrganismRuntime {
-                id: child_id,
-                stable_id: child_stable_id,
-                generation: child_generation,
-                age_steps: 0,
-                alive: true,
-                boundary_integrity: 1.0,
-                metabolic_state,
-                genome: child_genome,
-                ancestor_genome: parent_ancestor,
-                nn: child_nn,
-                agent_ids: child_agent_ids,
-                maturity: 0.0,
-                metabolism_engine: child_metabolism_engine,
-                developmental_program,
-                parent_stable_id: Some(parent_stable_id),
-            };
-            self.next_organism_stable_id = self.next_organism_stable_id.saturating_add(1);
-            self.lineage_events.push(LineageEvent {
-                step: self.step_index,
-                parent_stable_id,
-                child_stable_id,
-                generation: child_generation,
-            });
-            self.organisms.push(child);
-            self.org_toroidal_sums.push([0.0, 0.0, 0.0, 0.0]);
-            self.org_counts.push(0);
-            self.births_last_step += 1;
-            self.total_births += 1;
+            self.spawn_child(parent_idx, child_id, center, child_agents);
         }
+    }
+
+    fn spawn_child(
+        &mut self,
+        parent_idx: usize,
+        child_id: u16,
+        center: [f64; 2],
+        child_agents: usize,
+    ) {
+        let (parent_generation, parent_stable_id, parent_ancestor, mut child_genome) = {
+            let parent = &self.organisms[parent_idx];
+            if !parent.alive || parent.metabolic_state.energy < self.config.reproduction_energy_cost
+            {
+                return;
+            }
+            (
+                parent.generation,
+                parent.stable_id,
+                parent.ancestor_genome.clone(),
+                parent.genome.clone(),
+            )
+        };
+
+        self.organisms[parent_idx].metabolic_state.energy -= self.config.reproduction_energy_cost;
+
+        if self.config.enable_evolution {
+            child_genome.mutate(&mut self.rng, &self.mutation_rates);
+        }
+        let child_weights = if child_genome.nn_weights().len() == NeuralNet::WEIGHT_COUNT {
+            child_genome.nn_weights().to_vec()
+        } else {
+            self.organisms[parent_idx].nn.to_weight_vec()
+        };
+        let child_nn = NeuralNet::from_weights(child_weights.into_iter());
+        let mut child_agent_ids = Vec::with_capacity(child_agents);
+
+        for _ in 0..child_agents {
+            let theta = self.rng.random::<f64>() * 2.0 * PI;
+            let radius = self.rng.random::<f64>().sqrt() * self.config.reproduction_spawn_radius;
+            let pos = [
+                (center[0] + radius * theta.cos()).rem_euclid(self.config.world_size),
+                (center[1] + radius * theta.sin()).rem_euclid(self.config.world_size),
+            ];
+            let Some(id) = self.next_agent_id_checked() else {
+                break;
+            };
+            let mut agent = Agent::new(id, child_id, pos);
+            agent.internal_state[2] = 1.0;
+            child_agent_ids.push(id);
+            self.agents.push(agent);
+        }
+        if child_agent_ids.is_empty() {
+            return;
+        }
+
+        let metabolic_state = MetabolicState {
+            energy: self.config.reproduction_energy_cost,
+            ..MetabolicState::default()
+        };
+        let child_metabolism_engine =
+            decode_organism_metabolism(&child_genome, self.config.metabolism_mode);
+        let developmental_program = DevelopmentalProgram::decode(child_genome.segment_data(3));
+        let child_stable_id = self.next_organism_stable_id;
+        let child_generation = parent_generation + 1;
+        let child = OrganismRuntime {
+            id: child_id,
+            stable_id: child_stable_id,
+            generation: child_generation,
+            age_steps: 0,
+            alive: true,
+            boundary_integrity: 1.0,
+            metabolic_state,
+            genome: child_genome,
+            ancestor_genome: parent_ancestor,
+            nn: child_nn,
+            agent_ids: child_agent_ids,
+            maturity: 0.0,
+            metabolism_engine: child_metabolism_engine,
+            developmental_program,
+            parent_stable_id: Some(parent_stable_id),
+        };
+        self.next_organism_stable_id = self.next_organism_stable_id.saturating_add(1);
+        self.lineage_events.push(LineageEvent {
+            step: self.step_index,
+            parent_stable_id,
+            child_stable_id,
+            generation: child_generation,
+        });
+        self.organisms.push(child);
+        self.org_toroidal_sums.push([0.0, 0.0, 0.0, 0.0]);
+        self.org_counts.push(0);
+        self.births_last_step += 1;
+        self.total_births += 1;
     }
 
     /// Compute neighbor-informed neural deltas for all agents.
