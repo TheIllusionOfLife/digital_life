@@ -53,7 +53,7 @@ fn create_agents(config: &SimConfig) -> Result<Vec<Agent>> {
     for org in 0..config.num_organisms {
         for i in 0..config.agents_per_organism {
             let id = (org * config.agents_per_organism + i) as u32;
-            let organism_id = u16::try_from(org).context("Organism ID overflow (max 65535)")?;
+            let organism_id: u16 = org.try_into().context("Organism ID overflow (max 65535)")?;
             let pos = [
                 rng.random::<f64>() * config.world_size,
                 rng.random::<f64>() * config.world_size,
@@ -188,9 +188,7 @@ fn main() -> Result<()> {
                 serde_json::from_reader(reader).context("failed to parse config")?;
 
             // Validate config
-            sim_config
-                .validate()
-                .context("Config validation error")?;
+            sim_config.validate().context("Config validation error")?;
 
             println!("Loaded config from {:?}", config);
             println!("Simulating for {} steps...", steps);
