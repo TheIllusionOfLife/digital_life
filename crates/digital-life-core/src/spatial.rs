@@ -307,10 +307,10 @@ mod tests {
         let mut total_neighbors = 0;
         for _ in 0..10 {
             // repeat to get stable measurement
-            for i in 0..1000 {
+            for agent in agents.iter().take(1000) {
                 // sample 1000 agents
-                let center = agents[i].position;
-                total_neighbors += count_neighbors(&tree, center, radius, agents[i].id, world_size);
+                let center = agent.position;
+                total_neighbors += count_neighbors(&tree, center, radius, agent.id, world_size);
             }
         }
         let duration = start.elapsed();
