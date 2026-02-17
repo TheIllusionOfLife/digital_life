@@ -913,16 +913,16 @@ impl World {
         if sample_every == 0 {
             return Err(ExperimentError::InvalidSampleEvery);
         }
-        if snapshot_steps.len() > Self::MAX_EXPERIMENT_SNAPSHOTS {
-            return Err(ExperimentError::TooManySnapshots {
-                max: Self::MAX_EXPERIMENT_SNAPSHOTS,
-                actual: snapshot_steps.len(),
-            });
-        }
         if steps > Self::MAX_EXPERIMENT_STEPS {
             return Err(ExperimentError::TooManySteps {
                 max: Self::MAX_EXPERIMENT_STEPS,
                 actual: steps,
+            });
+        }
+        if snapshot_steps.len() > Self::MAX_EXPERIMENT_SNAPSHOTS {
+            return Err(ExperimentError::TooManySnapshots {
+                max: Self::MAX_EXPERIMENT_SNAPSHOTS,
+                actual: snapshot_steps.len(),
             });
         }
         let estimated_samples = if steps == 0 {
