@@ -95,13 +95,13 @@ COUPLING_METRIC_MAPPING = {
 }
 
 COUPLING_NODE_COLORS = [
-    COLORS["cellular"],
-    COLORS["metabolism"],
-    COLORS["homeostasis"],
-    COLORS["growth"],
-    COLORS["reproduction"],
-    COLORS["response"],
-    COLORS["evolution"],
+    COLORS["no_boundary"],
+    COLORS["no_metabolism"],
+    COLORS["no_homeostasis"],
+    COLORS["no_growth"],
+    COLORS["no_reproduction"],
+    COLORS["no_response"],
+    COLORS["no_evolution"],
 ]
 
 INTERVENTION_METRICS = (
