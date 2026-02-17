@@ -156,6 +156,13 @@ pub struct World {
     /// Runtime resource regeneration rate, separate from config to avoid mutating
     /// config at runtime during environment shifts.
     current_resource_rate: f32,
+
+    // Buffers for avoiding allocation in simulation steps
+    deltas_buffer: Vec<[f32; 4]>,
+    neighbor_sums_buffer: Vec<f32>,
+    neighbor_counts_buffer: Vec<usize>,
+    homeostasis_sums_buffer: Vec<f32>,
+    homeostasis_counts_buffer: Vec<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -336,6 +343,7 @@ impl World {
 
         let world_size = config.world_size;
         let org_count = organisms.len();
+        let agent_count = agents.len();
         let next_organism_stable_id = org_count as u64;
         Ok(Self {
             agents,
@@ -359,6 +367,11 @@ impl World {
             lifespans: Vec::new(),
             lineage_events: Vec::new(),
             current_resource_rate: config.resource_regeneration_rate,
+            deltas_buffer: Vec::with_capacity(agent_count),
+            neighbor_sums_buffer: Vec::with_capacity(org_count),
+            neighbor_counts_buffer: Vec::with_capacity(org_count),
+            homeostasis_sums_buffer: Vec::with_capacity(org_count),
+            homeostasis_counts_buffer: Vec::with_capacity(org_count),
         })
     }
 
@@ -1100,18 +1113,29 @@ impl World {
     }
 
     /// Compute neighbor-informed neural deltas for all agents.
-    fn step_nn_query_phase(
-        &self,
-        tree: &RTree<AgentLocation>,
-    ) -> (Vec<[f32; 4]>, Vec<f32>, Vec<usize>) {
-        let mut deltas: Vec<[f32; 4]> = Vec::with_capacity(self.agents.len());
-        let mut neighbor_sums = vec![0.0f32; self.organisms.len()];
-        let mut neighbor_counts = vec![0usize; self.organisms.len()];
+    fn step_nn_query_phase(&mut self, tree: &RTree<AgentLocation>) {
+        let deltas = &mut self.deltas_buffer;
+        let neighbor_sums = &mut self.neighbor_sums_buffer;
+        let neighbor_counts = &mut self.neighbor_counts_buffer;
+        let agents = &self.agents;
+        let organisms = &self.organisms;
+        let config = &self.config;
 
-        for agent in &self.agents {
+        deltas.clear();
+        deltas.reserve(agents.len());
+
+        let org_count = organisms.len();
+        if neighbor_sums.len() != org_count {
+            neighbor_sums.resize(org_count, 0.0);
+            neighbor_counts.resize(org_count, 0);
+        }
+        neighbor_sums.fill(0.0);
+        neighbor_counts.fill(0);
+
+        for agent in agents {
             let org_idx = agent.organism_id as usize;
-            if !self
-                .organisms
+            // Manual lookup to avoid borrowing self methods
+            if !organisms
                 .get(org_idx)
                 .map(|o| o.alive)
                 .unwrap_or(false)
@@ -1119,81 +1143,106 @@ impl World {
                 deltas.push([0.0; 4]);
                 continue;
             }
-            let effective_radius = self.effective_sensing_radius(org_idx);
+
+            // Inline effective_sensing_radius logic to avoid borrow conflicts
+            let dev_sensing = if config.enable_growth {
+                organisms[org_idx]
+                    .developmental_program
+                    .stage_factors(organisms[org_idx].maturity)
+                    .1
+            } else {
+                1.0
+            };
+            let effective_radius = config.sensing_radius * dev_sensing as f64;
+
             let neighbor_count = spatial::count_neighbors(
                 tree,
                 agent.position,
                 effective_radius,
                 agent.id,
-                self.config.world_size,
+                config.world_size,
             );
 
             neighbor_sums[org_idx] += neighbor_count as f32;
             neighbor_counts[org_idx] += 1;
 
             let input: [f32; 8] = [
-                (agent.position[0] / self.config.world_size) as f32,
-                (agent.position[1] / self.config.world_size) as f32,
-                (agent.velocity[0] / self.config.max_speed) as f32,
-                (agent.velocity[1] / self.config.max_speed) as f32,
+                (agent.position[0] / config.world_size) as f32,
+                (agent.position[1] / config.world_size) as f32,
+                (agent.velocity[0] / config.max_speed) as f32,
+                (agent.velocity[1] / config.max_speed) as f32,
                 agent.internal_state[0],
                 agent.internal_state[1],
                 agent.internal_state[2],
-                neighbor_count as f32 / self.config.neighbor_norm as f32,
+                neighbor_count as f32 / config.neighbor_norm as f32,
             ];
-            let nn = &self.organisms[org_idx].nn;
+            let nn = &organisms[org_idx].nn;
             deltas.push(nn.forward(&input));
         }
-
-        (deltas, neighbor_sums, neighbor_counts)
     }
 
     /// Apply movement + homeostasis updates for each alive agent and gather
     /// aggregates consumed by boundary + metabolism phases.
-    fn step_agent_state_phase(&mut self, deltas: &[[f32; 4]]) -> (Vec<f32>, Vec<usize>) {
+    fn step_agent_state_phase(&mut self) {
+        let org_count = self.organisms.len();
+        if self.homeostasis_sums_buffer.len() != org_count {
+            self.homeostasis_sums_buffer.resize(org_count, 0.0);
+            self.homeostasis_counts_buffer.resize(org_count, 0);
+        }
+        self.homeostasis_sums_buffer.fill(0.0);
+        self.homeostasis_counts_buffer.fill(0);
+
         self.org_toroidal_sums.fill([0.0, 0.0, 0.0, 0.0]);
         self.org_counts.fill(0);
-        let world_size = self.config.world_size;
-        let tau_over_world = (2.0 * PI) / world_size;
-        let mut homeostasis_sums = vec![0.0f32; self.organisms.len()];
-        let mut homeostasis_counts = vec![0usize; self.organisms.len()];
 
-        for (agent, delta) in self.agents.iter_mut().zip(deltas.iter()) {
+        let config = &self.config;
+        let world_size = config.world_size;
+        let tau_over_world = (2.0 * PI) / world_size;
+
+        let agents = &mut self.agents;
+        let deltas = &self.deltas_buffer;
+        let organisms = &self.organisms;
+        let homeostasis_sums = &mut self.homeostasis_sums_buffer;
+        let homeostasis_counts = &mut self.homeostasis_counts_buffer;
+        let org_toroidal_sums = &mut self.org_toroidal_sums;
+        let org_counts = &mut self.org_counts;
+
+        for (agent, delta) in agents.iter_mut().zip(deltas.iter()) {
             let org_idx = agent.organism_id as usize;
-            if !self.organisms[org_idx].alive {
+            if !organisms[org_idx].alive {
                 agent.velocity = [0.0, 0.0];
                 continue;
             }
             // Expose boundary with a one-step lag to avoid an extra full pass.
-            agent.internal_state[2] = self.organisms[org_idx].boundary_integrity;
+            agent.internal_state[2] = organisms[org_idx].boundary_integrity;
 
-            if self.config.enable_response {
-                agent.velocity[0] += delta[0] as f64 * self.config.dt;
-                agent.velocity[1] += delta[1] as f64 * self.config.dt;
+            if config.enable_response {
+                agent.velocity[0] += delta[0] as f64 * config.dt;
+                agent.velocity[1] += delta[1] as f64 * config.dt;
             }
 
             let speed_sq =
                 agent.velocity[0] * agent.velocity[0] + agent.velocity[1] * agent.velocity[1];
-            if speed_sq > self.config.max_speed * self.config.max_speed {
-                let scale = self.config.max_speed / speed_sq.sqrt();
+            if speed_sq > config.max_speed * config.max_speed {
+                let scale = config.max_speed / speed_sq.sqrt();
                 agent.velocity[0] *= scale;
                 agent.velocity[1] *= scale;
             }
 
-            agent.position[0] = (agent.position[0] + agent.velocity[0] * self.config.dt)
-                .rem_euclid(self.config.world_size);
-            agent.position[1] = (agent.position[1] + agent.velocity[1] * self.config.dt)
-                .rem_euclid(self.config.world_size);
+            agent.position[0] = (agent.position[0] + agent.velocity[0] * config.dt)
+                .rem_euclid(config.world_size);
+            agent.position[1] = (agent.position[1] + agent.velocity[1] * config.dt)
+                .rem_euclid(config.world_size);
 
-            let h_decay = self.config.homeostasis_decay_rate * self.config.dt as f32;
+            let h_decay = config.homeostasis_decay_rate * config.dt as f32;
             agent.internal_state[0] = (agent.internal_state[0] - h_decay).max(0.0);
             agent.internal_state[1] = (agent.internal_state[1] - h_decay).max(0.0);
 
-            if self.config.enable_homeostasis {
+            if config.enable_homeostasis {
                 agent.internal_state[0] =
-                    (agent.internal_state[0] + delta[2] * self.config.dt as f32).clamp(0.0, 1.0);
+                    (agent.internal_state[0] + delta[2] * config.dt as f32).clamp(0.0, 1.0);
                 agent.internal_state[1] =
-                    (agent.internal_state[1] + delta[3] * self.config.dt as f32).clamp(0.0, 1.0);
+                    (agent.internal_state[1] + delta[3] * config.dt as f32).clamp(0.0, 1.0);
             }
 
             homeostasis_sums[org_idx] += agent.internal_state[0];
@@ -1201,64 +1250,65 @@ impl World {
 
             let theta_x = agent.position[0] * tau_over_world;
             let theta_y = agent.position[1] * tau_over_world;
-            self.org_toroidal_sums[org_idx][0] += theta_x.sin();
-            self.org_toroidal_sums[org_idx][1] += theta_x.cos();
-            self.org_toroidal_sums[org_idx][2] += theta_y.sin();
-            self.org_toroidal_sums[org_idx][3] += theta_y.cos();
-            self.org_counts[org_idx] += 1;
+            org_toroidal_sums[org_idx][0] += theta_x.sin();
+            org_toroidal_sums[org_idx][1] += theta_x.cos();
+            org_toroidal_sums[org_idx][2] += theta_y.sin();
+            org_toroidal_sums[org_idx][3] += theta_y.cos();
+            org_counts[org_idx] += 1;
         }
-        (homeostasis_sums, homeostasis_counts)
     }
 
     /// Update boundary integrity using homeostasis aggregates from the state phase.
-    fn step_boundary_phase(
-        &mut self,
-        homeostasis_sums: &[f32],
-        homeostasis_counts: &[usize],
-        boundary_terminal_threshold: f32,
-    ) {
+    fn step_boundary_phase(&mut self, boundary_terminal_threshold: f32) {
         if !self.config.enable_boundary_maintenance {
             return;
         }
 
-        let dt = self.config.dt as f32;
         let mut to_kill = Vec::new();
-        for (org_idx, org) in self.organisms.iter_mut().enumerate() {
-            if !org.alive {
-                org.boundary_integrity = 0.0;
-                continue;
-            }
+        {
+            let config = &self.config;
+            let dt = config.dt as f32;
+            let homeostasis_sums = &self.homeostasis_sums_buffer;
+            let homeostasis_counts = &self.homeostasis_counts_buffer;
 
-            let energy_deficit =
-                (self.config.metabolic_viability_floor - org.metabolic_state.energy).max(0.0);
-            let decay = self.config.boundary_decay_base_rate
-                + self.config.boundary_decay_energy_scale
-                    * (energy_deficit
-                        + org.metabolic_state.waste * self.config.boundary_waste_pressure_scale);
-            let homeostasis_factor = if homeostasis_counts[org_idx] > 0 {
-                homeostasis_sums[org_idx] / homeostasis_counts[org_idx] as f32
-            } else {
-                0.5
-            };
-            let dev_boundary = if self.config.enable_growth {
-                org.developmental_program.stage_factors(org.maturity).0
-            } else {
-                1.0
-            };
-            let repair = (org.metabolic_state.energy
-                - org.metabolic_state.waste
-                    * self.config.boundary_waste_pressure_scale
-                    * self.config.boundary_repair_waste_penalty_scale)
-                .max(0.0)
-                * self.config.boundary_repair_rate
-                * homeostasis_factor
-                * dev_boundary;
-            org.boundary_integrity =
-                (org.boundary_integrity - decay * dt + repair * dt).clamp(0.0, 1.0);
-            if org.boundary_integrity <= boundary_terminal_threshold {
-                to_kill.push(org_idx);
+            for (org_idx, org) in self.organisms.iter_mut().enumerate() {
+                if !org.alive {
+                    org.boundary_integrity = 0.0;
+                    continue;
+                }
+
+                let energy_deficit =
+                    (config.metabolic_viability_floor - org.metabolic_state.energy).max(0.0);
+                let decay = config.boundary_decay_base_rate
+                    + config.boundary_decay_energy_scale
+                        * (energy_deficit
+                            + org.metabolic_state.waste * config.boundary_waste_pressure_scale);
+                let homeostasis_factor = if homeostasis_counts[org_idx] > 0 {
+                    homeostasis_sums[org_idx] / homeostasis_counts[org_idx] as f32
+                } else {
+                    0.5
+                };
+                let dev_boundary = if config.enable_growth {
+                    org.developmental_program.stage_factors(org.maturity).0
+                } else {
+                    1.0
+                };
+                let repair = (org.metabolic_state.energy
+                    - org.metabolic_state.waste
+                        * config.boundary_waste_pressure_scale
+                        * config.boundary_repair_waste_penalty_scale)
+                    .max(0.0)
+                    * config.boundary_repair_rate
+                    * homeostasis_factor
+                    * dev_boundary;
+                org.boundary_integrity =
+                    (org.boundary_integrity - decay * dt + repair * dt).clamp(0.0, 1.0);
+                if org.boundary_integrity <= boundary_terminal_threshold {
+                    to_kill.push(org_idx);
+                }
             }
         }
+
         for org_idx in to_kill {
             self.mark_dead(org_idx);
         }
@@ -1325,44 +1375,46 @@ impl World {
     }
 
     /// Update age, growth stage, and crowding effects, then mark deaths.
-    fn step_growth_and_crowding_phase(
-        &mut self,
-        neighbor_sums: &[f32],
-        neighbor_counts: &[usize],
-        boundary_terminal_threshold: f32,
-    ) {
+    fn step_growth_and_crowding_phase(&mut self, boundary_terminal_threshold: f32) {
         let mut to_kill = Vec::new();
-        for (org_idx, org) in self.organisms.iter_mut().enumerate() {
-            if !org.alive {
-                continue;
-            }
-            org.age_steps = org.age_steps.saturating_add(1);
-            if org.age_steps > self.config.max_organism_age_steps {
-                to_kill.push(org_idx);
-                continue;
-            }
+        {
+            let config = &self.config;
+            let neighbor_sums = &self.neighbor_sums_buffer;
+            let neighbor_counts = &self.neighbor_counts_buffer;
 
-            if self.config.enable_growth && org.maturity < 1.0 {
-                let base_rate = 1.0 / self.config.growth_maturation_steps as f32;
-                let rate = base_rate * org.developmental_program.maturation_rate_modifier;
-                org.maturity = (org.maturity + rate).min(1.0);
-            }
+            for (org_idx, org) in self.organisms.iter_mut().enumerate() {
+                if !org.alive {
+                    continue;
+                }
+                org.age_steps = org.age_steps.saturating_add(1);
+                if org.age_steps > config.max_organism_age_steps {
+                    to_kill.push(org_idx);
+                    continue;
+                }
 
-            let avg_neighbors = if neighbor_counts[org_idx] > 0 {
-                neighbor_sums[org_idx] / neighbor_counts[org_idx] as f32
-            } else {
-                0.0
-            };
-            if avg_neighbors > self.config.crowding_neighbor_threshold {
-                let excess = avg_neighbors - self.config.crowding_neighbor_threshold;
-                org.boundary_integrity = (org.boundary_integrity
-                    - excess * self.config.crowding_boundary_decay * self.config.dt as f32)
-                    .clamp(0.0, 1.0);
-            }
-            if org.boundary_integrity <= boundary_terminal_threshold {
-                to_kill.push(org_idx);
+                if config.enable_growth && org.maturity < 1.0 {
+                    let base_rate = 1.0 / config.growth_maturation_steps as f32;
+                    let rate = base_rate * org.developmental_program.maturation_rate_modifier;
+                    org.maturity = (org.maturity + rate).min(1.0);
+                }
+
+                let avg_neighbors = if neighbor_counts[org_idx] > 0 {
+                    neighbor_sums[org_idx] / neighbor_counts[org_idx] as f32
+                } else {
+                    0.0
+                };
+                if avg_neighbors > config.crowding_neighbor_threshold {
+                    let excess = avg_neighbors - config.crowding_neighbor_threshold;
+                    org.boundary_integrity = (org.boundary_integrity
+                        - excess * config.crowding_boundary_decay * config.dt as f32)
+                        .clamp(0.0, 1.0);
+                }
+                if org.boundary_integrity <= boundary_terminal_threshold {
+                    to_kill.push(org_idx);
+                }
             }
         }
+
         for org_idx in to_kill {
             self.mark_dead(org_idx);
         }
@@ -1424,22 +1476,14 @@ impl World {
         let spatial_build_us = t0.elapsed().as_micros() as u64;
 
         let t1 = Instant::now();
-        let (deltas, neighbor_sums, neighbor_counts) = self.step_nn_query_phase(&tree);
+        self.step_nn_query_phase(&tree);
         let nn_query_us = t1.elapsed().as_micros() as u64;
 
         let t2 = Instant::now();
-        let (homeostasis_sums, homeostasis_counts) = self.step_agent_state_phase(&deltas);
-        self.step_boundary_phase(
-            &homeostasis_sums,
-            &homeostasis_counts,
-            boundary_terminal_threshold,
-        );
+        self.step_agent_state_phase();
+        self.step_boundary_phase(boundary_terminal_threshold);
         self.step_metabolism_phase(boundary_terminal_threshold);
-        self.step_growth_and_crowding_phase(
-            &neighbor_sums,
-            &neighbor_counts,
-            boundary_terminal_threshold,
-        );
+        self.step_growth_and_crowding_phase(boundary_terminal_threshold);
 
         if self.config.enable_reproduction {
             self.maybe_reproduce();
@@ -3025,5 +3069,55 @@ mod tests {
                 SimConfigError::ConflictingEnvironmentFeatures
             ))
         ));
+    }
+}
+
+#[cfg(test)]
+mod benchmarks {
+    use super::*;
+
+    #[test]
+    fn benchmark_step_allocation_overhead() {
+        let num_agents = 5000;
+        let num_organisms = 5000;
+        let world_size = 1000.0;
+        let agents: Vec<Agent> = (0..num_agents)
+            .map(|i| Agent::new(i as u32, i as u16, [50.0, 50.0]))
+            .collect();
+        // Simple NN
+        let nn = NeuralNet::from_weights(std::iter::repeat_n(0.1f32, NeuralNet::WEIGHT_COUNT));
+        let nns = vec![nn; num_organisms];
+        let config = SimConfig {
+            world_size,
+            num_organisms,
+            agents_per_organism: 1,
+            ..SimConfig::default()
+        };
+        let mut world = World::new(agents, nns, config);
+
+        // Warmup
+        for _ in 0..10 {
+            world.step();
+        }
+
+        let start = Instant::now();
+        let iterations = 100;
+        let mut total_nn_query_us = 0;
+        let mut total_state_update_us = 0;
+        let mut total_step_us = 0;
+
+        for _ in 0..iterations {
+            let timings = world.step();
+            total_nn_query_us += timings.nn_query_us;
+            total_state_update_us += timings.state_update_us;
+            total_step_us += timings.total_us;
+        }
+        let elapsed = start.elapsed();
+
+        println!("Benchmark results ({} iterations, {} agents, {} organisms):", iterations, num_agents, num_organisms);
+        println!("  Avg Total Step Time: {:.2} us", total_step_us as f64 / iterations as f64);
+        println!("  Avg NN Query Time: {:.2} us", total_nn_query_us as f64 / iterations as f64);
+        println!("  Avg State Update Time: {:.2} us", total_state_update_us as f64 / iterations as f64);
+        println!("  Total Wall Time: {:?}", elapsed);
     }
 }
