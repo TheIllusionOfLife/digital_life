@@ -1591,7 +1591,7 @@ mod tests {
     }
 
     #[test]
-    fn try_metabolic_state_returns_none_for_out_of_range() {
+    fn metabolic_state_returns_none_for_out_of_range() {
         let world = make_world(1, 100.0);
         assert!(world.metabolic_state(10).is_none());
     }
