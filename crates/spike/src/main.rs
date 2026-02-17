@@ -202,7 +202,8 @@ fn main() -> Result<()> {
             if let Some(out_dir) = out {
                 std::fs::create_dir_all(&out_dir).context("failed to create output directory")?;
                 let summary_path = out_dir.join("summary.json");
-                let file = File::create(summary_path).context("failed to create summary file")?;
+                let file = File::create(&summary_path)
+                    .with_context(|| format!("failed to create summary file '{}'", summary_path.display()))?;
                 serde_json::to_writer_pretty(file, &summary).context("failed to write summary")?;
                 println!("Run complete. Results saved to {:?}", out_dir);
             } else {
