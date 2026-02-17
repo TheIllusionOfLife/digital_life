@@ -157,9 +157,13 @@ def _collect_organism_traits(
         frames = r.get("organism_snapshots", [])
         if frame_idx >= len(frames):
             continue
-        for org in frames[frame_idx]["organisms"]:
-            key = (seed, org["stable_id"])
-            orgs[key] = [float(org[name]) for name in trait_names]
+        frame = frames[frame_idx]
+        for org in frame.get("organisms", []):
+            stable_id = org.get("stable_id")
+            if stable_id is None:
+                continue
+            key = (seed, stable_id)
+            orgs[key] = [float(org.get(name, 0.0)) for name in trait_names]
     return orgs
 
 
@@ -204,38 +208,34 @@ def _summarize_window(
     """Summarize clustering for a time window."""
     profiles = []
     proportions = []
-    n_samples = len(labels)
     for c in range(k):
         mask = labels == c
         count = int(mask.sum())
-        proportions.append(round(count / n_samples, 4) if n_samples > 0 else 0.0)
+        proportions.append(round(count / len(labels), 4))
         profile = {"cluster_id": c, "count": count}
         for i, name in enumerate(trait_names):
-            val = float(traits_raw[mask, i].mean()) if count > 0 else 0.0
-            profile[f"{prefix}{name}"] = round(val, 4)
+            mean_val = float(traits_raw[mask, i].mean()) if count > 0 else 0.0
+            profile[f"{prefix}{name}"] = round(mean_val, 4)
         profiles.append(profile)
 
-    if not include_extra:
-        return {
-            "n_clusters": k,
-            "cluster_proportions": proportions,
-            "cluster_profiles": profiles,
-        }
+    res = {
+        "n_clusters": k,
+        "cluster_proportions": proportions,
+        "cluster_profiles": profiles,
+    }
 
-    # Silhouette score only if we have enough samples and at least 2 unique labels
-    sil = 0.0
-    if len(traits_raw) > k and len(np.unique(labels)) > 1:
-        scaled = StandardScaler().fit_transform(traits_raw)
-        sil = float(silhouette_score(scaled, labels))
+    if include_extra:
+        if n_total is not None:
+            res["n_total_organisms"] = n_total
+        res["n_shared_organisms"] = len(labels)
+        # Silhouette score only if we have enough samples
+        if len(traits_raw) > k and len(np.unique(labels)) > 1:
+            scaled = StandardScaler().fit_transform(traits_raw)
+            sil = silhouette_score(scaled, labels)
+        else:
+            sil = 0.0
+        res["silhouette_score"] = round(float(sil), 4)
 
-    res = {}
-    if n_total is not None:
-        res["n_total_organisms"] = n_total
-    res["n_shared_organisms"] = n_samples
-    res["n_clusters"] = k
-    res["silhouette_score"] = round(sil, 4)
-    res["cluster_proportions"] = proportions
-    res["cluster_profiles"] = profiles
     return res
 
 
@@ -344,14 +344,15 @@ def analyze_organism_level_persistence(exp_dir: Path) -> dict:
     # Use early pair (a→b) for the main persistence analysis
     shared_keys, early_traits, late_traits = _extract_shared_traits(early_a, early_b)
 
-    log(f"  Early organisms: {len(early_a)}, Late: {len(early_b)}, "
-        f"Shared: {len(shared_keys)}")
+    log(f"  Early organisms: {len(early_a)}, Late: {len(early_b)}, Shared: {len(shared_keys)}")
 
     if early_traits is None:
         return {
             "error": "insufficient shared organisms for temporal analysis",
-            "n_early": len(early_a),
-            "n_late": len(early_b),
+            "n_early_a": len(early_a),
+            "n_early_b": len(early_b),
+            "n_late_a": len(late_a),
+            "n_late_b": len(late_b),
             "n_shared": len(shared_keys),
         }
 
@@ -442,10 +443,7 @@ def main():
 
     log("Clustering phenotypes...")
     analysis = cluster_phenotypes(traits)
-    log(
-        f"  Best k={analysis['n_clusters']}, "
-        f"silhouette={analysis.get('silhouette_score', 'N/A')}"
-    )
+    log(f"  Best k={analysis['n_clusters']}, silhouette={analysis.get('silhouette_score', 'N/A')}")
 
     for cp in analysis.get("cluster_profiles", []):
         log(
