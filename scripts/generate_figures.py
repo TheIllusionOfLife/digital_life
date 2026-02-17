@@ -95,13 +95,13 @@ COUPLING_METRIC_MAPPING = {
 }
 
 COUPLING_NODE_COLORS = [
-    "#56B4E9",
-    "#D55E00",
-    "#009E73",
-    "#CC79A7",
-    "#0072B2",
-    "#E69F00",
-    "#CC79A7",
+    COLORS["cellular"],
+    COLORS["metabolism"],
+    COLORS["homeostasis"],
+    COLORS["growth"],
+    COLORS["reproduction"],
+    COLORS["response"],
+    COLORS["evolution"],
 ]
 
 INTERVENTION_METRICS = (
@@ -188,9 +188,7 @@ def generate_timeseries(data: list[dict]) -> None:
             label=LABELS[condition],
             zorder=10 if condition == "normal" else 5,
         )
-        ax.fill_between(
-            steps, means - sems, means + sems, color=color, alpha=0.15, zorder=2
-        )
+        ax.fill_between(steps, means - sems, means + sems, color=color, alpha=0.15, zorder=2)
 
     ax.set_xlabel("Simulation Step")
     ax.set_ylabel("Mean Alive Count ($n$=30)")
@@ -458,14 +456,11 @@ def generate_proxy() -> None:
         steps = sorted(mode_data[mode].keys())
         means = [np.mean(mode_data[mode][s]) for s in steps]
         sems = [
-            np.std(mode_data[mode][s], ddof=1) / np.sqrt(len(mode_data[mode][s]))
-            for s in steps
+            np.std(mode_data[mode][s], ddof=1) / np.sqrt(len(mode_data[mode][s])) for s in steps
         ]
         means, sems = np.array(means), np.array(sems)
         ax.plot(steps, means, color=PROXY_COLORS[mode], label=PROXY_LABELS[mode])
-        ax.fill_between(
-            steps, means - sems, means + sems, color=PROXY_COLORS[mode], alpha=0.15
-        )
+        ax.fill_between(steps, means - sems, means + sems, color=PROXY_COLORS[mode], alpha=0.15)
     ax.set_xlabel("Step")
     ax.set_ylabel("Alive Count")
     ax.set_ylim(bottom=0)
@@ -475,9 +470,7 @@ def generate_proxy() -> None:
     # Panel 2: Final alive count boxplot
     ax = axes[1]
     final_alive = {
-        m: np.array(
-            [r["final_alive_count"] for r in load_json(exp_dir / f"proxy_{m}.json")]
-        )
+        m: np.array([r["final_alive_count"] for r in load_json(exp_dir / f"proxy_{m}.json")])
         for m in modes
     }
     bp = ax.boxplot(
@@ -518,10 +511,7 @@ def generate_proxy() -> None:
     ax.spines["right"].set_visible(False)
 
     # Shared legend
-    handles = [
-        mlines.Line2D([], [], color=PROXY_COLORS[m], label=PROXY_LABELS[m])
-        for m in modes
-    ]
+    handles = [mlines.Line2D([], [], color=PROXY_COLORS[m], label=PROXY_LABELS[m]) for m in modes]
     fig.legend(
         handles=handles,
         loc="upper center",
@@ -571,8 +561,7 @@ def generate_evolution() -> None:
         steps = sorted(cond_data[cond].keys())
         means = [np.mean(cond_data[cond][s]) for s in steps]
         sems = [
-            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
-            for s in steps
+            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s])) for s in steps
         ]
         means, sems = np.array(means), np.array(sems)
         ls = "-" if "normal" in cond and "no_" not in cond else "--"
@@ -592,16 +581,13 @@ def generate_evolution() -> None:
         steps = sorted(cond_data[cond].keys())
         means = [np.mean(cond_data[cond][s]) for s in steps]
         sems = [
-            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
-            for s in steps
+            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s])) for s in steps
         ]
         means, sems = np.array(means), np.array(sems)
         ls = "-" if "normal" in cond and "no_" not in cond else "--"
         ax.plot(steps, means, color=color, linestyle=ls, label=label)
         ax.fill_between(steps, means - sems, means + sems, color=color, alpha=0.15)
-    ax.axvline(
-        x=2500, color="#888888", linestyle=":", linewidth=0.8, label="Env. shift"
-    )
+    ax.axvline(x=2500, color="#888888", linestyle=":", linewidth=0.8, label="Env. shift")
     ax.set_xlabel("Step")
     ax.set_ylabel("Alive Count")
     ax.set_title("Environmental shift at step 2,500", fontsize=9)
@@ -660,15 +646,11 @@ def generate_homeostasis() -> None:
                 vals = [v[val_index] for v in cond_data[cond][step]]
                 arr = np.array(vals)
                 means.append(arr.mean())
-                sems.append(
-                    arr.std(ddof=1) / np.sqrt(len(arr)) if len(arr) >= 2 else 0.0
-                )
+                sems.append(arr.std(ddof=1) / np.sqrt(len(arr)) if len(arr) >= 2 else 0.0)
             means_arr = np.array(means)
             sems_arr = np.array(sems)
             lw = 2.0 if cond == "normal" else 1.2
-            ax.plot(
-                steps, means_arr, color=color, linewidth=lw, linestyle=ls, label=label
-            )
+            ax.plot(steps, means_arr, color=color, linewidth=lw, linestyle=ls, label=label)
             ax.fill_between(
                 steps,
                 means_arr - sems_arr,
@@ -805,9 +787,7 @@ def generate_graded() -> None:
             print(f"  SKIP: {path} not found")
             return
         results = load_json(path)
-        level_data[level] = np.array(
-            [r["final_alive_count"] for r in results if "samples" in r]
-        )
+        level_data[level] = np.array([r["final_alive_count"] for r in results if "samples" in r])
 
     fig, ax = plt.subplots(figsize=(3.4, 2.8))
 
@@ -860,8 +840,7 @@ def generate_cyclic() -> None:
         steps = sorted(cond_data[cond].keys())
         means = [np.mean(cond_data[cond][s]) for s in steps]
         sems = [
-            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
-            for s in steps
+            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s])) for s in steps
         ]
         means, sems = np.array(means), np.array(sems)
         lw = 2.0 if "evo_on" in cond else 1.2
@@ -878,9 +857,7 @@ def generate_cyclic() -> None:
     phase = 0
     for start in range(0, int(max_step) + 1, cycle_period):
         if phase % 2 == 1:
-            ax.axvspan(
-                start, min(start + cycle_period, max_step), color="#FF0000", alpha=0.03
-            )
+            ax.axvspan(start, min(start + cycle_period, max_step), color="#FF0000", alpha=0.03)
         phase += 1
 
     ax.set_xlabel("Simulation Step")
@@ -1013,9 +990,7 @@ def _draw_coupling_edges(
             va="center",
             fontsize=5,
             color=color,
-            bbox=dict(
-                boxstyle="round,pad=0.1", facecolor="white", edgecolor="none", alpha=0.8
-            ),
+            bbox=dict(boxstyle="round,pad=0.1", facecolor="white", edgecolor="none", alpha=0.8),
         )
 
 
@@ -1030,18 +1005,23 @@ def _draw_intervention_effects(ax: plt.Axes, analysis: dict) -> None:
     for row in matrix:
         criterion = row["ablated_criterion"]
         metric_effects = []
+        max_effect = 0.0
         for key in INTERVENTION_METRICS:
             val = row.get(key, 0.0)
             if abs(val) > 20:
                 short_key = key.replace("_mean", "").replace("_0", "")
                 sign = "-" if val > 0 else "+"
                 metric_effects.append(f"{short_key} {sign}{abs(val):.0f}%")
+                max_effect = max(max_effect, abs(val))
         if metric_effects:
-            effects_summary.append(f"  {criterion}: {', '.join(metric_effects)}")
+            effects_summary.append((max_effect, f"  {criterion}: {', '.join(metric_effects)}"))
 
     if effects_summary:
-        # Show top entries (sorted by first effect magnitude)
-        box_text = "Intervention effects:\n" + "\n".join(effects_summary[:4])
+        # Show top entries sorted by largest absolute intervention effect.
+        effects_summary.sort(key=lambda row: row[0], reverse=True)
+        box_text = "Intervention effects:\n" + "\n".join(
+            summary for _, summary in effects_summary[:4]
+        )
         ax.text(
             -1.45,
             -1.45,
@@ -1077,10 +1057,7 @@ def _draw_design_edges(
         # Check if already drawn from data
         already = any(
             (short_names.get(p["var_a"]) == src and short_names.get(p["var_b"]) == dst)
-            or (
-                short_names.get(p["var_a"]) == dst
-                and short_names.get(p["var_b"]) == src
-            )
+            or (short_names.get(p["var_a"]) == dst and short_names.get(p["var_b"]) == src)
             for p in pairs
         )
         if already:
@@ -1135,8 +1112,7 @@ def generate_coupling() -> None:
     n = len(COUPLING_CRITERIA)
     angles = [2 * np.pi * i / n - np.pi / 2 for i in range(n)]
     positions = {
-        name: (np.cos(a), np.sin(a))
-        for name, a in zip(COUPLING_CRITERIA, angles, strict=True)
+        name: (np.cos(a), np.sin(a)) for name, a in zip(COUPLING_CRITERIA, angles, strict=True)
     }
 
     # Draw nodes
@@ -1259,9 +1235,7 @@ def generate_lineage() -> None:
             ha="right",
             va="top",
             fontsize=7,
-            bbox=dict(
-                boxstyle="round,pad=0.3", facecolor="white", edgecolor="0.8", alpha=0.9
-            ),
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="0.8", alpha=0.9),
         )
 
     fig.tight_layout()
@@ -1550,10 +1524,13 @@ def generate_persistent_clusters() -> None:
 
     for panel_idx, (traits_key, labels_key, window_key, title) in enumerate(
         [
-            ("early_traits", "early_labels", "early_window",
-             f"(A) Early Window (n={n_shared_early})"),
-            ("late_traits", "late_labels", "late_window",
-             f"(B) Late Window (n={n_shared_late})"),
+            (
+                "early_traits",
+                "early_labels",
+                "early_window",
+                f"(A) Early Window (n={n_shared_early})",
+            ),
+            ("late_traits", "late_labels", "late_window", f"(B) Late Window (n={n_shared_late})"),
         ]
     ):
         ax = axes[panel_idx]
@@ -1562,8 +1539,12 @@ def generate_persistent_clusters() -> None:
 
         if len(raw_traits) < 4:
             ax.text(
-                0.5, 0.5, "Insufficient data",
-                ha="center", va="center", transform=ax.transAxes,
+                0.5,
+                0.5,
+                "Insufficient data",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
             )
             continue
 
@@ -1599,22 +1580,33 @@ def generate_persistent_clusters() -> None:
         sil = window.get("silhouette_score", 0.0)
         prop_text = ", ".join(f"{p:.0%}" for p in proportions) if proportions else ""
         ax.text(
-            0.02, 0.98,
+            0.02,
+            0.98,
             f"Prop: {prop_text}\nSil: {sil:.3f}",
-            transform=ax.transAxes, ha="left", va="top", fontsize=6,
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=6,
             bbox=dict(
-                boxstyle="round,pad=0.2", facecolor="white",
-                edgecolor="0.8", alpha=0.9,
+                boxstyle="round,pad=0.2",
+                facecolor="white",
+                edgecolor="0.8",
+                alpha=0.9,
             ),
         )
 
     fig.text(
-        0.5, 0.01,
+        0.5,
+        0.01,
         f"Organism-level ARI: {ari:.3f} (early vs late window)",
-        ha="center", va="bottom", fontsize=8,
+        ha="center",
+        va="bottom",
+        fontsize=8,
         bbox=dict(
-            boxstyle="round,pad=0.3", facecolor="#FFF9C4",
-            edgecolor="0.8", alpha=0.9,
+            boxstyle="round,pad=0.3",
+            facecolor="#FFF9C4",
+            edgecolor="0.8",
+            alpha=0.9,
         ),
     )
 
