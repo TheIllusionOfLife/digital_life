@@ -200,6 +200,31 @@ def _check_freshness(manifest: dict, manifest_path: Path) -> tuple[list[str], li
     return issues, checks
 
 
+def _load_documents(
+    paper_path: Path, manifest_path: Path, registry_path: Path
+) -> tuple[str | None, dict | None, dict | None, list[str]]:
+    """Load all required documents, returning (tex, manifest, registry, issues)."""
+    tex = None
+    manifest = None
+    registry = None
+    issues: list[str] = []
+
+    try:
+        tex = paper_path.read_text()
+    except OSError as exc:
+        issues.append(f"failed to read paper file {paper_path}: {exc}")
+        return tex, manifest, registry, issues
+
+    try:
+        manifest = _read_json(manifest_path)
+        registry = _read_json(registry_path)
+    except ValueError as exc:
+        issues.append(str(exc))
+        return tex, manifest, registry, issues
+
+    return tex, manifest, registry, issues
+
+
 def run_checks(paper_path: Path, manifest_path: Path, registry_path: Path) -> dict:
     """Run consistency checks and return a machine-readable report."""
     # 1. Check file existence
@@ -214,29 +239,42 @@ def run_checks(paper_path: Path, manifest_path: Path, registry_path: Path) -> di
     all_issues: list[str] = []
     all_checks: list[str] = []
 
-    try:
-        tex = paper_path.read_text()
-    except OSError as exc:
-        all_issues.append(f"failed to read paper file {paper_path}: {exc}")
-        return {"ok": False, "issues": all_issues, "checks": all_checks}
+    # 2. Load Documents
+    tex, manifest, registry, load_issues = _load_documents(
+        paper_path, manifest_path, registry_path
+    )
+    if load_issues:
+        return {"ok": False, "issues": load_issues, "checks": all_checks}
 
-    try:
-        manifest = _read_json(manifest_path)
-        registry = _read_json(registry_path)
-    except ValueError as exc:
-        all_issues.append(str(exc))
-        return {"ok": False, "issues": all_issues, "checks": all_checks}
+    # Since we checked for load_issues, tex, manifest, and registry must be valid here
+    assert tex is not None
+    assert manifest is not None
+    assert registry is not None
 
-    # 2. Run all consistency checks
-    for issues, checks in [
-        _check_timing(tex, manifest),
-        _check_base_config(manifest),
-        _check_reference_manifest(manifest),
-        _check_bindings(registry, tex),
-        _check_freshness(manifest, manifest_path),
-    ]:
-        all_issues.extend(issues)
-        all_checks.extend(checks)
+    # 3. Timing Checks
+    t_issues, t_checks = _check_timing(tex, manifest)
+    all_issues.extend(t_issues)
+    all_checks.extend(t_checks)
+
+    # 4. Base Config Checks
+    bc_issues, bc_checks = _check_base_config(manifest)
+    all_issues.extend(bc_issues)
+    all_checks.extend(bc_checks)
+
+    # 5. Reference Manifest Checks
+    rm_issues, rm_checks = _check_reference_manifest(manifest)
+    all_issues.extend(rm_issues)
+    all_checks.extend(rm_checks)
+
+    # 6. Bindings Registry Checks
+    b_issues, b_checks = _check_bindings(registry, tex)
+    all_issues.extend(b_issues)
+    all_checks.extend(b_checks)
+
+    # 7. Freshness Checks
+    f_issues, f_checks = _check_freshness(manifest, manifest_path)
+    all_issues.extend(f_issues)
+    all_checks.extend(f_checks)
 
     return {"ok": len(all_issues) == 0, "issues": all_issues, "checks": all_checks}
 
