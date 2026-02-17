@@ -12,6 +12,7 @@ The prefix argument (e.g. experiments/final) is used to find JSON files
 named {prefix}_{condition}.json for each condition.
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -486,13 +487,19 @@ def generate_report(
     alpha: float,
     significant_count: int,
     comparisons: list[dict],
-    short_horizon_step: int,
-    short_horizon: list[dict],
-    graded_result: dict | None,
-    cyclic_result: dict | None,
-    sham_result: dict | None,
+    short_horizon_data: dict,
+    extended_results: dict[str, dict],
 ) -> dict:
-    """Construct the final analysis report dictionary."""
+    """Construct the final analysis report dictionary.
+
+    Args:
+        n_normal: Number of samples in the normal baseline.
+        alpha: Significance level used.
+        significant_count: Number of significant comparisons.
+        comparisons: List of comparison result dictionaries.
+        short_horizon_data: Dictionary containing 'step' and 'comparisons' list.
+        extended_results: Dictionary of additional analysis results (graded, cyclic, sham).
+    """
     output = {
         "experiment": "criterion_ablation",
         "n_per_condition": n_normal,
@@ -501,17 +508,9 @@ def generate_report(
         "significant_count": significant_count,
         "total_comparisons": len(comparisons),
         "comparisons": comparisons,
-        "short_horizon": {
-            "step": short_horizon_step,
-            "comparisons": short_horizon,
-        },
+        "short_horizon": short_horizon_data,
     }
-    if graded_result:
-        output["graded_ablation"] = graded_result
-    if cyclic_result:
-        output["cyclic_environment"] = cyclic_result
-    if sham_result:
-        output["sham_ablation"] = sham_result
+    output.update(extended_results)
     return output
 
 
@@ -529,13 +528,24 @@ def print_summary(comparisons: list[dict], significant_count: int) -> None:
 
 def main():
     """Analyze criterion-ablation results with statistical tests and effect sizes."""
-    if len(sys.argv) < 2:
-        print("Usage: python scripts/analyze_results.py <prefix>", file=sys.stderr)
-        print("  e.g. python scripts/analyze_results.py experiments/final", file=sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Analyze criterion-ablation results with statistical tests."
+    )
+    parser.add_argument(
+        "prefix",
+        type=str,
+        help="Experiment prefix (e.g. experiments/final)"
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.05,
+        help="Significance level (default: 0.05)"
+    )
+    args = parser.parse_args()
 
-    prefix = sys.argv[1]
-    alpha = 0.05
+    prefix = args.prefix
+    alpha = args.alpha
 
     normal_results, condition_data = load_experiment_data(prefix)
 
@@ -552,20 +562,25 @@ def main():
 
     # ── Extended analyses: graded, cyclic, sham ──
     exp_dir = Path(prefix).resolve().parent
-    graded_result = analyze_graded(exp_dir)
-    cyclic_result = analyze_cyclic(exp_dir)
-    sham_result = analyze_sham(exp_dir)
+    extended_results = {}
+
+    if (graded := analyze_graded(exp_dir)):
+        extended_results["graded_ablation"] = graded
+    if (cyclic := analyze_cyclic(exp_dir)):
+        extended_results["cyclic_environment"] = cyclic
+    if (sham := analyze_sham(exp_dir)):
+        extended_results["sham_ablation"] = sham
 
     output = generate_report(
-        n_normal,
-        alpha,
-        significant_count,
-        comparisons,
-        short_horizon_step,
-        short_horizon,
-        graded_result,
-        cyclic_result,
-        sham_result,
+        n_normal=n_normal,
+        alpha=alpha,
+        significant_count=significant_count,
+        comparisons=comparisons,
+        short_horizon_data={
+            "step": short_horizon_step,
+            "comparisons": short_horizon,
+        },
+        extended_results=extended_results,
     )
 
     print(json.dumps(output, indent=2))
