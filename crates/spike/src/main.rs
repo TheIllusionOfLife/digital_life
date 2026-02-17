@@ -91,7 +91,6 @@ fn run_benchmark(
 
     config
         .validate()
-        .map_err(|e| anyhow::anyhow!(e))
         .context("Benchmark config validation error")?;
 
     let agents = create_agents(&config)?;
