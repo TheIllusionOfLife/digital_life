@@ -44,22 +44,8 @@ def compute_synergy(
     return decline_ab - (decline_a + decline_b)
 
 
-def main():
-    """Compute pairwise synergy scores and statistical tests."""
-    if len(sys.argv) < 3:
-        print(
-            "Usage: python scripts/analyze_pairwise.py <single_prefix> <pairwise_prefix>",
-            file=sys.stderr,
-        )
-        print(
-            "  e.g. python scripts/analyze_pairwise.py experiments/final experiments/pairwise",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    single_prefix = sys.argv[1]
-    pairwise_prefix = sys.argv[2]
-
+def load_baseline(single_prefix: str, pairwise_prefix: str) -> tuple[float, list[int]]:
+    """Load baseline data from pairwise or single prefix."""
     # Load normal baseline (try pairwise first, fall back to single)
     normal_path = Path(f"{pairwise_prefix}_normal.json")
     if not normal_path.exists():
@@ -72,26 +58,11 @@ def main():
     normal_alive = extract_final_alive(normal_results)
     baseline_mean = float(np.mean(normal_alive))
     print(f"Baseline: n={len(normal_alive)}, mean={baseline_mean:.1f}", file=sys.stderr)
+    return baseline_mean, normal_alive
 
-    # Load single ablation results
-    single_declines = {}
-    for criterion in set(c for pair in PAIRS for c in pair):
-        path = Path(f"{single_prefix}_no_{criterion}.json")
-        results = load_json(path)
-        if results:
-            alive = extract_final_alive(results)
-            single_declines[criterion] = baseline_mean - float(np.mean(alive))
-            alive_mean = float(np.mean(alive))
-            decline = single_declines[criterion]
-            print(
-                f"  no_{criterion}: mean={alive_mean:.1f}, decline={decline:.1f}",
-                file=sys.stderr,
-            )
-        else:
-            print(f"  no_{criterion}: MISSING", file=sys.stderr)
 
-    # Analyze each pair
-    # Cache per-seed alive arrays for single ablations (needed for bootstrap)
+def load_single_ablations(single_prefix: str) -> dict[str, list[float]]:
+    """Load single ablation results for all criteria in PAIRS."""
     single_alive = {}
     for criterion in set(c for pair in PAIRS for c in pair):
         path = Path(f"{single_prefix}_no_{criterion}.json")
@@ -100,8 +71,42 @@ def main():
             single_alive[criterion] = np.array(
                 extract_final_alive(results), dtype=float
             )
+    return single_alive
 
+
+def calculate_declines(
+    baseline_mean: float, single_alive: dict[str, list[float]]
+) -> dict[str, float]:
+    """Calculate decline for each single ablation."""
+    single_declines = {}
+    for criterion, alive in single_alive.items():
+        alive_mean = float(np.mean(alive))
+        decline = baseline_mean - alive_mean
+        single_declines[criterion] = decline
+        print(
+            f"  no_{criterion}: mean={alive_mean:.1f}, decline={decline:.1f}",
+            file=sys.stderr,
+        )
+
+    # Check for missing criteria
+    all_criteria = set(c for pair in PAIRS for c in pair)
+    for criterion in all_criteria:
+        if criterion not in single_declines:
+            print(f"  no_{criterion}: MISSING", file=sys.stderr)
+
+    return single_declines
+
+
+def analyze_pairs(
+    pairwise_prefix: str,
+    baseline_mean: float,
+    single_declines: dict[str, float],
+    single_alive: dict[str, list[float]],
+) -> tuple[list[dict], list[dict]]:
+    """Analyze pairwise ablations and compute synergy."""
     pair_results = []
+    robust_synergy = []
+
     for a, b in PAIRS:
         pair_name = f"no_{a}_no_{b}"
         path = Path(f"{pairwise_prefix}_{pair_name}.json")
@@ -160,11 +165,7 @@ def main():
             file=sys.stderr,
         )
 
-    # --- Robust synergy on multiple scales ---
-    print("\n--- Robust synergy (log & percent scales) ---", file=sys.stderr)
-    robust_synergy = []
-    for entry in pair_results:
-        a, b = entry["pair"]
+        # Robust synergy
         a_mean = baseline_mean - entry["decline_a"]
         b_mean = baseline_mean - entry["decline_b"]
         ab_mean = entry["ab_mean"]
@@ -195,13 +196,26 @@ def main():
             "pct_decline_ab": round(float(pct_ab), 2),
         }
         robust_synergy.append(robust_entry)
+
+    print("\n--- Robust synergy (log & percent scales) ---", file=sys.stderr)
+    for r in robust_synergy:
+        a, b = r["pair"]
         print(
-            f"  ({a}, {b}): raw={entry['synergy']}, "
-            f"log={synergy_log:.4f}, pct={synergy_pct:.2f}%",
+            f"  ({a}, {b}): raw={r['synergy_raw']}, "
+            f"log={r['synergy_log']:.4f}, pct={r['synergy_pct']:.2f}%",
             file=sys.stderr,
         )
 
-    # --- Floor effect check ---
+    return pair_results, robust_synergy
+
+
+def analyze_floor_effects(
+    normal_alive: list[int],
+    single_alive: dict[str, list[float]],
+    pair_results: list[dict],
+    pairwise_prefix: str,
+) -> dict:
+    """Analyze floor effects (fraction of samples <= threshold)."""
     print("\n--- Floor effect analysis ---", file=sys.stderr)
     FLOOR_THRESHOLD = 5
     floor_analysis = {}
@@ -225,7 +239,6 @@ def main():
 
     # Pairwise ablations
     for entry in pair_results:
-        a, b = entry["pair"]
         pair_name = entry["pair_name"]
         path = Path(f"{pairwise_prefix}_{pair_name}.json")
         results = load_json(path)
@@ -238,7 +251,17 @@ def main():
             }
             print(f"  {pair_name}: floor_frac={frac:.4f}", file=sys.stderr)
 
-    # --- Bootstrap CI for synergy ---
+    return floor_analysis
+
+
+def compute_bootstrap_ci(
+    pair_results: list[dict],
+    robust_synergy: list[dict],
+    normal_alive: list[int],
+    single_alive: dict[str, list[float]],
+    pairwise_prefix: str,
+) -> None:
+    """Compute bootstrap CI for synergy (updates results in place)."""
     print("\n--- Bootstrap CI for synergy (2000 resamples) ---", file=sys.stderr)
     rng = np.random.default_rng(42)
     N_BOOT = 2000
@@ -278,6 +301,40 @@ def main():
             f"  ({a}, {b}): 95% CI = [{ci_lo:.2f}, {ci_hi:.2f}]",
             file=sys.stderr,
         )
+
+
+def main():
+    """Compute pairwise synergy scores and statistical tests."""
+    if len(sys.argv) < 3:
+        print(
+            "Usage: python scripts/analyze_pairwise.py <single_prefix> <pairwise_prefix>",
+            file=sys.stderr,
+        )
+        print(
+            "  e.g. python scripts/analyze_pairwise.py experiments/final experiments/pairwise",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    single_prefix = sys.argv[1]
+    pairwise_prefix = sys.argv[2]
+
+    baseline_mean, normal_alive = load_baseline(single_prefix, pairwise_prefix)
+
+    single_alive = load_single_ablations(single_prefix)
+    single_declines = calculate_declines(baseline_mean, single_alive)
+
+    pair_results, robust_synergy = analyze_pairs(
+        pairwise_prefix, baseline_mean, single_declines, single_alive
+    )
+
+    floor_analysis = analyze_floor_effects(
+        normal_alive, single_alive, pair_results, pairwise_prefix
+    )
+
+    compute_bootstrap_ci(
+        pair_results, robust_synergy, normal_alive, single_alive, pairwise_prefix
+    )
 
     output = {
         "experiment": "pairwise_ablation",

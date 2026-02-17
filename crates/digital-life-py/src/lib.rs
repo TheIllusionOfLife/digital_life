@@ -55,7 +55,7 @@ fn step_once(
         config.sensing_radius,
     )
     .map_err(PyValueError::new_err)?;
-    let mut world = World::try_new(agents, nns, config)
+    let mut world = World::new(agents, nns, config)
         .map_err(|e| PyValueError::new_err(format!("invalid world configuration: {e}")))?;
     let timings = world.step();
     Ok((world.agents.len(), timings.total_us))
@@ -112,8 +112,27 @@ fn run_niche_experiment_json_impl(
     sample_every: usize,
     snapshot_steps_json: &str,
 ) -> Result<String, String> {
+    // Pre-check for maximum items to avoid allocating a massive vector
+    // A valid JSON array of N items has at least N-1 commas.
+    // If commas >= MAX, we definitely have >= MAX+1 items (or invalid JSON).
+    if snapshot_steps_json.bytes().filter(|&b| b == b',').count() >= World::MAX_EXPERIMENT_SNAPSHOTS
+    {
+        return Err(format!(
+            "snapshot_steps json complexity exceeds supported maximum ({})",
+            World::MAX_EXPERIMENT_SNAPSHOTS
+        ));
+    }
+
     let snapshot_steps: Vec<usize> = serde_json::from_str(snapshot_steps_json)
         .map_err(|e| format!("invalid snapshot_steps json: {e}"))?;
+    // Post-check for exact count
+    if snapshot_steps.len() > World::MAX_EXPERIMENT_SNAPSHOTS {
+        return Err(format!(
+            "snapshot_steps count ({}) exceeds supported maximum ({})",
+            snapshot_steps.len(),
+            World::MAX_EXPERIMENT_SNAPSHOTS
+        ));
+    }
     let mut world = world_from_config_json(config_json)?;
     let summary = world
         .try_run_experiment_with_snapshots(steps, sample_every, &snapshot_steps)
@@ -171,7 +190,7 @@ fn world_from_config_json(config_json: &str) -> Result<World, String> {
         config.sensing_radius,
     )
     .map_err(|e| format!("invalid world configuration: {e}"))?;
-    World::try_new(agents, nns, config).map_err(|e| format!("invalid world configuration: {e}"))
+    World::new(agents, nns, config).map_err(|e| format!("invalid world configuration: {e}"))
 }
 
 fn bootstrap_entities(
@@ -191,8 +210,14 @@ fn bootstrap_entities(
         let cy: f64 = rng.random_range(0.0..world_size);
         for a in 0..agents_per_organism {
             let global_id = org * agents_per_organism + a;
-            let dx = rng.random_range(-cluster_radius..cluster_radius);
-            let dy = rng.random_range(-cluster_radius..cluster_radius);
+            let (dx, dy) = if cluster_radius > f64::EPSILON {
+                (
+                    rng.random_range(-cluster_radius..cluster_radius),
+                    rng.random_range(-cluster_radius..cluster_radius),
+                )
+            } else {
+                (0.0, 0.0)
+            };
             let px = (cx + dx).rem_euclid(world_size);
             let py = (cy + dy).rem_euclid(world_size);
             agents.push(Agent::new(global_id as u32, org as u16, [px, py]));
@@ -421,5 +446,35 @@ mod tests {
         assert_eq!(snapshots.len(), 2);
         assert_eq!(snapshots[0]["step"].as_u64(), Some(5));
         assert!(snapshots[0]["organisms"].is_array());
+    }
+
+    #[test]
+    fn run_experiment_json_impl_handles_zero_sensing_radius() {
+        // This test reproduces the panic when sensing_radius is 0.0
+        let config = SimConfig {
+            sensing_radius: 0.0,
+            ..SimConfig::default()
+        };
+        let config_json = serde_json::to_string(&config).unwrap();
+
+        // This should not panic
+        let result = run_experiment_json_impl(&config_json, 1, 1);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn run_niche_experiment_json_impl_rejects_excessive_snapshots() {
+        let config_json =
+            serde_json::to_string(&SimConfig::default()).expect("config should serialize");
+        // Create a JSON array with MAX_EXPERIMENT_SNAPSHOTS + 1 elements
+        let count = World::MAX_EXPERIMENT_SNAPSHOTS + 1;
+        let mut steps = Vec::with_capacity(count);
+        for i in 0..count {
+            steps.push(i);
+        }
+        let snapshot_steps_json = serde_json::to_string(&steps).expect("steps should serialize");
+
+        let result = run_niche_experiment_json_impl(&config_json, 10, 5, &snapshot_steps_json);
+        assert!(result.is_err());
     }
 }

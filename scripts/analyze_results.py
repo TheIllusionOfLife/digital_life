@@ -12,6 +12,7 @@ The prefix argument (e.g. experiments/final) is used to find JSON files
 named {prefix}_{condition}.json for each condition.
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -326,33 +327,85 @@ def analyze_sham(exp_dir: Path) -> dict | None:
     }
 
 
-def main():
-    """Analyze criterion-ablation results with statistical tests and effect sizes."""
-    if len(sys.argv) < 2:
-        print("Usage: python scripts/analyze_results.py <prefix>", file=sys.stderr)
-        print("  e.g. python scripts/analyze_results.py experiments/final", file=sys.stderr)
-        sys.exit(1)
-
-    prefix = sys.argv[1]
-    alpha = 0.05
-
-    # Load normal baseline
+def load_experiment_data(prefix: str) -> tuple[list[dict], dict[str, list[dict]]]:
+    """Load normal baseline and all condition data."""
     normal_results = load_condition(prefix, "normal")
     if not normal_results:
         print("ERROR: no normal baseline results found", file=sys.stderr)
         sys.exit(1)
-    normal_alive = extract_final_alive(normal_results)
-    normal_auc = extract_auc(normal_results)
-    normal_median_lifespan = extract_median_lifespan(normal_results)
-    n_normal = len(normal_alive)
-    print(f"Normal baseline: n={n_normal}, mean={np.mean(normal_alive):.1f}", file=sys.stderr)
 
-    # Load all condition data upfront (reused for short-horizon analysis)
-    condition_data: dict[str, list[dict]] = {}
+    condition_data = {}
     for condition in CONDITIONS:
         condition_data[condition] = load_condition(prefix, condition)
 
-    # Compute stats for each ablation
+    return normal_results, condition_data
+
+
+def compute_condition_stats(
+    condition: str,
+    normal_alive: np.ndarray,
+    normal_auc: np.ndarray,
+    normal_median_lifespan: float,
+    ablated_results: list[dict],
+) -> dict | None:
+    """Compute stats for a single ablation condition vs normal baseline."""
+    ablated_alive = extract_final_alive(ablated_results)
+    n_ablated = len(ablated_alive)
+
+    if n_ablated < 2:
+        print(f"  {condition}: SKIPPED (n={n_ablated} < 2)", file=sys.stderr)
+        return None
+
+    u_stat, p_value = stats.mannwhitneyu(
+        normal_alive, ablated_alive, alternative="greater"
+    )
+    d = cohens_d(normal_alive, ablated_alive)
+    d_ci = cohens_d_ci(normal_alive, ablated_alive)
+    cliff_d = cliffs_delta(normal_alive, ablated_alive)
+    cliff_ci = bootstrap_cliffs_delta_ci(normal_alive, ablated_alive)
+    ablated_auc = extract_auc(ablated_results)
+    ablated_median_lifespan = extract_median_lifespan(ablated_results)
+
+    print(
+        f"  {condition}: U={u_stat:.1f}, p={p_value:.6f}, d={d:.3f}, "
+        f"cliff={cliff_d:.3f}, "
+        f"normal={np.mean(normal_alive):.1f}, ablated={np.mean(ablated_alive):.1f}",
+        file=sys.stderr,
+    )
+
+    return {
+        "condition": condition,
+        "n_normal": len(normal_alive),
+        "n_ablated": n_ablated,
+        "normal_mean": float(np.mean(normal_alive)),
+        "ablation_mean": float(np.mean(ablated_alive)),
+        "normal_dist": distribution_stats(normal_alive),
+        "ablation_dist": distribution_stats(ablated_alive),
+        "U": float(u_stat),
+        "p_raw": float(p_value),
+        "cohens_d": round(d, 4),
+        "cohens_d_ci_lo": round(d_ci[0], 4),
+        "cohens_d_ci_hi": round(d_ci[1], 4),
+        "cliffs_delta": round(cliff_d, 4),
+        "cliffs_delta_ci_lo": round(cliff_ci[0], 4),
+        "cliffs_delta_ci_hi": round(cliff_ci[1], 4),
+        "normal_auc_mean": round(float(np.mean(normal_auc)), 2),
+        "ablation_auc_mean": round(float(np.mean(ablated_auc)), 2),
+        "normal_median_lifespan": round(normal_median_lifespan, 1),
+        "ablation_median_lifespan": round(ablated_median_lifespan, 1),
+    }
+
+
+def perform_main_analysis(
+    normal_results: list[dict],
+    condition_data: dict[str, list[dict]],
+    alpha: float = 0.05
+) -> tuple[list[dict], int]:
+    """Perform statistical analysis for all main ablation conditions."""
+    normal_alive = extract_final_alive(normal_results)
+    normal_auc = extract_auc(normal_results)
+    normal_median_lifespan = extract_median_lifespan(normal_results)
+
     comparisons = []
     raw_p_values = []
 
@@ -362,51 +415,12 @@ def main():
             print(f"  {condition}: SKIPPED (no data)", file=sys.stderr)
             continue
 
-        ablated_alive = extract_final_alive(results)
-        n_ablated = len(ablated_alive)
-
-        if n_ablated < 2:
-            print(f"  {condition}: SKIPPED (n={n_ablated} < 2)", file=sys.stderr)
-            continue
-
-        u_stat, p_value = stats.mannwhitneyu(
-            normal_alive, ablated_alive, alternative="greater"
+        stats_res = compute_condition_stats(
+            condition, normal_alive, normal_auc, normal_median_lifespan, results
         )
-        d = cohens_d(normal_alive, ablated_alive)
-        d_ci = cohens_d_ci(normal_alive, ablated_alive)
-        cliff_d = cliffs_delta(normal_alive, ablated_alive)
-        cliff_ci = bootstrap_cliffs_delta_ci(normal_alive, ablated_alive)
-        ablated_auc = extract_auc(results)
-        ablated_median_lifespan = extract_median_lifespan(results)
-
-        comparisons.append({
-            "condition": condition,
-            "n_normal": n_normal,
-            "n_ablated": n_ablated,
-            "normal_mean": float(np.mean(normal_alive)),
-            "ablation_mean": float(np.mean(ablated_alive)),
-            "normal_dist": distribution_stats(normal_alive),
-            "ablation_dist": distribution_stats(ablated_alive),
-            "U": float(u_stat),
-            "p_raw": float(p_value),
-            "cohens_d": round(d, 4),
-            "cohens_d_ci_lo": round(d_ci[0], 4),
-            "cohens_d_ci_hi": round(d_ci[1], 4),
-            "cliffs_delta": round(cliff_d, 4),
-            "cliffs_delta_ci_lo": round(cliff_ci[0], 4),
-            "cliffs_delta_ci_hi": round(cliff_ci[1], 4),
-            "normal_auc_mean": round(float(np.mean(normal_auc)), 2),
-            "ablation_auc_mean": round(float(np.mean(ablated_auc)), 2),
-            "normal_median_lifespan": round(normal_median_lifespan, 1),
-            "ablation_median_lifespan": round(ablated_median_lifespan, 1),
-        })
-        raw_p_values.append(p_value)
-        print(
-            f"  {condition}: U={u_stat:.1f}, p={p_value:.6f}, d={d:.3f}, "
-            f"cliff={cliff_d:.3f}, "
-            f"normal={np.mean(normal_alive):.1f}, ablated={np.mean(ablated_alive):.1f}",
-            file=sys.stderr,
-        )
+        if stats_res:
+            comparisons.append(stats_res)
+            raw_p_values.append(stats_res["p_raw"])
 
     # Apply Holm-Bonferroni correction
     corrected = holm_bonferroni(raw_p_values)
@@ -417,18 +431,28 @@ def main():
         if comp["significant"]:
             significant_count += 1
 
-    # Short-horizon analysis (T=500) for individual-level viability
-    short_horizon_step = 500
-    normal_alive_500 = extract_alive_at_step(normal_results, short_horizon_step)
+    return comparisons, significant_count
+
+
+def perform_short_horizon_analysis(
+    normal_results: list[dict],
+    condition_data: dict[str, list[dict]],
+    step: int = 500,
+    alpha: float = 0.05
+) -> list[dict]:
+    """Perform short-horizon analysis (T=500) for individual-level viability."""
+    normal_alive_500 = extract_alive_at_step(normal_results, step)
     short_horizon = []
     short_raw_p = []
+
     for condition in CONDITIONS:
         results = condition_data[condition]
         if not results:
             continue
-        ablated_alive_500 = extract_alive_at_step(results, short_horizon_step)
+        ablated_alive_500 = extract_alive_at_step(results, step)
         if len(ablated_alive_500) < 2:
             continue
+
         u_stat_500, p_500 = stats.mannwhitneyu(
             normal_alive_500, ablated_alive_500, alternative="greater"
         )
@@ -440,11 +464,13 @@ def main():
             "p_raw": float(p_500),
         })
         short_raw_p.append(p_500)
+
     short_corrected = holm_bonferroni(short_raw_p)
     for sh, p_corr in zip(short_horizon, short_corrected, strict=True):
         sh["p_corrected"] = round(p_corr, 6)
         sh["significant"] = bool(p_corr < alpha)
-    print(f"\nShort-horizon (T={short_horizon_step}):", file=sys.stderr)
+
+    print(f"\nShort-horizon (T={step}):", file=sys.stderr)
     for sh in short_horizon:
         status = "SIG" if sh["significant"] else "n.s."
         print(
@@ -453,12 +479,27 @@ def main():
             file=sys.stderr,
         )
 
-    # ── Extended analyses: graded, cyclic, sham ──
-    exp_dir = Path(prefix).resolve().parent
-    graded_result = analyze_graded(exp_dir)
-    cyclic_result = analyze_cyclic(exp_dir)
-    sham_result = analyze_sham(exp_dir)
+    return short_horizon
 
+
+def generate_report(
+    n_normal: int,
+    alpha: float,
+    significant_count: int,
+    comparisons: list[dict],
+    short_horizon_data: dict,
+    extended_results: dict[str, dict],
+) -> dict:
+    """Construct the final analysis report dictionary.
+
+    Args:
+        n_normal: Number of samples in the normal baseline.
+        alpha: Significance level used.
+        significant_count: Number of significant comparisons.
+        comparisons: List of comparison result dictionaries.
+        short_horizon_data: Dictionary containing 'step' and 'comparisons' list.
+        extended_results: Dictionary of additional analysis results (graded, cyclic, sham).
+    """
     output = {
         "experiment": "criterion_ablation",
         "n_per_condition": n_normal,
@@ -467,20 +508,14 @@ def main():
         "significant_count": significant_count,
         "total_comparisons": len(comparisons),
         "comparisons": comparisons,
-        "short_horizon": {
-            "step": short_horizon_step,
-            "comparisons": short_horizon,
-        },
+        "short_horizon": short_horizon_data,
     }
-    if graded_result:
-        output["graded_ablation"] = graded_result
-    if cyclic_result:
-        output["cyclic_environment"] = cyclic_result
-    if sham_result:
-        output["sham_ablation"] = sham_result
+    output.update(extended_results)
+    return output
 
-    print(json.dumps(output, indent=2))
 
+def print_summary(comparisons: list[dict], significant_count: int) -> None:
+    """Print a summary of significant findings to stderr."""
     print(f"\nSignificant: {significant_count}/{len(comparisons)}", file=sys.stderr)
     for comp in comparisons:
         status = "SIG" if comp["significant"] else "n.s."
@@ -489,6 +524,67 @@ def main():
             f"d={comp['cohens_d']:.3f}, cliff={comp['cliffs_delta']:.3f}",
             file=sys.stderr,
         )
+
+
+def main():
+    """Analyze criterion-ablation results with statistical tests and effect sizes."""
+    parser = argparse.ArgumentParser(
+        description="Analyze criterion-ablation results with statistical tests."
+    )
+    parser.add_argument(
+        "prefix",
+        type=str,
+        help="Experiment prefix (e.g. experiments/final)"
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.05,
+        help="Significance level (default: 0.05)"
+    )
+    args = parser.parse_args()
+
+    prefix = args.prefix
+    alpha = args.alpha
+
+    normal_results, condition_data = load_experiment_data(prefix)
+
+    normal_alive = extract_final_alive(normal_results)
+    n_normal = len(normal_alive)
+    print(f"Normal baseline: n={n_normal}, mean={np.mean(normal_alive):.1f}", file=sys.stderr)
+
+    comparisons, significant_count = perform_main_analysis(normal_results, condition_data, alpha)
+
+    short_horizon_step = 500
+    short_horizon = perform_short_horizon_analysis(
+        normal_results, condition_data, short_horizon_step, alpha
+    )
+
+    # ── Extended analyses: graded, cyclic, sham ──
+    exp_dir = Path(prefix).resolve().parent
+    extended_results = {}
+
+    if (graded := analyze_graded(exp_dir)):
+        extended_results["graded_ablation"] = graded
+    if (cyclic := analyze_cyclic(exp_dir)):
+        extended_results["cyclic_environment"] = cyclic
+    if (sham := analyze_sham(exp_dir)):
+        extended_results["sham_ablation"] = sham
+
+    output = generate_report(
+        n_normal=n_normal,
+        alpha=alpha,
+        significant_count=significant_count,
+        comparisons=comparisons,
+        short_horizon_data={
+            "step": short_horizon_step,
+            "comparisons": short_horizon,
+        },
+        extended_results=extended_results,
+    )
+
+    print(json.dumps(output, indent=2))
+    print_summary(comparisons, significant_count)
 
 
 if __name__ == "__main__":
