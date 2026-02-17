@@ -112,8 +112,9 @@ fn run_niche_experiment_json_impl(
     sample_every: usize,
     snapshot_steps_json: &str,
 ) -> Result<String, String> {
-    // Pre-check for maximum items to avoid allocating a massive vector.
+    // Pre-check for maximum items to avoid allocating a massive vector
     // A valid JSON array of N items has at least N-1 commas.
+    // If commas >= MAX, we definitely have >= MAX+1 items (or invalid JSON).
     if snapshot_steps_json.bytes().filter(|&b| b == b',').count()
         >= World::MAX_EXPERIMENT_SNAPSHOTS
     {
@@ -125,6 +126,7 @@ fn run_niche_experiment_json_impl(
 
     let snapshot_steps: Vec<usize> = serde_json::from_str(snapshot_steps_json)
         .map_err(|e| format!("invalid snapshot_steps json: {e}"))?;
+    // Post-check for exact count
     if snapshot_steps.len() > World::MAX_EXPERIMENT_SNAPSHOTS {
         return Err(format!(
             "snapshot_steps count ({}) exceeds supported maximum ({})",
