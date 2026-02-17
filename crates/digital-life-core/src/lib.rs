@@ -8,3 +8,4 @@ pub mod resource;
 pub mod rng;
 pub mod spatial;
 pub mod world;
+pub mod metrics;
