@@ -213,6 +213,7 @@ pub enum ExperimentError {
     InvalidSampleEvery,
     TooManySteps { max: usize, actual: usize },
     TooManySamples { max: usize, actual: usize },
+    TooManySnapshots { max: usize, actual: usize },
 }
 
 impl fmt::Display for ExperimentError {
@@ -228,6 +229,12 @@ impl fmt::Display for ExperimentError {
                     "sample count ({actual}) exceeds supported maximum ({max})"
                 )
             }
+            ExperimentError::TooManySnapshots { max, actual } => {
+                write!(
+                    f,
+                    "snapshot count ({actual}) exceeds supported maximum ({max})"
+                )
+            }
         }
     }
 }
@@ -239,6 +246,7 @@ impl World {
 
     pub const MAX_EXPERIMENT_STEPS: usize = 1_000_000;
     pub const MAX_EXPERIMENT_SAMPLES: usize = 50_000;
+    pub const MAX_EXPERIMENT_SNAPSHOTS: usize = 1_000;
 
     pub fn new(agents: Vec<Agent>, nns: Vec<NeuralNet>, config: SimConfig) -> Self {
         Self::try_new(agents, nns, config).unwrap_or_else(|e| panic!("{e}"))
@@ -904,6 +912,12 @@ impl World {
     ) -> Result<RunSummary, ExperimentError> {
         if sample_every == 0 {
             return Err(ExperimentError::InvalidSampleEvery);
+        }
+        if snapshot_steps.len() > Self::MAX_EXPERIMENT_SNAPSHOTS {
+            return Err(ExperimentError::TooManySnapshots {
+                max: Self::MAX_EXPERIMENT_SNAPSHOTS,
+                actual: snapshot_steps.len(),
+            });
         }
         if steps > Self::MAX_EXPERIMENT_STEPS {
             return Err(ExperimentError::TooManySteps {
@@ -3024,6 +3038,18 @@ mod tests {
             Err(WorldInitError::Config(
                 SimConfigError::ConflictingEnvironmentFeatures
             ))
+        ));
+    }
+
+    #[test]
+    fn try_run_experiment_rejects_too_many_snapshots() {
+        let mut world = make_world(1, 100.0);
+        let max = World::MAX_EXPERIMENT_SNAPSHOTS;
+        let snapshot_steps = vec![0; max + 1];
+        let result = world.try_run_experiment_with_snapshots(max + 1, 1, &snapshot_steps);
+        assert!(matches!(
+            result,
+            Err(ExperimentError::TooManySnapshots { .. })
         ));
     }
 }
