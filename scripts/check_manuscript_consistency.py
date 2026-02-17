@@ -236,7 +236,13 @@ def _load_documents(
     return tex, manifest, registry, issues
 
 
-def run_checks(paper_path: Path, manifest_path: Path, registry_path: Path) -> dict:
+def run_checks(
+    paper_path: Path,
+    manifest_path: Path,
+    registry_path: Path,
+    *,
+    enforce_project_root: bool = False,
+) -> dict:
     """Run consistency checks and return a machine-readable report."""
     input_paths = {
         "paper file": paper_path,
@@ -245,9 +251,10 @@ def run_checks(paper_path: Path, manifest_path: Path, registry_path: Path) -> di
     }
 
     # 0. Reject paths outside repository root
-    path_issues = _validate_project_paths(input_paths)
-    if path_issues:
-        return {"ok": False, "issues": path_issues, "checks": []}
+    if enforce_project_root:
+        path_issues = _validate_project_paths(input_paths)
+        if path_issues:
+            return {"ok": False, "issues": path_issues, "checks": []}
 
     # 1. Check file existence
     file_issues = _check_files_exist(input_paths)
@@ -298,7 +305,12 @@ def run_checks(paper_path: Path, manifest_path: Path, registry_path: Path) -> di
 
 
 def main() -> int:
-    report = run_checks(DEFAULT_PAPER, DEFAULT_MANIFEST, DEFAULT_BINDINGS)
+    report = run_checks(
+        DEFAULT_PAPER,
+        DEFAULT_MANIFEST,
+        DEFAULT_BINDINGS,
+        enforce_project_root=True,
+    )
     print(json.dumps(report, indent=2))
     return 0 if report["ok"] else 1
 
