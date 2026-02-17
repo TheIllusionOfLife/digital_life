@@ -1543,7 +1543,9 @@ mod tests {
                 vec![nn],
                 make_config(World::MAX_WORLD_SIZE + 1.0, 0.1),
             ),
-            Err(WorldInitError::Config(SimConfigError::WorldSizeTooLarge { .. }))
+            Err(WorldInitError::Config(
+                SimConfigError::WorldSizeTooLarge { .. }
+            ))
         ));
     }
 
@@ -1591,7 +1593,7 @@ mod tests {
     }
 
     #[test]
-    fn metabolic_state_returns_none_for_out_of_range() {
+    fn try_metabolic_state_returns_none_for_out_of_range() {
         let world = make_world(1, 100.0);
         assert!(world.metabolic_state(10).is_none());
     }
