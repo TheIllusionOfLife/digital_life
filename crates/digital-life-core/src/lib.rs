@@ -2,6 +2,7 @@ pub mod agent;
 pub mod config;
 pub mod genome;
 pub mod metabolism;
+pub mod metrics;
 pub mod nn;
 pub mod organism;
 pub mod resource;
