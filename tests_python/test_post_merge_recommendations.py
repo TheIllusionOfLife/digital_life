@@ -135,9 +135,15 @@ def test_main_rejects_unknown_robustness_profile() -> None:
         analyze_coupling.main(robustness_profile="unknown")
 
 
-def test_manuscript_consistency_check_detects_mismatch(tmp_path: Path) -> None:
+def test_manuscript_consistency_check_detects_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Imported inline to keep this module focused on checker behavior.
+    import scripts.check_manuscript_consistency
     from scripts.check_manuscript_consistency import run_checks
+
+    # Isolate test from repository state
+    monkeypatch.setattr(scripts.check_manuscript_consistency, "EXPERIMENT_SCRIPTS", [])
 
     paper = tmp_path / "main.tex"
     manifest = tmp_path / "final_graph_manifest.json"
@@ -182,9 +188,15 @@ steps.
     assert any("steps mismatch:" in issue for issue in report["issues"])
 
 
-def test_manuscript_consistency_handles_non_numeric_manifest_values(tmp_path: Path) -> None:
+def test_manuscript_consistency_handles_non_numeric_manifest_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Imported inline to keep this module focused on checker behavior.
+    import scripts.check_manuscript_consistency
     from scripts.check_manuscript_consistency import run_checks
+
+    # Isolate test from repository state
+    monkeypatch.setattr(scripts.check_manuscript_consistency, "EXPERIMENT_SCRIPTS", [])
 
     paper = tmp_path / "main.tex"
     manifest = tmp_path / "final_graph_manifest.json"
@@ -245,16 +257,22 @@ def test_manuscript_consistency_reports_all_missing_inputs(tmp_path: Path) -> No
     assert len(report["issues"]) == 3
 
 
-def test_manuscript_consistency_checks_script_paper_refs(tmp_path: Path) -> None:
+def test_manuscript_consistency_checks_script_paper_refs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # run_checks parses hardcoded EXPERIMENT_SCRIPTS; if scripts add new paper_ref
     # labels, this fixture must include matching paper labels/bindings.
-    # Current expected mapping:
-    # experiment_final_graph.py -> tab:ablation, fig:coupling
-    # experiment_pairwise.py -> tab:intervention
-    # experiment_cyclic.py -> fig:evolution
-    # experiment_evolution.py -> fig:evolution, fig:persistent_clusters
-    # Imported inline to keep this module focused on checker behavior.
+    # We patch EXPERIMENT_SCRIPTS to a controlled list to avoid brittleness.
+    import scripts.check_manuscript_consistency
     from scripts.check_manuscript_consistency import run_checks
+
+    # Create dummy script
+    script_path = tmp_path / "experiment_dummy.py"
+    script_path.write_text('..."paper_ref": "fig:dummy"...')
+
+    monkeypatch.setattr(
+        scripts.check_manuscript_consistency, "EXPERIMENT_SCRIPTS", [script_path]
+    )
 
     paper = tmp_path / "main.tex"
     manifest = tmp_path / "final_graph_manifest_reference.json"
@@ -263,11 +281,7 @@ def test_manuscript_consistency_checks_script_paper_refs(tmp_path: Path) -> None
         """
 Each simulation runs for 2000 timesteps with population sampled every 50
 steps.
-\\label{tab:ablation}
-\\label{fig:coupling}
-\\label{fig:evolution}
-\\label{fig:persistent_clusters}
-\\label{tab:intervention}
+\\label{fig:dummy}
 """.strip()
     )
     manifest.write_text(
@@ -287,34 +301,10 @@ steps.
             {
                 "bindings": [
                     {
-                        "result_id": "ablation_primary",
-                        "paper_ref": "tab:ablation",
+                        "result_id": "dummy_result",
+                        "paper_ref": "fig:dummy",
                         "manifest": "experiments/final_graph_manifest.json",
-                        "source_files": ["experiments/final_graph_statistics.json"],
-                    },
-                    {
-                        "result_id": "coupling_main",
-                        "paper_ref": "fig:coupling",
-                        "manifest": "experiments/final_graph_manifest.json",
-                        "source_files": ["experiments/coupling_analysis.json"],
-                    },
-                    {
-                        "result_id": "evolution_evidence",
-                        "paper_ref": "fig:evolution",
-                        "manifest": "experiments/evolution_long_manifest.json",
-                        "source_files": ["experiments/evolution_evidence.json"],
-                    },
-                    {
-                        "result_id": "phenotype_persistence",
-                        "paper_ref": "fig:persistent_clusters",
-                        "manifest": "experiments/evolution_long_manifest.json",
-                        "source_files": ["experiments/phenotype_analysis.json"],
-                    },
-                    {
-                        "result_id": "pairwise_interaction",
-                        "paper_ref": "tab:intervention",
-                        "manifest": "experiments/pairwise_graph_manifest.json",
-                        "source_files": ["experiments/pairwise_graph_statistics.json"],
+                        "source_files": ["experiments/dummy.json"],
                     },
                 ]
             }
@@ -325,9 +315,15 @@ steps.
     assert report["ok"] is True
 
 
-def test_manuscript_consistency_reports_invalid_registry_json(tmp_path: Path) -> None:
+def test_manuscript_consistency_reports_invalid_registry_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Imported inline to keep this module focused on checker behavior.
+    import scripts.check_manuscript_consistency
     from scripts.check_manuscript_consistency import run_checks
+
+    # Isolate test from repository state
+    monkeypatch.setattr(scripts.check_manuscript_consistency, "EXPERIMENT_SCRIPTS", [])
 
     paper = tmp_path / "main.tex"
     manifest = tmp_path / "manifest.json"

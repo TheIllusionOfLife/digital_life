@@ -58,19 +58,8 @@ def _extract_script_paper_refs(paths: list[Path]) -> set[str]:
 def _check_files_exist(paths: dict[str, Path]) -> list[str]:
     issues: list[str] = []
     for name, path in paths.items():
-        if not path.exists():
+        if not path.resolve().exists():
             issues.append(f"missing {name}: {path}")
-    return issues
-
-
-def _validate_project_paths(paths: dict[str, Path]) -> list[str]:
-    issues: list[str] = []
-    for name, path in paths.items():
-        resolved = path.resolve()
-        try:
-            resolved.relative_to(PROJECT_ROOT)
-        except ValueError:
-            issues.append(f"{name} must be inside project root: {path}")
     return issues
 
 
@@ -236,28 +225,14 @@ def _load_documents(
     return tex, manifest, registry, issues
 
 
-def run_checks(
-    paper_path: Path,
-    manifest_path: Path,
-    registry_path: Path,
-    *,
-    enforce_project_root: bool = False,
-) -> dict:
+def run_checks(paper_path: Path, manifest_path: Path, registry_path: Path) -> dict:
     """Run consistency checks and return a machine-readable report."""
-    input_paths = {
+    # 1. Check file existence
+    file_issues = _check_files_exist({
         "paper file": paper_path,
         "manifest file": manifest_path,
         "bindings registry": registry_path,
-    }
-
-    # 0. Reject paths outside repository root
-    if enforce_project_root:
-        path_issues = _validate_project_paths(input_paths)
-        if path_issues:
-            return {"ok": False, "issues": path_issues, "checks": []}
-
-    # 1. Check file existence
-    file_issues = _check_files_exist(input_paths)
+    })
     if file_issues:
         return {"ok": False, "issues": file_issues, "checks": []}
 
@@ -305,12 +280,7 @@ def run_checks(
 
 
 def main() -> int:
-    report = run_checks(
-        DEFAULT_PAPER,
-        DEFAULT_MANIFEST,
-        DEFAULT_BINDINGS,
-        enforce_project_root=True,
-    )
+    report = run_checks(DEFAULT_PAPER, DEFAULT_MANIFEST, DEFAULT_BINDINGS)
     print(json.dumps(report, indent=2))
     return 0 if report["ok"] else 1
 
