@@ -1029,10 +1029,15 @@ impl World {
     ) {
         let (parent_generation, parent_stable_id, parent_ancestor, mut child_genome) = {
             let parent = &self.organisms[parent_idx];
+            let parent = &self.organisms[parent_idx];
             if !parent.alive || parent.metabolic_state.energy < self.config.reproduction_energy_cost
             {
                 return;
             }
+            let child_id = match u16::try_from(self.organisms.len()) {
+                Ok(id) => id,
+                Err(_) => return,
+            };
             (
                 parent.generation,
                 parent.stable_id,
