@@ -157,7 +157,11 @@ fn compute_genome_diversity(organisms: &[OrganismRuntime], step_index: usize) ->
 
 /// Compute mean pairwise agent distance per alive organism (toroidal-aware).
 /// Lower values indicate tighter spatial cohesion.
-fn compute_spatial_cohesion(agents: &[Agent], organisms: &[OrganismRuntime], world_size: f64) -> f32 {
+fn compute_spatial_cohesion(
+    agents: &[Agent],
+    organisms: &[OrganismRuntime],
+    world_size: f64,
+) -> f32 {
     let half = world_size * 0.5;
     let mut org_cohesions = Vec::new();
 
@@ -248,8 +252,7 @@ pub fn collect_step_metrics(
         if vals.len() < 2 {
             return 0.0;
         }
-        let var =
-            vals.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / (vals.len() - 1) as f32;
+        let var = vals.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / (vals.len() - 1) as f32;
         var.sqrt()
     };
 

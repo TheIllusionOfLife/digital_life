@@ -514,7 +514,6 @@ impl World {
         self.config.sensing_radius * dev_sensing as f64
     }
 
-
     pub fn run_experiment(&mut self, steps: usize, sample_every: usize) -> RunSummary {
         self.try_run_experiment(steps, sample_every)
             .unwrap_or_else(|e| panic!("{e}"))
