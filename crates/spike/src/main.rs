@@ -201,7 +201,8 @@ fn main() -> Result<()> {
             let summary = world.run_experiment(steps, 100);
 
             if let Some(out_dir) = out {
-                std::fs::create_dir_all(&out_dir).context("failed to create output directory")?;
+                std::fs::create_dir_all(&out_dir)
+                    .with_context(|| format!("failed to create output directory '{}'", out_dir.display()))?;
                 let summary_path = out_dir.join("summary.json");
                 let file = File::create(&summary_path)
                     .with_context(|| format!("failed to create summary file '{}'", summary_path.display()))?;
