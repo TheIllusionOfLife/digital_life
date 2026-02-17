@@ -460,7 +460,7 @@ def extract_final_step_means(path: Path) -> dict[str, float]:
         vals["waste_mean"].append(float(last["waste_mean"]))
         vals["boundary_mean"].append(float(last["boundary_mean"]))
         internal_state = last.get("internal_state_mean")
-        if internal_state and len(internal_state) > 0:
+        if internal_state:
             vals["internal_state_mean_0"].append(float(internal_state[0]))
     return {k: float(np.mean(v)) for k, v in vals.items() if v}
 
