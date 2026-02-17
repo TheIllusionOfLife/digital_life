@@ -95,8 +95,8 @@ fn run_benchmark(
 
     let agents = create_agents(&config)?;
     let nns = create_nns(&config);
-    let mut world = World::new(agents, nns, config.clone())
-        .context("Failed to initialize benchmark world")?;
+    let mut world =
+        World::new(agents, nns, config.clone()).context("Failed to initialize benchmark world")?;
 
     // Warmup
     for _ in 0..WARMUP_STEPS {
