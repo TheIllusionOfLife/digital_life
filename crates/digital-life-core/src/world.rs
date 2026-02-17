@@ -1001,22 +1001,17 @@ impl World {
                 break;
             }
 
-            let center = centers
-                .get(parent_idx)
-                .and_then(|c| *c)
-                .unwrap_or([0.0, 0.0]);
-
-            let child_id = match u16::try_from(self.organisms.len()) {
+            let _child_id = match u16::try_from(self.organisms.len()) {
                 Ok(id) => id,
                 Err(_) => break,
             };
 
-            let center = centers
+            let _center = centers
                 .get(parent_idx)
                 .and_then(|c| *c)
                 .unwrap_or([0.0, 0.0]);
 
-            self.spawn_child(parent_idx, child_id, center, child_agents);
+            self.spawn_child(parent_idx, _child_id, _center, child_agents);
         }
     }
 
@@ -1029,15 +1024,10 @@ impl World {
     ) {
         let (parent_generation, parent_stable_id, parent_ancestor, mut child_genome) = {
             let parent = &self.organisms[parent_idx];
-            let parent = &self.organisms[parent_idx];
             if !parent.alive || parent.metabolic_state.energy < self.config.reproduction_energy_cost
             {
                 return;
             }
-            let child_id = match u16::try_from(self.organisms.len()) {
-                Ok(id) => id,
-                Err(_) => return,
-            };
             (
                 parent.generation,
                 parent.stable_id,
