@@ -171,14 +171,7 @@ def generate_timeseries(data: list[dict]) -> None:
     print(f"  Saved {FIG_DIR / 'fig_timeseries.pdf'}")
 
 
-def generate_architecture() -> None:
-    """Figure 1: Architecture diagram showing two-layer hierarchy."""
-    fig, ax = plt.subplots(figsize=(7, 4.0))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 6.5)
-    ax.set_aspect("equal")
-    ax.axis("off")
-
+def _draw_environment(ax: plt.Axes) -> None:
     # Environment box
     env_rect = mpatches.FancyBboxPatch(
         (0.3, 0.3),
@@ -213,8 +206,8 @@ def generate_architecture() -> None:
         color="#666666",
     )
 
-    # Single organism shown in detail (left side)
-    ox, oy = 0.8, 0.8
+
+def _draw_organism_box(ax: plt.Axes, ox: float, oy: float) -> None:
     org_rect = mpatches.FancyBboxPatch(
         (ox, oy),
         4.8,
@@ -236,6 +229,8 @@ def generate_architecture() -> None:
         color="#0072B2",
     )
 
+
+def _draw_organism_components(ax: plt.Axes, ox: float, oy: float) -> None:
     # Internal components (wider boxes for the single organism)
     components = [
         ("Genome\n(7 segments, 256 floats)", ox + 0.2, oy + 2.7, 2.1, 0.85, "#E69F00"),
@@ -289,6 +284,8 @@ def generate_architecture() -> None:
             color="#333333",
         )
 
+
+def _draw_organism_arrows(ax: plt.Axes, ox: float, oy: float) -> None:
     # Arrows: Genome -> NN, Genome -> Metabolism
     ax.annotate(
         "",
@@ -317,6 +314,8 @@ def generate_architecture() -> None:
         arrowprops=dict(arrowstyle="<->", color="#888", lw=0.8),
     )
 
+
+def _draw_internal_state_label(ax: plt.Axes, ox: float, oy: float) -> None:
     # Internal state label
     ax.text(
         ox + 2.4,
@@ -329,8 +328,9 @@ def generate_architecture() -> None:
         color="#666666",
     )
 
+
+def _draw_criteria_sidebar(ax: plt.Axes, sidebar_x: float) -> None:
     # Criteria mapping sidebar (right side, clearly separated)
-    sidebar_x = 6.2
     sidebar_rect = mpatches.FancyBboxPatch(
         (sidebar_x, 0.8),
         3.2,
@@ -365,6 +365,27 @@ def generate_architecture() -> None:
         yy = 4.25 - j * 0.47
         ax.plot(sidebar_x + 0.3, yy, "s", color=color, markersize=5)
         ax.text(sidebar_x + 0.55, yy, label, fontsize=6.5, color="#333333", va="center")
+
+
+def generate_architecture() -> None:
+    """Figure 1: Architecture diagram showing two-layer hierarchy."""
+    fig, ax = plt.subplots(figsize=(7, 4.0))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 6.5)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    _draw_environment(ax)
+
+    # Single organism shown in detail (left side)
+    ox, oy = 0.8, 0.8
+    _draw_organism_box(ax, ox, oy)
+    _draw_organism_components(ax, ox, oy)
+    _draw_organism_arrows(ax, ox, oy)
+    _draw_internal_state_label(ax, ox, oy)
+
+    # Criteria mapping sidebar (right side, clearly separated)
+    _draw_criteria_sidebar(ax, 6.2)
 
     fig.savefig(FIG_DIR / "fig_architecture.pdf", format="pdf")
     plt.close(fig)
