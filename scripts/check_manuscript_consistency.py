@@ -227,30 +227,16 @@ def run_checks(paper_path: Path, manifest_path: Path, registry_path: Path) -> di
         all_issues.append(str(exc))
         return {"ok": False, "issues": all_issues, "checks": all_checks}
 
-    # 2. Timing Checks
-    t_issues, t_checks = _check_timing(tex, manifest)
-    all_issues.extend(t_issues)
-    all_checks.extend(t_checks)
-
-    # 3. Base Config Checks
-    bc_issues, bc_checks = _check_base_config(manifest)
-    all_issues.extend(bc_issues)
-    all_checks.extend(bc_checks)
-
-    # 4. Reference Manifest Checks
-    rm_issues, rm_checks = _check_reference_manifest(manifest)
-    all_issues.extend(rm_issues)
-    all_checks.extend(rm_checks)
-
-    # 5. Bindings Registry Checks
-    b_issues, b_checks = _check_bindings(registry, tex)
-    all_issues.extend(b_issues)
-    all_checks.extend(b_checks)
-
-    # 6. Freshness Checks
-    f_issues, f_checks = _check_freshness(manifest, manifest_path)
-    all_issues.extend(f_issues)
-    all_checks.extend(f_checks)
+    # 2. Run all consistency checks
+    for issues, checks in [
+        _check_timing(tex, manifest),
+        _check_base_config(manifest),
+        _check_reference_manifest(manifest),
+        _check_bindings(registry, tex),
+        _check_freshness(manifest, manifest_path),
+    ]:
+        all_issues.extend(issues)
+        all_checks.extend(checks)
 
     return {"ok": len(all_issues) == 0, "issues": all_issues, "checks": all_checks}
 
