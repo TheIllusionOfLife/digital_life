@@ -182,7 +182,8 @@ fn main() -> Result<()> {
             }
         }
         Commands::Run { config, out, steps } => {
-            let file = File::open(&config).context("failed to open config file")?;
+            let file = File::open(&config)
+                .with_context(|| format!("failed to open config file '{}'", config.display()))?;
             let reader = BufReader::new(file);
             let sim_config: SimConfig =
                 serde_json::from_reader(reader).context("failed to parse config")?;
