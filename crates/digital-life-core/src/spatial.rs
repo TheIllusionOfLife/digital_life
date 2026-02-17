@@ -116,6 +116,39 @@ fn for_each_unique_neighbor(
         return;
     }
 
+    // Fast path 2: small radius guarantees disjoint envelopes.
+    // When radius * 2 < world_size, the toroidal query windows (shifted by world_size)
+    // are mutually disjoint in the [0, world_size) coordinate space.
+    // This allows skipping the HashSet deduplication.
+    if radius * 2.0 < world_size {
+        for &xoff in &x_offsets[..x_len] {
+            for &yoff in &y_offsets[..y_len] {
+                let translated = [center[0] + xoff, center[1] + yoff];
+                let envelope = AABB::from_corners(
+                    [translated[0] - radius, translated[1] - radius],
+                    [translated[0] + radius, translated[1] + radius],
+                );
+
+                for loc in tree.locate_in_envelope(&envelope) {
+                    if loc.id == self_id {
+                        continue;
+                    }
+                    // Direct distance calculation works because loc is guaranteed to be
+                    // within the query envelope, so |loc - translated| <= radius.
+                    // translated = center + offset.
+                    // dx = loc - translated = loc - center - offset.
+                    let dx = loc.position[0] - translated[0];
+                    let dy = loc.position[1] - translated[1];
+
+                    if dx * dx + dy * dy <= r_sq {
+                        visitor(loc.id);
+                    }
+                }
+            }
+        }
+        return;
+    }
+
     let mut seen = HashSet::new();
 
     for &xoff in &x_offsets[..x_len] {
@@ -247,5 +280,43 @@ mod tests {
         let tree = build_index_active(&agents, &[true, false]);
         let result = query_neighbors(&tree, [1.0, 1.0], 1.0, u32::MAX, 100.0);
         assert_eq!(result, vec![0]);
+    }
+
+    #[test]
+    fn bench_count_neighbors_near_boundary() {
+        use std::time::Instant;
+        let n_agents = 100_000;
+        let world_size = 100.0;
+        let radius = 5.0;
+
+        let mut agents = Vec::with_capacity(n_agents);
+        // Place agents near boundary [0, 5] and [95, 100]
+        for i in 0..n_agents {
+            let x = if i % 2 == 0 {
+                (i as f64 / n_agents as f64) * 5.0
+            } else {
+                95.0 + (i as f64 / n_agents as f64) * 5.0
+            };
+            let y = (i as f64 / n_agents as f64) * world_size;
+            agents.push(make_agent(i as u32, x, y));
+        }
+
+        let tree = build_index(&agents);
+
+        let start = Instant::now();
+        let mut total_neighbors = 0;
+        for _ in 0..10 {
+            // repeat to get stable measurement
+            for agent in agents.iter().take(1000) {
+                // sample 1000 agents
+                let center = agent.position;
+                total_neighbors += count_neighbors(&tree, center, radius, agent.id, world_size);
+            }
+        }
+        let duration = start.elapsed();
+        println!(
+            "Benchmark: counted {} neighbors in {:?}",
+            total_neighbors, duration
+        );
     }
 }

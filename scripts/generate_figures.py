@@ -77,6 +77,40 @@ plt.rcParams.update(
 
 VALID_CONDITIONS = set(COLORS.keys())
 
+COUPLING_CRITERIA = [
+    "Cellular Org.",
+    "Metabolism",
+    "Homeostasis",
+    "Growth/Dev.",
+    "Reproduction",
+    "Response",
+    "Evolution",
+]
+
+# Initial mapping for short names
+COUPLING_METRIC_MAPPING = {
+    "energy_mean": "Metabolism",
+    "boundary_mean": "Cellular Org.",
+    "internal_state_mean_0": "Homeostasis",
+}
+
+COUPLING_NODE_COLORS = [
+    COLORS["no_boundary"],
+    COLORS["no_metabolism"],
+    COLORS["no_homeostasis"],
+    COLORS["no_growth"],
+    COLORS["no_reproduction"],
+    COLORS["no_response"],
+    COLORS["no_evolution"],
+]
+
+INTERVENTION_METRICS = (
+    "energy_mean",
+    "waste_mean",
+    "boundary_mean",
+    "internal_state_mean_0",
+)
+
 
 def parse_tsv(path: Path) -> list[dict]:
     """Parse TSV with stderr preamble and interleaved summary lines.
@@ -154,9 +188,7 @@ def generate_timeseries(data: list[dict]) -> None:
             label=LABELS[condition],
             zorder=10 if condition == "normal" else 5,
         )
-        ax.fill_between(
-            steps, means - sems, means + sems, color=color, alpha=0.15, zorder=2
-        )
+        ax.fill_between(steps, means - sems, means + sems, color=color, alpha=0.15, zorder=2)
 
     ax.set_xlabel("Simulation Step")
     ax.set_ylabel("Mean Alive Count ($n$=30)")
@@ -171,14 +203,7 @@ def generate_timeseries(data: list[dict]) -> None:
     print(f"  Saved {FIG_DIR / 'fig_timeseries.pdf'}")
 
 
-def generate_architecture() -> None:
-    """Figure 1: Architecture diagram showing two-layer hierarchy."""
-    fig, ax = plt.subplots(figsize=(7, 4.0))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 6.5)
-    ax.set_aspect("equal")
-    ax.axis("off")
-
+def _draw_environment(ax: plt.Axes) -> None:
     # Environment box
     env_rect = mpatches.FancyBboxPatch(
         (0.3, 0.3),
@@ -213,8 +238,8 @@ def generate_architecture() -> None:
         color="#666666",
     )
 
-    # Single organism shown in detail (left side)
-    ox, oy = 0.8, 0.8
+
+def _draw_organism_box(ax: plt.Axes, ox: float, oy: float) -> None:
     org_rect = mpatches.FancyBboxPatch(
         (ox, oy),
         4.8,
@@ -236,6 +261,8 @@ def generate_architecture() -> None:
         color="#0072B2",
     )
 
+
+def _draw_organism_components(ax: plt.Axes, ox: float, oy: float) -> None:
     # Internal components (wider boxes for the single organism)
     components = [
         ("Genome\n(7 segments, 256 floats)", ox + 0.2, oy + 2.7, 2.1, 0.85, "#E69F00"),
@@ -289,6 +316,8 @@ def generate_architecture() -> None:
             color="#333333",
         )
 
+
+def _draw_organism_arrows(ax: plt.Axes, ox: float, oy: float) -> None:
     # Arrows: Genome -> NN, Genome -> Metabolism
     ax.annotate(
         "",
@@ -317,6 +346,8 @@ def generate_architecture() -> None:
         arrowprops=dict(arrowstyle="<->", color="#888", lw=0.8),
     )
 
+
+def _draw_internal_state_label(ax: plt.Axes, ox: float, oy: float) -> None:
     # Internal state label
     ax.text(
         ox + 2.4,
@@ -329,8 +360,9 @@ def generate_architecture() -> None:
         color="#666666",
     )
 
+
+def _draw_criteria_sidebar(ax: plt.Axes, sidebar_x: float) -> None:
     # Criteria mapping sidebar (right side, clearly separated)
-    sidebar_x = 6.2
     sidebar_rect = mpatches.FancyBboxPatch(
         (sidebar_x, 0.8),
         3.2,
@@ -365,6 +397,27 @@ def generate_architecture() -> None:
         yy = 4.25 - j * 0.47
         ax.plot(sidebar_x + 0.3, yy, "s", color=color, markersize=5)
         ax.text(sidebar_x + 0.55, yy, label, fontsize=6.5, color="#333333", va="center")
+
+
+def generate_architecture() -> None:
+    """Figure 1: Architecture diagram showing two-layer hierarchy."""
+    fig, ax = plt.subplots(figsize=(7, 4.0))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 6.5)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    _draw_environment(ax)
+
+    # Single organism shown in detail (left side)
+    ox, oy = 0.8, 0.8
+    _draw_organism_box(ax, ox, oy)
+    _draw_organism_components(ax, ox, oy)
+    _draw_organism_arrows(ax, ox, oy)
+    _draw_internal_state_label(ax, ox, oy)
+
+    # Criteria mapping sidebar (right side, clearly separated)
+    _draw_criteria_sidebar(ax, 6.2)
 
     fig.savefig(FIG_DIR / "fig_architecture.pdf", format="pdf")
     plt.close(fig)
@@ -424,14 +477,11 @@ def generate_proxy() -> None:
         steps = sorted(mode_data[mode].keys())
         means = [np.mean(mode_data[mode][s]) for s in steps]
         sems = [
-            np.std(mode_data[mode][s], ddof=1) / np.sqrt(len(mode_data[mode][s]))
-            for s in steps
+            np.std(mode_data[mode][s], ddof=1) / np.sqrt(len(mode_data[mode][s])) for s in steps
         ]
         means, sems = np.array(means), np.array(sems)
         ax.plot(steps, means, color=PROXY_COLORS[mode], label=PROXY_LABELS[mode])
-        ax.fill_between(
-            steps, means - sems, means + sems, color=PROXY_COLORS[mode], alpha=0.15
-        )
+        ax.fill_between(steps, means - sems, means + sems, color=PROXY_COLORS[mode], alpha=0.15)
     ax.set_xlabel("Step")
     ax.set_ylabel("Alive Count")
     ax.set_ylim(bottom=0)
@@ -441,9 +491,7 @@ def generate_proxy() -> None:
     # Panel 2: Final alive count boxplot
     ax = axes[1]
     final_alive = {
-        m: np.array(
-            [r["final_alive_count"] for r in load_json(exp_dir / f"proxy_{m}.json")]
-        )
+        m: np.array([r["final_alive_count"] for r in load_json(exp_dir / f"proxy_{m}.json")])
         for m in modes
     }
     bp = ax.boxplot(
@@ -484,10 +532,7 @@ def generate_proxy() -> None:
     ax.spines["right"].set_visible(False)
 
     # Shared legend
-    handles = [
-        mlines.Line2D([], [], color=PROXY_COLORS[m], label=PROXY_LABELS[m])
-        for m in modes
-    ]
+    handles = [mlines.Line2D([], [], color=PROXY_COLORS[m], label=PROXY_LABELS[m]) for m in modes]
     fig.legend(
         handles=handles,
         loc="upper center",
@@ -537,8 +582,7 @@ def generate_evolution() -> None:
         steps = sorted(cond_data[cond].keys())
         means = [np.mean(cond_data[cond][s]) for s in steps]
         sems = [
-            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
-            for s in steps
+            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s])) for s in steps
         ]
         means, sems = np.array(means), np.array(sems)
         ls = "-" if "normal" in cond and "no_" not in cond else "--"
@@ -558,16 +602,13 @@ def generate_evolution() -> None:
         steps = sorted(cond_data[cond].keys())
         means = [np.mean(cond_data[cond][s]) for s in steps]
         sems = [
-            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
-            for s in steps
+            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s])) for s in steps
         ]
         means, sems = np.array(means), np.array(sems)
         ls = "-" if "normal" in cond and "no_" not in cond else "--"
         ax.plot(steps, means, color=color, linestyle=ls, label=label)
         ax.fill_between(steps, means - sems, means + sems, color=color, alpha=0.15)
-    ax.axvline(
-        x=2500, color="#888888", linestyle=":", linewidth=0.8, label="Env. shift"
-    )
+    ax.axvline(x=2500, color="#888888", linestyle=":", linewidth=0.8, label="Env. shift")
     ax.set_xlabel("Step")
     ax.set_ylabel("Alive Count")
     ax.set_title("Environmental shift at step 2,500", fontsize=9)
@@ -626,15 +667,11 @@ def generate_homeostasis() -> None:
                 vals = [v[val_index] for v in cond_data[cond][step]]
                 arr = np.array(vals)
                 means.append(arr.mean())
-                sems.append(
-                    arr.std(ddof=1) / np.sqrt(len(arr)) if len(arr) >= 2 else 0.0
-                )
+                sems.append(arr.std(ddof=1) / np.sqrt(len(arr)) if len(arr) >= 2 else 0.0)
             means_arr = np.array(means)
             sems_arr = np.array(sems)
             lw = 2.0 if cond == "normal" else 1.2
-            ax.plot(
-                steps, means_arr, color=color, linewidth=lw, linestyle=ls, label=label
-            )
+            ax.plot(steps, means_arr, color=color, linewidth=lw, linestyle=ls, label=label)
             ax.fill_between(
                 steps,
                 means_arr - sems_arr,
@@ -771,9 +808,7 @@ def generate_graded() -> None:
             print(f"  SKIP: {path} not found")
             return
         results = load_json(path)
-        level_data[level] = np.array(
-            [r["final_alive_count"] for r in results if "samples" in r]
-        )
+        level_data[level] = np.array([r["final_alive_count"] for r in results if "samples" in r])
 
     fig, ax = plt.subplots(figsize=(3.4, 2.8))
 
@@ -826,8 +861,7 @@ def generate_cyclic() -> None:
         steps = sorted(cond_data[cond].keys())
         means = [np.mean(cond_data[cond][s]) for s in steps]
         sems = [
-            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
-            for s in steps
+            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s])) for s in steps
         ]
         means, sems = np.array(means), np.array(sems)
         lw = 2.0 if "evo_on" in cond else 1.2
@@ -844,9 +878,7 @@ def generate_cyclic() -> None:
     phase = 0
     for start in range(0, int(max_step) + 1, cycle_period):
         if phase % 2 == 1:
-            ax.axvspan(
-                start, min(start + cycle_period, max_step), color="#FF0000", alpha=0.03
-            )
+            ax.axvspan(start, min(start + cycle_period, max_step), color="#FF0000", alpha=0.03)
         phase += 1
 
     ax.set_xlabel("Simulation Step")
@@ -914,67 +946,10 @@ def generate_phenotype() -> None:
     print(f"  Saved {FIG_DIR / 'fig_phenotype.pdf'}")
 
 
-def generate_coupling() -> None:
-    """Figure 10: Criterion coupling graph — directed edges with correlation coefficients."""
-    analysis_path = PROJECT_ROOT / "experiments" / "coupling_analysis.json"
-    if not analysis_path.exists():
-        print(f"  SKIP: {analysis_path} not found")
-        return
-
-    with open(analysis_path) as f:
-        analysis = json.load(f)
-
-    pairs = analysis.get("pairs", [])
-    if not pairs:
-        print("  SKIP: no coupling pairs found")
-        return
-
-    fig, ax = plt.subplots(figsize=(4.0, 4.0))
-    ax.set_xlim(-1.5, 1.5)
-    ax.set_ylim(-1.5, 1.5)
-    ax.set_aspect("equal")
-    ax.axis("off")
-
-    # 7 criteria arranged in a circle
-    criteria = [
-        "Cellular Org.",
-        "Metabolism",
-        "Homeostasis",
-        "Growth/Dev.",
-        "Reproduction",
-        "Response",
-        "Evolution",
-    ]
-    short_names = {
-        "energy_mean": "Metabolism",
-        "boundary_mean": "Cellular Org.",
-        "internal_state_mean_0": "Homeostasis",
-    }
-    # Ensure all metric keys from coupling data have a mapping so no pairs are silently dropped
-    for pair in pairs:
-        for key in ("var_a", "var_b"):
-            metric = pair[key]
-            if metric not in short_names:
-                # Generate a readable fallback from the metric key
-                short_names[metric] = metric.replace("_", " ").title()
-
-    n = len(criteria)
-    angles = [2 * np.pi * i / n - np.pi / 2 for i in range(n)]
-    positions = {
-        name: (np.cos(a), np.sin(a))
-        for name, a in zip(criteria, angles, strict=True)
-    }
-
-    # Draw nodes
-    node_colors = [
-        "#56B4E9",
-        "#D55E00",
-        "#009E73",
-        "#CC79A7",
-        "#0072B2",
-        "#E69F00",
-        "#CC79A7",
-    ]
+def _draw_coupling_nodes(
+    ax: plt.Axes, positions: dict[str, tuple[float, float]], node_colors: list[str]
+) -> None:
+    """Draw circular nodes for each criterion."""
     for i, (name, (x, y)) in enumerate(positions.items()):
         circle = plt.Circle(
             (x, y),
@@ -987,7 +962,14 @@ def generate_coupling() -> None:
         ax.add_patch(circle)
         ax.text(x, y, name, ha="center", va="center", fontsize=5.5, fontweight="bold")
 
-    # Draw edges from coupling analysis
+
+def _draw_coupling_edges(
+    ax: plt.Axes,
+    pairs: list[dict],
+    positions: dict[str, tuple[float, float]],
+    short_names: dict[str, str],
+) -> None:
+    """Draw directed edges representing significant coupling correlations."""
     for pair in pairs:
         var_a = short_names.get(pair["var_a"], pair["var_a"])
         var_b = short_names.get(pair["var_b"], pair["var_b"])
@@ -1029,53 +1011,62 @@ def generate_coupling() -> None:
             va="center",
             fontsize=5,
             color=color,
+            bbox=dict(boxstyle="round,pad=0.1", facecolor="white", edgecolor="none", alpha=0.8),
+        )
+
+
+def _draw_intervention_effects(ax: plt.Axes, analysis: dict) -> None:
+    """Draw text box summarizing key intervention effects."""
+    interventions = analysis.get("intervention_effects", {})
+    if not interventions:
+        return
+
+    matrix = interventions.get("matrix", [])
+    effects_summary = []
+    for row in matrix:
+        criterion = row["ablated_criterion"]
+        metric_effects = []
+        max_effect = 0.0
+        for key in INTERVENTION_METRICS:
+            val = row.get(key, 0.0)
+            if abs(val) > 20:
+                short_key = key.replace("_mean", "").replace("_0", "")
+                sign = "-" if val > 0 else "+"
+                metric_effects.append(f"{short_key} {sign}{abs(val):.0f}%")
+                max_effect = max(max_effect, abs(val))
+        if metric_effects:
+            effects_summary.append((max_effect, f"  {criterion}: {', '.join(metric_effects)}"))
+
+    if effects_summary:
+        # Show top entries sorted by largest absolute intervention effect.
+        effects_summary.sort(key=lambda row: row[0], reverse=True)
+        box_text = "Intervention effects:\n" + "\n".join(
+            summary for _, summary in effects_summary[:4]
+        )
+        ax.text(
+            -1.45,
+            -1.45,
+            box_text,
+            fontsize=5,
+            va="bottom",
+            ha="left",
+            family="monospace",
             bbox=dict(
-                boxstyle="round,pad=0.1", facecolor="white", edgecolor="none", alpha=0.8
+                boxstyle="round,pad=0.3",
+                facecolor="#F5F5F5",
+                edgecolor="0.7",
+                alpha=0.9,
             ),
         )
 
-    # Intervention effects text box (from coupling_analysis.json)
-    interventions = analysis.get("intervention_effects", {})
-    if interventions:
-        matrix = interventions.get("matrix", [])
-        # Find top 3 by max absolute pct_change across metrics
-        effects_summary = []
-        for row in matrix:
-            criterion = row["ablated_criterion"]
-            metric_effects = []
-            for key in (
-                "energy_mean",
-                "waste_mean",
-                "boundary_mean",
-                "internal_state_mean_0",
-            ):
-                val = row.get(key, 0.0)
-                if abs(val) > 20:
-                    short_key = key.replace("_mean", "").replace("_0", "")
-                    sign = "-" if val > 0 else "+"
-                    metric_effects.append(f"{short_key} {sign}{abs(val):.0f}%")
-            if metric_effects:
-                effects_summary.append(f"  {criterion}: {', '.join(metric_effects)}")
-        if effects_summary:
-            # Show top entries (sorted by first effect magnitude)
-            box_text = "Intervention effects:\n" + "\n".join(effects_summary[:4])
-            ax.text(
-                -1.45,
-                -1.45,
-                box_text,
-                fontsize=5,
-                va="bottom",
-                ha="left",
-                family="monospace",
-                bbox=dict(
-                    boxstyle="round,pad=0.3",
-                    facecolor="#F5F5F5",
-                    edgecolor="0.7",
-                    alpha=0.9,
-                ),
-            )
 
-    # Design-based edges (from Table 2)
+def _draw_design_edges(
+    ax: plt.Axes,
+    positions: dict[str, tuple[float, float]],
+    pairs: list[dict],
+    short_names: dict[str, str],
+) -> None:
+    """Draw dashed edges for designed interactions not captured by data."""
     design_edges = [
         ("Growth/Dev.", "Reproduction", "gate"),
         ("Metabolism", "Cellular Org.", "energy"),
@@ -1087,10 +1078,7 @@ def generate_coupling() -> None:
         # Check if already drawn from data
         already = any(
             (short_names.get(p["var_a"]) == src and short_names.get(p["var_b"]) == dst)
-            or (
-                short_names.get(p["var_a"]) == dst
-                and short_names.get(p["var_b"]) == src
-            )
+            or (short_names.get(p["var_a"]) == dst and short_names.get(p["var_b"]) == src)
             for p in pairs
         )
         if already:
@@ -1110,6 +1098,55 @@ def generate_coupling() -> None:
             xytext=(sx1, sy1),
             arrowprops=dict(arrowstyle="->", color="#888888", lw=0.8, linestyle="--"),
         )
+
+
+def generate_coupling() -> None:
+    """Figure 10: Criterion coupling graph — directed edges with correlation coefficients."""
+    analysis_path = PROJECT_ROOT / "experiments" / "coupling_analysis.json"
+    if not analysis_path.exists():
+        print(f"  SKIP: {analysis_path} not found")
+        return
+
+    with open(analysis_path) as f:
+        analysis = json.load(f)
+
+    pairs = analysis.get("pairs", [])
+    if not pairs:
+        print("  SKIP: no coupling pairs found")
+        return
+
+    fig, ax = plt.subplots(figsize=(4.0, 4.0))
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.5, 1.5)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    short_names = COUPLING_METRIC_MAPPING.copy()
+    # Ensure all metric keys from coupling data have a mapping so no pairs are silently dropped
+    for pair in pairs:
+        for key in ("var_a", "var_b"):
+            metric = pair[key]
+            if metric not in short_names:
+                # Generate a readable fallback from the metric key
+                short_names[metric] = metric.replace("_", " ").title()
+
+    n = len(COUPLING_CRITERIA)
+    angles = [2 * np.pi * i / n - np.pi / 2 for i in range(n)]
+    positions = {
+        name: (np.cos(a), np.sin(a)) for name, a in zip(COUPLING_CRITERIA, angles, strict=True)
+    }
+
+    # Draw nodes
+    _draw_coupling_nodes(ax, positions, COUPLING_NODE_COLORS)
+
+    # Draw edges from coupling analysis
+    _draw_coupling_edges(ax, pairs, positions, short_names)
+
+    # Intervention effects text box (from coupling_analysis.json)
+    _draw_intervention_effects(ax, analysis)
+
+    # Design-based edges (from Table 2)
+    _draw_design_edges(ax, positions, pairs, short_names)
 
     fig.tight_layout()
     fig.savefig(FIG_DIR / "fig_coupling.pdf", format="pdf")
@@ -1219,15 +1256,82 @@ def generate_lineage() -> None:
             ha="right",
             va="top",
             fontsize=7,
-            bbox=dict(
-                boxstyle="round,pad=0.3", facecolor="white", edgecolor="0.8", alpha=0.9
-            ),
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="0.8", alpha=0.9),
         )
 
     fig.tight_layout()
     fig.savefig(FIG_DIR / "fig_lineage.pdf", format="pdf")
     plt.close(fig)
     print(f"  Saved {FIG_DIR / 'fig_lineage.pdf'}")
+
+
+def plot_violin_strip(
+    ax,
+    data: dict[str, list[float]],
+    title: str | None,
+    ylabel: str,
+    baseline_fmt: str = ".1f",
+    seed: int = 0,
+) -> None:
+    """Plot violin distributions with overlaid strip plot and baseline."""
+    positions = list(range(len(CONDITION_ORDER)))
+    data_list = [np.array(data[c]) for c in CONDITION_ORDER]
+
+    parts = ax.violinplot(
+        data_list,
+        positions=positions,
+        showmeans=False,
+        showmedians=False,
+        showextrema=False,
+    )
+    for i, body in enumerate(parts["bodies"]):
+        color = COLORS[CONDITION_ORDER[i]]
+        body.set_facecolor(color)
+        body.set_alpha(0.3)
+        body.set_edgecolor(color)
+        body.set_linewidth(0.8)
+
+    rng = np.random.default_rng(seed)
+    for i, condition in enumerate(CONDITION_ORDER):
+        vals = np.array(data[condition])
+        jitter = rng.uniform(-0.15, 0.15, size=len(vals))
+        ax.scatter(
+            i + jitter,
+            vals,
+            s=8,
+            alpha=0.6,
+            color=COLORS[condition],
+            edgecolors="none",
+            zorder=5,
+        )
+        ax.scatter(
+            i,
+            np.median(vals),
+            s=30,
+            color=COLORS[condition],
+            edgecolors="white",
+            linewidths=0.8,
+            zorder=10,
+            marker="D",
+        )
+
+    baseline_mean = float(np.mean(data.get("normal", [0])))
+    ax.axhline(
+        y=baseline_mean,
+        color="#000000",
+        linestyle=":",
+        linewidth=0.8,
+        alpha=0.5,
+        label=f"Normal mean ({baseline_mean:{baseline_fmt}})",
+    )
+    ax.set_xticks(positions)
+    ax.set_xticklabels([LABELS[c] for c in CONDITION_ORDER], rotation=30, ha="right")
+    ax.set_ylabel(ylabel)
+    if title:
+        ax.set_title(title, fontsize=9)
+    ax.legend(loc="upper right", fontsize=6)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
 
 def generate_orthogonal() -> None:
@@ -1262,127 +1366,25 @@ def generate_orthogonal() -> None:
         spatial_data[condition] = cohesions
         lifespan_data[condition] = medians
 
-    normal_cohesion_mean = float(np.mean(spatial_data.get("normal", [0])))
-    normal_lifespan_mean = float(np.mean(lifespan_data.get("normal", [0])))
-
     fig, axes = plt.subplots(1, 2, figsize=(7, 3.0))
 
-    # Panel A: Spatial cohesion violin+strip
-    ax = axes[0]
-    positions = list(range(len(CONDITION_ORDER)))
-    data_list = [np.array(spatial_data[c]) for c in CONDITION_ORDER]
-
-    parts = ax.violinplot(
-        data_list,
-        positions=positions,
-        showmeans=False,
-        showmedians=False,
-        showextrema=False,
+    plot_violin_strip(
+        axes[0],
+        spatial_data,
+        title="(A) Spatial Cohesion",
+        ylabel="Spatial Cohesion",
+        baseline_fmt=".1f",
+        seed=0,
     )
-    for i, body in enumerate(parts["bodies"]):
-        color = COLORS[CONDITION_ORDER[i]]
-        body.set_facecolor(color)
-        body.set_alpha(0.3)
-        body.set_edgecolor(color)
-        body.set_linewidth(0.8)
 
-    rng = np.random.default_rng(0)
-    for i, condition in enumerate(CONDITION_ORDER):
-        vals = np.array(spatial_data[condition])
-        jitter = rng.uniform(-0.15, 0.15, size=len(vals))
-        ax.scatter(
-            i + jitter,
-            vals,
-            s=8,
-            alpha=0.6,
-            color=COLORS[condition],
-            edgecolors="none",
-            zorder=5,
-        )
-        ax.scatter(
-            i,
-            np.median(vals),
-            s=30,
-            color=COLORS[condition],
-            edgecolors="white",
-            linewidths=0.8,
-            zorder=10,
-            marker="D",
-        )
-
-    ax.axhline(
-        y=normal_cohesion_mean,
-        color="#000000",
-        linestyle=":",
-        linewidth=0.8,
-        alpha=0.5,
-        label=f"Normal mean ({normal_cohesion_mean:.1f})",
+    plot_violin_strip(
+        axes[1],
+        lifespan_data,
+        title="(B) Median Lifespan",
+        ylabel="Median Lifespan (steps)",
+        baseline_fmt=".0f",
+        seed=1,
     )
-    ax.set_xticks(positions)
-    ax.set_xticklabels([LABELS[c] for c in CONDITION_ORDER], rotation=30, ha="right")
-    ax.set_ylabel("Spatial Cohesion")
-    ax.set_title("(A) Spatial Cohesion", fontsize=9)
-    ax.legend(loc="upper right", fontsize=6)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-
-    # Panel B: Median lifespan violin+strip
-    ax = axes[1]
-    data_list = [np.array(lifespan_data[c]) for c in CONDITION_ORDER]
-
-    parts = ax.violinplot(
-        data_list,
-        positions=positions,
-        showmeans=False,
-        showmedians=False,
-        showextrema=False,
-    )
-    for i, body in enumerate(parts["bodies"]):
-        color = COLORS[CONDITION_ORDER[i]]
-        body.set_facecolor(color)
-        body.set_alpha(0.3)
-        body.set_edgecolor(color)
-        body.set_linewidth(0.8)
-
-    rng = np.random.default_rng(1)
-    for i, condition in enumerate(CONDITION_ORDER):
-        vals = np.array(lifespan_data[condition])
-        jitter = rng.uniform(-0.15, 0.15, size=len(vals))
-        ax.scatter(
-            i + jitter,
-            vals,
-            s=8,
-            alpha=0.6,
-            color=COLORS[condition],
-            edgecolors="none",
-            zorder=5,
-        )
-        ax.scatter(
-            i,
-            np.median(vals),
-            s=30,
-            color=COLORS[condition],
-            edgecolors="white",
-            linewidths=0.8,
-            zorder=10,
-            marker="D",
-        )
-
-    ax.axhline(
-        y=normal_lifespan_mean,
-        color="#000000",
-        linestyle=":",
-        linewidth=0.8,
-        alpha=0.5,
-        label=f"Normal mean ({normal_lifespan_mean:.0f})",
-    )
-    ax.set_xticks(positions)
-    ax.set_xticklabels([LABELS[c] for c in CONDITION_ORDER], rotation=30, ha="right")
-    ax.set_ylabel("Median Lifespan (steps)")
-    ax.set_title("(B) Median Lifespan", fontsize=9)
-    ax.legend(loc="upper right", fontsize=6)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
 
     fig.tight_layout()
     fig.savefig(FIG_DIR / "fig_orthogonal.pdf", format="pdf")
@@ -1510,10 +1512,13 @@ def generate_persistent_clusters() -> None:
 
     for panel_idx, (traits_key, labels_key, window_key, title) in enumerate(
         [
-            ("early_traits", "early_labels", "early_window",
-             f"(A) Early Window (n={n_shared_early})"),
-            ("late_traits", "late_labels", "late_window",
-             f"(B) Late Window (n={n_shared_late})"),
+            (
+                "early_traits",
+                "early_labels",
+                "early_window",
+                f"(A) Early Window (n={n_shared_early})",
+            ),
+            ("late_traits", "late_labels", "late_window", f"(B) Late Window (n={n_shared_late})"),
         ]
     ):
         ax = axes[panel_idx]
@@ -1522,8 +1527,12 @@ def generate_persistent_clusters() -> None:
 
         if len(raw_traits) < 4:
             ax.text(
-                0.5, 0.5, "Insufficient data",
-                ha="center", va="center", transform=ax.transAxes,
+                0.5,
+                0.5,
+                "Insufficient data",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
             )
             continue
 
@@ -1559,22 +1568,33 @@ def generate_persistent_clusters() -> None:
         sil = window.get("silhouette_score", 0.0)
         prop_text = ", ".join(f"{p:.0%}" for p in proportions) if proportions else ""
         ax.text(
-            0.02, 0.98,
+            0.02,
+            0.98,
             f"Prop: {prop_text}\nSil: {sil:.3f}",
-            transform=ax.transAxes, ha="left", va="top", fontsize=6,
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=6,
             bbox=dict(
-                boxstyle="round,pad=0.2", facecolor="white",
-                edgecolor="0.8", alpha=0.9,
+                boxstyle="round,pad=0.2",
+                facecolor="white",
+                edgecolor="0.8",
+                alpha=0.9,
             ),
         )
 
     fig.text(
-        0.5, 0.01,
+        0.5,
+        0.01,
         f"Organism-level ARI: {ari:.3f} (early vs late window)",
-        ha="center", va="bottom", fontsize=8,
+        ha="center",
+        va="bottom",
+        fontsize=8,
         bbox=dict(
-            boxstyle="round,pad=0.3", facecolor="#FFF9C4",
-            edgecolor="0.8", alpha=0.9,
+            boxstyle="round,pad=0.3",
+            facecolor="#FFF9C4",
+            edgecolor="0.8",
+            alpha=0.9,
         ),
     )
 
