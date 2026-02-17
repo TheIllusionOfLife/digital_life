@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 import digital_life
-from experiment_utils import log, run_single
+from experiment_utils import log, run_single, safe_path
 
 STEPS = 2000
 SAMPLE_EVERY = 50
@@ -72,7 +72,7 @@ def main():
         elapsed = time.perf_counter() - t0
         log(f"  Mode time: {elapsed:.1f}s")
 
-        raw_path = out_dir / f"calibration_{mode_name}.json"
+        raw_path = safe_path(out_dir, f"calibration_{mode_name}.json")
         with open(raw_path, "w") as f:
             json.dump(results, f, indent=2)
         log(f"  Saved: {raw_path}")
@@ -89,7 +89,7 @@ def main():
         log(f"  {s['label']:6s}: alive_mean={s['alive_mean']:.1f}, "
             f"energy_mean={s['energy_mean']:.4f}")
 
-    summary_path = out_dir / "calibration_summary.json"
+    summary_path = safe_path(out_dir, "calibration_summary.json")
     with open(summary_path, "w") as f:
         json.dump(summaries, f, indent=2)
     log(f"\nSaved summary: {summary_path}")

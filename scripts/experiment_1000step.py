@@ -23,6 +23,7 @@ import time
 from pathlib import Path
 
 import digital_life
+from experiment_common import safe_path
 
 STEPS = 1000
 SAMPLE_EVERY = 10
@@ -165,7 +166,7 @@ def main():
 
         all_results[cond_name] = results
 
-        raw_path = out_dir / f"1000step_{cond_name}.json"
+        raw_path = safe_path(out_dir, f"1000step_{cond_name}.json")
         with open(raw_path, "w") as f:
             json.dump(results, f, indent=2)
         log(f"  Saved: {raw_path}")
@@ -228,7 +229,7 @@ def main():
                     passed = False
 
     # Save summary JSON
-    summary_path = out_dir / "1000step_summary.json"
+    summary_path = safe_path(out_dir, "1000step_summary.json")
     with open(summary_path, "w") as f:
         json.dump(summaries, f, indent=2)
     log(f"\nSummary saved: {summary_path}")

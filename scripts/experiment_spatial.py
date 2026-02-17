@@ -18,6 +18,7 @@ import digital_life
 from experiment_common import (
     log,
     run_single,
+    safe_path,
 )
 
 STEPS = 2000
@@ -76,7 +77,7 @@ def main():
         cond_elapsed = time.perf_counter() - cond_start
         log(f"  Condition time: {cond_elapsed:.1f}s")
 
-        raw_path = out_dir / f"spatial_{cond_name}.json"
+        raw_path = safe_path(out_dir, f"spatial_{cond_name}.json")
         with open(raw_path, "w") as f:
             json.dump(results, f, indent=2)
         log(f"  Saved: {raw_path}")

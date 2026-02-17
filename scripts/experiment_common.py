@@ -111,6 +111,30 @@ def print_sample(condition: str, seed: int, s: dict) -> None:
     print("\t".join(vals))
 
 
+def safe_path(base_dir: Path, *parts: str) -> Path:
+    """Safely join path parts and ensure the result is within base_dir.
+
+    Args:
+        base_dir: The base directory that the resulting path must be under.
+        *parts: Path components to join to base_dir.
+
+    Returns:
+        The resolved Path object.
+
+    Raises:
+        ValueError: If the resulting path escapes base_dir.
+    """
+    # Use resolve() to handle '..' and symlinks for absolute comparison
+    base_resolved = base_dir.resolve()
+    target = base_resolved.joinpath(*parts).resolve()
+
+    # Check if target is still under base_resolved
+    if not target.is_relative_to(base_resolved):
+        raise ValueError(f"Security error: path {target} escapes base directory {base_resolved}")
+
+    return target
+
+
 def experiment_output_dir() -> Path:
     """Return the experiments output directory, creating it if needed."""
     out_dir = Path(__file__).resolve().parent.parent / "experiments"

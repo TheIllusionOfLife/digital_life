@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 import digital_life
-from experiment_utils import CONDITIONS, log, run_single
+from experiment_utils import CONDITIONS, log, run_single, safe_path
 
 STEPS = 2000
 SAMPLE_EVERY = 50
@@ -56,7 +56,7 @@ def main():
                 results.append(result)
                 log(f"    seed={seed:3d}  alive={result['final_alive_count']:4d}  {elapsed:.2f}s")
 
-            raw_path = out_dir / f"regime_{regime_name}_{cond_name}.json"
+            raw_path = safe_path(out_dir, f"regime_{regime_name}_{cond_name}.json")
             with open(raw_path, "w") as f:
                 json.dump(results, f, indent=2)
 
