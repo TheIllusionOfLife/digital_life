@@ -292,7 +292,11 @@ mod tests {
         let mut agents = Vec::with_capacity(n_agents);
         // Place agents near boundary [0, 5] and [95, 100]
         for i in 0..n_agents {
-            let x = if i % 2 == 0 { (i as f64 / n_agents as f64) * 5.0 } else { 95.0 + (i as f64 / n_agents as f64) * 5.0 };
+            let x = if i % 2 == 0 {
+                (i as f64 / n_agents as f64) * 5.0
+            } else {
+                95.0 + (i as f64 / n_agents as f64) * 5.0
+            };
             let y = (i as f64 / n_agents as f64) * world_size;
             agents.push(make_agent(i as u32, x, y));
         }
@@ -301,13 +305,18 @@ mod tests {
 
         let start = Instant::now();
         let mut total_neighbors = 0;
-        for _ in 0..10 { // repeat to get stable measurement
-            for i in 0..1000 { // sample 1000 agents
+        for _ in 0..10 {
+            // repeat to get stable measurement
+            for i in 0..1000 {
+                // sample 1000 agents
                 let center = agents[i].position;
                 total_neighbors += count_neighbors(&tree, center, radius, agents[i].id, world_size);
             }
         }
         let duration = start.elapsed();
-        println!("Benchmark: counted {} neighbors in {:?}", total_neighbors, duration);
+        println!(
+            "Benchmark: counted {} neighbors in {:?}",
+            total_neighbors, duration
+        );
     }
 }
