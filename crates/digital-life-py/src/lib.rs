@@ -112,8 +112,26 @@ fn run_niche_experiment_json_impl(
     sample_every: usize,
     snapshot_steps_json: &str,
 ) -> Result<String, String> {
+    // Pre-check for maximum items to avoid allocating a massive vector.
+    // A valid JSON array of N items has at least N-1 commas.
+    if snapshot_steps_json.bytes().filter(|&b| b == b',').count()
+        >= World::MAX_EXPERIMENT_SNAPSHOTS
+    {
+        return Err(format!(
+            "snapshot_steps json complexity exceeds supported maximum ({})",
+            World::MAX_EXPERIMENT_SNAPSHOTS
+        ));
+    }
+
     let snapshot_steps: Vec<usize> = serde_json::from_str(snapshot_steps_json)
         .map_err(|e| format!("invalid snapshot_steps json: {e}"))?;
+    if snapshot_steps.len() > World::MAX_EXPERIMENT_SNAPSHOTS {
+        return Err(format!(
+            "snapshot_steps count ({}) exceeds supported maximum ({})",
+            snapshot_steps.len(),
+            World::MAX_EXPERIMENT_SNAPSHOTS
+        ));
+    }
     let mut world = world_from_config_json(config_json)?;
     let summary = world
         .try_run_experiment_with_snapshots(steps, sample_every, &snapshot_steps)
@@ -441,5 +459,21 @@ mod tests {
         // This should not panic
         let result = run_experiment_json_impl(&config_json, 1, 1);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn run_niche_experiment_json_impl_rejects_excessive_snapshots() {
+        let config_json =
+            serde_json::to_string(&SimConfig::default()).expect("config should serialize");
+        // Create a JSON array with MAX_EXPERIMENT_SNAPSHOTS + 1 elements
+        let count = World::MAX_EXPERIMENT_SNAPSHOTS + 1;
+        let mut steps = Vec::with_capacity(count);
+        for i in 0..count {
+            steps.push(i);
+        }
+        let snapshot_steps_json = serde_json::to_string(&steps).expect("steps should serialize");
+
+        let result = run_niche_experiment_json_impl(&config_json, 10, 5, &snapshot_steps_json);
+        assert!(result.is_err());
     }
 }
