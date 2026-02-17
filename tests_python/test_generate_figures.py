@@ -6,11 +6,8 @@ import pytest
 import scripts.generate_figures as gf
 
 
-@patch('scripts.generate_figures.CONDITION_ORDER', [
-    "normal", "no_reproduction", "no_response", "no_metabolism",
-    "no_homeostasis", "no_growth", "no_boundary", "no_evolution"
-])
 def test_plot_violin_strip():
+    """Test the violin strip plotting helper."""
     # Mock the ax object
     ax = MagicMock()
 
