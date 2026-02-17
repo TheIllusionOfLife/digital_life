@@ -152,7 +152,7 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::DumpDefaultConfig => {
             let config = SimConfig::default();
-            println!("{}", serde_json::to_string_pretty(&config)?);
+            println!("{}", serde_json::to_string_pretty(&config).context("Failed to serialize default config to JSON")?);
         }
         Commands::Benchmark => {
             if cfg!(debug_assertions) {
