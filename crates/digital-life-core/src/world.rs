@@ -774,13 +774,23 @@ impl World {
         let half = world_size * 0.5;
         let mut org_cohesions = Vec::new();
 
-        for org in self.organisms.iter().filter(|o| o.alive) {
-            let positions: Vec<[f64; 2]> = self
-                .agents
-                .iter()
-                .filter(|a| a.organism_id == org.id)
-                .map(|a| a.position)
-                .collect();
+        // Single pass over agents to bucket by organism_id
+        let mut agent_positions_by_org: Vec<Vec<[f64; 2]>> = vec![Vec::new(); self.organisms.len()];
+        for agent in &self.agents {
+            if let Some(bucket) = agent_positions_by_org.get_mut(agent.organism_id as usize) {
+                bucket.push(agent.position);
+            }
+        }
+
+        for (org_idx, org) in self.organisms.iter().enumerate().filter(|(_, o)| o.alive) {
+            // Safety: This relies on the invariant that organism.id == index in self.organisms,
+            // which is maintained by World::try_new and prune_dead_entities.
+            debug_assert_eq!(
+                org.id as usize, org_idx,
+                "Organism ID must match index for spatial cohesion optimization"
+            );
+
+            let positions = &agent_positions_by_org[org_idx];
             let n = positions.len();
             if n < 2 {
                 continue;
