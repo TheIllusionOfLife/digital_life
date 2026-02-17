@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use digital_life_core::agent::Agent;
 use digital_life_core::config::{MetabolismMode, SimConfig};
@@ -45,14 +46,14 @@ enum Commands {
     DumpDefaultConfig,
 }
 
-fn create_agents(config: &SimConfig) -> Vec<Agent> {
+fn create_agents(config: &SimConfig) -> Result<Vec<Agent>> {
     let total_agents = config.num_organisms * config.agents_per_organism;
     let mut rng = ChaCha12Rng::seed_from_u64(config.seed);
     let mut agents = Vec::with_capacity(total_agents);
     for org in 0..config.num_organisms {
         for i in 0..config.agents_per_organism {
             let id = (org * config.agents_per_organism + i) as u32;
-            let organism_id = u16::try_from(org).expect("Organism ID overflow (max 65535)");
+            let organism_id = u16::try_from(org).context("Organism ID overflow (max 65535)")?;
             let pos = [
                 rng.random::<f64>() * config.world_size,
                 rng.random::<f64>() * config.world_size,
@@ -60,7 +61,7 @@ fn create_agents(config: &SimConfig) -> Vec<Agent> {
             agents.push(Agent::new(id, organism_id, pos));
         }
     }
-    agents
+    Ok(agents)
 }
 
 fn create_nns(config: &SimConfig) -> Vec<NeuralNet> {
@@ -78,7 +79,7 @@ fn run_benchmark(
     agents_per_organism: usize,
     seed: u64,
     metabolism_mode: MetabolismMode,
-) {
+) -> Result<()> {
     let config = SimConfig {
         world_size: WORLD_SIZE,
         num_organisms,
@@ -88,12 +89,12 @@ fn run_benchmark(
         ..SimConfig::default()
     };
 
-    if let Err(e) = config.validate() {
-        eprintln!("Benchmark config validation error: {}", e);
-        return;
-    }
+    config
+        .validate()
+        .map_err(|e| anyhow::anyhow!(e))
+        .context("Benchmark config validation error")?;
 
-    let agents = create_agents(&config);
+    let agents = create_agents(&config)?;
     let nns = create_nns(&config);
     let mut world = World::new(agents, nns, config.clone());
 
@@ -143,15 +144,16 @@ fn run_benchmark(
         summary.final_alive_count, num_organisms
     );
     println!();
+    Ok(())
 }
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
         Commands::DumpDefaultConfig => {
             let config = SimConfig::default();
-            println!("{}", serde_json::to_string_pretty(&config).unwrap());
+            println!("{}", serde_json::to_string_pretty(&config)?);
         }
         Commands::Benchmark => {
             if cfg!(debug_assertions) {
@@ -176,40 +178,41 @@ fn main() {
             for mode in modes {
                 println!("=== Mode: {:?} ===", mode);
                 for (orgs, apg) in configs {
-                    run_benchmark(orgs, apg, 42, mode);
+                    run_benchmark(orgs, apg, 42, mode)?;
                 }
             }
         }
         Commands::Run { config, out, steps } => {
-            let file = File::open(&config).expect("failed to open config file");
+            let file = File::open(&config).context("failed to open config file")?;
             let reader = BufReader::new(file);
             let sim_config: SimConfig =
-                serde_json::from_reader(reader).expect("failed to parse config");
+                serde_json::from_reader(reader).context("failed to parse config")?;
 
             // Validate config
-            if let Err(e) = sim_config.validate() {
-                eprintln!("Config validation error: {}", e);
-                std::process::exit(1);
-            }
+            sim_config
+                .validate()
+                .map_err(|e| anyhow::anyhow!(e))
+                .context("Config validation error")?;
 
             println!("Loaded config from {:?}", config);
             println!("Simulating for {} steps...", steps);
 
-            let agents = create_agents(&sim_config);
+            let agents = create_agents(&sim_config)?;
             let nns = create_nns(&sim_config);
             let mut world = World::new(agents, nns, sim_config.clone());
 
             let summary = world.run_experiment(steps, 100);
 
             if let Some(out_dir) = out {
-                std::fs::create_dir_all(&out_dir).expect("failed to create output directory");
+                std::fs::create_dir_all(&out_dir).context("failed to create output directory")?;
                 let summary_path = out_dir.join("summary.json");
-                let file = File::create(summary_path).expect("failed to create summary file");
-                serde_json::to_writer_pretty(file, &summary).expect("failed to write summary");
+                let file = File::create(summary_path).context("failed to create summary file")?;
+                serde_json::to_writer_pretty(file, &summary).context("failed to write summary")?;
                 println!("Run complete. Results saved to {:?}", out_dir);
             } else {
                 println!("Run complete. Final alive: {}", summary.final_alive_count);
             }
         }
     }
+    Ok(())
 }
