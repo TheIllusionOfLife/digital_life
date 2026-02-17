@@ -77,6 +77,40 @@ plt.rcParams.update(
 
 VALID_CONDITIONS = set(COLORS.keys())
 
+COUPLING_CRITERIA = [
+    "Cellular Org.",
+    "Metabolism",
+    "Homeostasis",
+    "Growth/Dev.",
+    "Reproduction",
+    "Response",
+    "Evolution",
+]
+
+# Initial mapping for short names
+COUPLING_METRIC_MAPPING = {
+    "energy_mean": "Metabolism",
+    "boundary_mean": "Cellular Org.",
+    "internal_state_mean_0": "Homeostasis",
+}
+
+COUPLING_NODE_COLORS = [
+    "#56B4E9",
+    "#D55E00",
+    "#009E73",
+    "#CC79A7",
+    "#0072B2",
+    "#E69F00",
+    "#CC79A7",
+]
+
+INTERVENTION_METRICS = (
+    "energy_mean",
+    "waste_mean",
+    "boundary_mean",
+    "internal_state_mean_0",
+)
+
 
 def parse_tsv(path: Path) -> list[dict]:
     """Parse TSV with stderr preamble and interleaved summary lines.
@@ -996,12 +1030,7 @@ def _draw_intervention_effects(ax: plt.Axes, analysis: dict) -> None:
     for row in matrix:
         criterion = row["ablated_criterion"]
         metric_effects = []
-        for key in (
-            "energy_mean",
-            "waste_mean",
-            "boundary_mean",
-            "internal_state_mean_0",
-        ):
+        for key in INTERVENTION_METRICS:
             val = row.get(key, 0.0)
             if abs(val) > 20:
                 short_key = key.replace("_mean", "").replace("_0", "")
@@ -1094,21 +1123,7 @@ def generate_coupling() -> None:
     ax.set_aspect("equal")
     ax.axis("off")
 
-    # 7 criteria arranged in a circle
-    criteria = [
-        "Cellular Org.",
-        "Metabolism",
-        "Homeostasis",
-        "Growth/Dev.",
-        "Reproduction",
-        "Response",
-        "Evolution",
-    ]
-    short_names = {
-        "energy_mean": "Metabolism",
-        "boundary_mean": "Cellular Org.",
-        "internal_state_mean_0": "Homeostasis",
-    }
+    short_names = COUPLING_METRIC_MAPPING.copy()
     # Ensure all metric keys from coupling data have a mapping so no pairs are silently dropped
     for pair in pairs:
         for key in ("var_a", "var_b"):
@@ -1117,24 +1132,15 @@ def generate_coupling() -> None:
                 # Generate a readable fallback from the metric key
                 short_names[metric] = metric.replace("_", " ").title()
 
-    n = len(criteria)
+    n = len(COUPLING_CRITERIA)
     angles = [2 * np.pi * i / n - np.pi / 2 for i in range(n)]
     positions = {
         name: (np.cos(a), np.sin(a))
-        for name, a in zip(criteria, angles, strict=True)
+        for name, a in zip(COUPLING_CRITERIA, angles, strict=True)
     }
 
     # Draw nodes
-    node_colors = [
-        "#56B4E9",  # Cellular Org.
-        "#E69F00",  # Metabolism
-        "#009E73",  # Homeostasis
-        "#F0E442",  # Growth/Dev.
-        "#0072B2",  # Reproduction
-        "#D55E00",  # Response
-        "#CC79A7",  # Evolution
-    ]
-    _draw_coupling_nodes(ax, positions, node_colors)
+    _draw_coupling_nodes(ax, positions, COUPLING_NODE_COLORS)
 
     # Draw edges from coupling analysis
     _draw_coupling_edges(ax, pairs, positions, short_names)
