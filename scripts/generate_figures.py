@@ -15,6 +15,7 @@ import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.axes import Axes
 
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -76,6 +77,41 @@ plt.rcParams.update(
 
 
 VALID_CONDITIONS = set(COLORS.keys())
+
+# Constants for coupling figure
+COUPLING_CRITERIA = [
+    "Cellular Org.",
+    "Metabolism",
+    "Homeostasis",
+    "Growth/Dev.",
+    "Reproduction",
+    "Response",
+    "Evolution",
+]
+
+# Initial mapping for short names
+COUPLING_METRIC_MAPPING = {
+    "energy_mean": "Metabolism",
+    "boundary_mean": "Cellular Org.",
+    "internal_state_mean_0": "Homeostasis",
+}
+
+COUPLING_NODE_COLORS = [
+    "#56B4E9",
+    "#D55E00",
+    "#009E73",
+    "#CC79A7",
+    "#0072B2",
+    "#E69F00",
+    "#CC79A7",
+]
+
+INTERVENTION_METRICS = (
+    "energy_mean",
+    "waste_mean",
+    "boundary_mean",
+    "internal_state_mean_0",
+)
 
 
 def parse_tsv(path: Path) -> list[dict]:
@@ -914,67 +950,10 @@ def generate_phenotype() -> None:
     print(f"  Saved {FIG_DIR / 'fig_phenotype.pdf'}")
 
 
-def generate_coupling() -> None:
-    """Figure 10: Criterion coupling graph — directed edges with correlation coefficients."""
-    analysis_path = PROJECT_ROOT / "experiments" / "coupling_analysis.json"
-    if not analysis_path.exists():
-        print(f"  SKIP: {analysis_path} not found")
-        return
-
-    with open(analysis_path) as f:
-        analysis = json.load(f)
-
-    pairs = analysis.get("pairs", [])
-    if not pairs:
-        print("  SKIP: no coupling pairs found")
-        return
-
-    fig, ax = plt.subplots(figsize=(4.0, 4.0))
-    ax.set_xlim(-1.5, 1.5)
-    ax.set_ylim(-1.5, 1.5)
-    ax.set_aspect("equal")
-    ax.axis("off")
-
-    # 7 criteria arranged in a circle
-    criteria = [
-        "Cellular Org.",
-        "Metabolism",
-        "Homeostasis",
-        "Growth/Dev.",
-        "Reproduction",
-        "Response",
-        "Evolution",
-    ]
-    short_names = {
-        "energy_mean": "Metabolism",
-        "boundary_mean": "Cellular Org.",
-        "internal_state_mean_0": "Homeostasis",
-    }
-    # Ensure all metric keys from coupling data have a mapping so no pairs are silently dropped
-    for pair in pairs:
-        for key in ("var_a", "var_b"):
-            metric = pair[key]
-            if metric not in short_names:
-                # Generate a readable fallback from the metric key
-                short_names[metric] = metric.replace("_", " ").title()
-
-    n = len(criteria)
-    angles = [2 * np.pi * i / n - np.pi / 2 for i in range(n)]
-    positions = {
-        name: (np.cos(a), np.sin(a))
-        for name, a in zip(criteria, angles, strict=True)
-    }
-
-    # Draw nodes
-    node_colors = [
-        "#56B4E9",
-        "#D55E00",
-        "#009E73",
-        "#CC79A7",
-        "#0072B2",
-        "#E69F00",
-        "#CC79A7",
-    ]
+def _draw_coupling_nodes(
+    ax: Axes, positions: dict[str, tuple[float, float]], node_colors: list[str]
+) -> None:
+    """Draw circular nodes for each criterion."""
     for i, (name, (x, y)) in enumerate(positions.items()):
         circle = plt.Circle(
             (x, y),
@@ -987,7 +966,14 @@ def generate_coupling() -> None:
         ax.add_patch(circle)
         ax.text(x, y, name, ha="center", va="center", fontsize=5.5, fontweight="bold")
 
-    # Draw edges from coupling analysis
+
+def _draw_coupling_edges(
+    ax: Axes,
+    pairs: list[dict],
+    positions: dict[str, tuple[float, float]],
+    short_names: dict[str, str],
+) -> None:
+    """Draw directed edges representing significant coupling correlations."""
     for pair in pairs:
         var_a = short_names.get(pair["var_a"], pair["var_a"])
         var_b = short_names.get(pair["var_b"], pair["var_b"])
@@ -1034,48 +1020,54 @@ def generate_coupling() -> None:
             ),
         )
 
-    # Intervention effects text box (from coupling_analysis.json)
-    interventions = analysis.get("intervention_effects", {})
-    if interventions:
-        matrix = interventions.get("matrix", [])
-        # Find top 3 by max absolute pct_change across metrics
-        effects_summary = []
-        for row in matrix:
-            criterion = row["ablated_criterion"]
-            metric_effects = []
-            for key in (
-                "energy_mean",
-                "waste_mean",
-                "boundary_mean",
-                "internal_state_mean_0",
-            ):
-                val = row.get(key, 0.0)
-                if abs(val) > 20:
-                    short_key = key.replace("_mean", "").replace("_0", "")
-                    sign = "-" if val > 0 else "+"
-                    metric_effects.append(f"{short_key} {sign}{abs(val):.0f}%")
-            if metric_effects:
-                effects_summary.append(f"  {criterion}: {', '.join(metric_effects)}")
-        if effects_summary:
-            # Show top entries (sorted by first effect magnitude)
-            box_text = "Intervention effects:\n" + "\n".join(effects_summary[:4])
-            ax.text(
-                -1.45,
-                -1.45,
-                box_text,
-                fontsize=5,
-                va="bottom",
-                ha="left",
-                family="monospace",
-                bbox=dict(
-                    boxstyle="round,pad=0.3",
-                    facecolor="#F5F5F5",
-                    edgecolor="0.7",
-                    alpha=0.9,
-                ),
-            )
 
-    # Design-based edges (from Table 2)
+def _draw_intervention_effects(ax: Axes, analysis: dict) -> None:
+    """Draw text box summarizing key intervention effects."""
+    interventions = analysis.get("intervention_effects", {})
+    if not interventions:
+        return
+
+    matrix = interventions.get("matrix", [])
+    effects_summary = []
+    for row in matrix:
+        criterion = row["ablated_criterion"]
+        metric_effects = []
+        for key in INTERVENTION_METRICS:
+            val = row.get(key, 0.0)
+            if abs(val) > 20:
+                short_key = key.replace("_mean", "").replace("_0", "")
+                sign = "-" if val > 0 else "+"
+                metric_effects.append(f"{short_key} {sign}{abs(val):.0f}%")
+        if metric_effects:
+            effects_summary.append(f"  {criterion}: {', '.join(metric_effects)}")
+
+    if effects_summary:
+        # Show top entries (sorted by first effect magnitude)
+        box_text = "Intervention effects:\n" + "\n".join(effects_summary[:4])
+        ax.text(
+            -1.45,
+            -1.45,
+            box_text,
+            fontsize=5,
+            va="bottom",
+            ha="left",
+            family="monospace",
+            bbox=dict(
+                boxstyle="round,pad=0.3",
+                facecolor="#F5F5F5",
+                edgecolor="0.7",
+                alpha=0.9,
+            ),
+        )
+
+
+def _draw_design_edges(
+    ax: Axes,
+    positions: dict[str, tuple[float, float]],
+    pairs: list[dict],
+    short_names: dict[str, str],
+) -> None:
+    """Draw dashed edges for designed interactions not captured by data."""
     design_edges = [
         ("Growth/Dev.", "Reproduction", "gate"),
         ("Metabolism", "Cellular Org.", "energy"),
@@ -1110,6 +1102,56 @@ def generate_coupling() -> None:
             xytext=(sx1, sy1),
             arrowprops=dict(arrowstyle="->", color="#888888", lw=0.8, linestyle="--"),
         )
+
+
+def generate_coupling() -> None:
+    """Figure 10: Criterion coupling graph — directed edges with correlation coefficients."""
+    analysis_path = PROJECT_ROOT / "experiments" / "coupling_analysis.json"
+    if not analysis_path.exists():
+        print(f"  SKIP: {analysis_path} not found")
+        return
+
+    with open(analysis_path) as f:
+        analysis = json.load(f)
+
+    pairs = analysis.get("pairs", [])
+    if not pairs:
+        print("  SKIP: no coupling pairs found")
+        return
+
+    fig, ax = plt.subplots(figsize=(4.0, 4.0))
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.5, 1.5)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    short_names = COUPLING_METRIC_MAPPING.copy()
+    # Ensure all metric keys from coupling data have a mapping so no pairs are silently dropped
+    for pair in pairs:
+        for key in ("var_a", "var_b"):
+            metric = pair[key]
+            if metric not in short_names:
+                # Generate a readable fallback from the metric key
+                short_names[metric] = metric.replace("_", " ").title()
+
+    n = len(COUPLING_CRITERIA)
+    angles = [2 * np.pi * i / n - np.pi / 2 for i in range(n)]
+    positions = {
+        name: (np.cos(a), np.sin(a))
+        for name, a in zip(COUPLING_CRITERIA, angles, strict=True)
+    }
+
+    # Draw nodes
+    _draw_coupling_nodes(ax, positions, COUPLING_NODE_COLORS)
+
+    # Draw edges from coupling analysis
+    _draw_coupling_edges(ax, pairs, positions, short_names)
+
+    # Intervention effects text box (from coupling_analysis.json)
+    _draw_intervention_effects(ax, analysis)
+
+    # Design-based edges (from Table 2)
+    _draw_design_edges(ax, positions, pairs, short_names)
 
     fig.tight_layout()
     fig.savefig(FIG_DIR / "fig_coupling.pdf", format="pdf")
