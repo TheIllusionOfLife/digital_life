@@ -1001,6 +1001,11 @@ impl World {
                 break;
             }
 
+            let center = centers
+                .get(parent_idx)
+                .and_then(|c| *c)
+                .unwrap_or([0.0, 0.0]);
+
             let child_id = match u16::try_from(self.organisms.len()) {
                 Ok(id) => id,
                 Err(_) => break,
