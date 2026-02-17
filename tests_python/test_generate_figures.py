@@ -1,11 +1,10 @@
+from unittest.mock import MagicMock
 
 import pytest
-from unittest.mock import MagicMock, patch
-import numpy as np
 
-# We need to import the module to patch it, but we can't import the function yet if it doesn't exist.
-# However, we can patch the module attributes after import.
+# We need to import the module to patch it, but we can't import the function yet.
 import scripts.generate_figures as gf
+
 
 def test_plot_violin_strip():
     # Mock the ax object
@@ -40,7 +39,7 @@ def test_plot_violin_strip():
         title="Test Title",
         ylabel="Test Label",
         baseline_fmt=".1f",
-        seed=42
+        seed=42,
     )
 
     # Verify calls
@@ -59,7 +58,7 @@ def test_plot_violin_strip():
 
     # 4. axhline called for baseline
     assert ax.axhline.called
-    args, kwargs = ax.axhline.call_args
+    _args, kwargs = ax.axhline.call_args
     # Check if label is formatted correctly
     # normal mean is 1.0
     assert "Normal mean (1.0)" in kwargs["label"]
