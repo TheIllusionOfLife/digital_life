@@ -95,7 +95,8 @@ fn run_benchmark(
 
     let agents = create_agents(&config)?;
     let nns = create_nns(&config);
-    let mut world = World::new(agents, nns, config.clone()).expect("Failed to initialize world");
+    let mut world = World::new(agents, nns, config.clone())
+        .context("Failed to initialize benchmark world")?;
 
     // Warmup
     for _ in 0..WARMUP_STEPS {
@@ -188,15 +189,17 @@ fn main() -> Result<()> {
                 serde_json::from_reader(reader).context("failed to parse config")?;
 
             // Validate config
-            sim_config.validate().context("Config validation error")?;
+            sim_config
+                .validate()
+                .context("Config validation error")?;
 
             println!("Loaded config from {:?}", config);
             println!("Simulating for {} steps...", steps);
 
             let agents = create_agents(&sim_config)?;
             let nns = create_nns(&sim_config);
-            let mut world =
-                World::new(agents, nns, sim_config.clone()).expect("Failed to initialize world");
+            let mut world = World::new(agents, nns, sim_config.clone())
+                .context("Failed to initialize world")?;
 
             let summary = world.run_experiment(steps, 100);
 
