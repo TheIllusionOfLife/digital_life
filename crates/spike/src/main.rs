@@ -190,7 +190,6 @@ fn main() -> Result<()> {
             // Validate config
             sim_config
                 .validate()
-                .map_err(|e| anyhow::anyhow!(e))
                 .context("Config validation error")?;
 
             println!("Loaded config from {:?}", config);
