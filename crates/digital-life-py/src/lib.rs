@@ -115,8 +115,7 @@ fn run_niche_experiment_json_impl(
     // Pre-check for maximum items to avoid allocating a massive vector
     // A valid JSON array of N items has at least N-1 commas.
     // If commas >= MAX, we definitely have >= MAX+1 items (or invalid JSON).
-    if snapshot_steps_json.bytes().filter(|&b| b == b',').count()
-        >= World::MAX_EXPERIMENT_SNAPSHOTS
+    if snapshot_steps_json.bytes().filter(|&b| b == b',').count() >= World::MAX_EXPERIMENT_SNAPSHOTS
     {
         return Err(format!(
             "snapshot_steps json complexity exceeds supported maximum ({})",
