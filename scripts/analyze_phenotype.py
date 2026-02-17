@@ -147,6 +147,98 @@ def _extract_traits_at_step(results: list[dict], target_step: int) -> np.ndarray
     return np.array(traits) if traits else np.empty((0, 5))
 
 
+def _collect_organism_traits(
+    results: list[dict], frame_idx: int, trait_names: list[str]
+) -> dict[tuple[int, int], list[float]]:
+    """Collect per-organism traits from a specific snapshot frame index."""
+    orgs: dict[tuple[int, int], list[float]] = {}
+    for r in results:
+        seed = r.get("seed", 0)
+        frames = r.get("organism_snapshots", [])
+        if frame_idx >= len(frames):
+            continue
+        for org in frames[frame_idx]["organisms"]:
+            key = (seed, org["stable_id"])
+            orgs[key] = [float(org[name]) for name in trait_names]
+    return orgs
+
+
+def _extract_shared_traits(
+    dict_a: dict[tuple[int, int], list[float]],
+    dict_b: dict[tuple[int, int], list[float]],
+) -> tuple[list[tuple[int, int]], np.ndarray | None, np.ndarray | None]:
+    """Find shared organisms between two snapshots and return their traits."""
+    shared_keys = sorted(set(dict_a.keys()) & set(dict_b.keys()))
+    if len(shared_keys) < 4:
+        return shared_keys, None, None
+    traits_a = np.array([dict_a[k] for k in shared_keys])
+    traits_b = np.array([dict_b[k] for k in shared_keys])
+    return shared_keys, traits_a, traits_b
+
+
+def _compute_clustering_ari(
+    traits_a: np.ndarray, traits_b: np.ndarray, k: int = 2
+) -> tuple[float, np.ndarray, np.ndarray]:
+    """Standardize and cluster two sets of traits, then compute ARI."""
+    scaled_a = StandardScaler().fit_transform(traits_a)
+    km_a = KMeans(n_clusters=k, n_init=10, random_state=42)
+    labels_a = km_a.fit_predict(scaled_a)
+
+    scaled_b = StandardScaler().fit_transform(traits_b)
+    km_b = KMeans(n_clusters=k, n_init=10, random_state=42)
+    labels_b = km_b.fit_predict(scaled_b)
+
+    ari = adjusted_rand_score(labels_a, labels_b)
+    return float(ari), labels_a, labels_b
+
+
+def _summarize_window(
+    labels: np.ndarray,
+    traits_raw: np.ndarray,
+    n_total: int | None,
+    k: int,
+    trait_names: list[str],
+    prefix: str = "",
+    include_extra: bool = True,
+) -> dict:
+    """Summarize clustering for a time window."""
+    profiles = []
+    proportions = []
+    n_samples = len(labels)
+    for c in range(k):
+        mask = labels == c
+        count = int(mask.sum())
+        proportions.append(round(count / n_samples, 4) if n_samples > 0 else 0.0)
+        profile = {"cluster_id": c, "count": count}
+        for i, name in enumerate(trait_names):
+            val = float(traits_raw[mask, i].mean()) if count > 0 else 0.0
+            profile[f"{prefix}{name}"] = round(val, 4)
+        profiles.append(profile)
+
+    if not include_extra:
+        return {
+            "n_clusters": k,
+            "cluster_proportions": proportions,
+            "cluster_profiles": profiles,
+        }
+
+    # Silhouette score only if we have enough samples and at least 2 unique labels
+    sil = 0.0
+    if len(traits_raw) > k and len(np.unique(labels)) > 1:
+        scaled = StandardScaler().fit_transform(traits_raw)
+        sil = float(silhouette_score(scaled, labels))
+
+    res = {}
+    if n_total is not None:
+        res["n_total_organisms"] = n_total
+    res["n_shared_organisms"] = n_samples
+    res["n_clusters"] = k
+    res["silhouette_score"] = round(sil, 4)
+    res["cluster_proportions"] = proportions
+    res["cluster_profiles"] = profiles
+    return res
+
+
 def analyze_temporal_persistence(exp_dir: Path) -> dict:
     """Analyze persistence of phenotypic clusters across early and late windows.
 
@@ -175,39 +267,14 @@ def analyze_temporal_persistence(exp_dir: Path) -> dict:
     if len(early_traits) < 4 or len(late_traits) < 4:
         return {"error": "insufficient data for temporal analysis"}
 
-    # Standardize and cluster each window independently
-    k = 2
-    early_scaled = StandardScaler().fit_transform(early_traits)
-    late_scaled = StandardScaler().fit_transform(late_traits)
+    ari, early_labels, late_labels = _compute_clustering_ari(early_traits, late_traits)
 
-    early_km = KMeans(n_clusters=k, n_init=10, random_state=42)
-    late_km = KMeans(n_clusters=k, n_init=10, random_state=42)
-
-    early_labels = early_km.fit_predict(early_scaled)
-    late_labels = late_km.fit_predict(late_scaled)
-
-    # Compute adjusted Rand index
-    ari = adjusted_rand_score(early_labels, late_labels)
-
-    def _cluster_summary(labels, traits_raw):
-        profiles = []
-        proportions = []
-        for c in range(k):
-            mask = labels == c
-            count = int(mask.sum())
-            proportions.append(round(count / len(labels), 4))
-            profile = {"cluster_id": c, "count": count}
-            for i, name in enumerate(trait_names):
-                profile[name] = round(float(traits_raw[mask, i].mean()), 4)
-            profiles.append(profile)
-        return {
-            "n_clusters": k,
-            "cluster_proportions": proportions,
-            "cluster_profiles": profiles,
-        }
-
-    early_summary = _cluster_summary(early_labels, early_traits)
-    late_summary = _cluster_summary(late_labels, late_traits)
+    early_summary = _summarize_window(
+        early_labels, early_traits, None, 2, trait_names, include_extra=False
+    )
+    late_summary = _summarize_window(
+        late_labels, late_traits, None, 2, trait_names, include_extra=False
+    )
 
     if ari > 0.6:
         interp = (
@@ -260,32 +327,12 @@ def analyze_organism_level_persistence(exp_dir: Path) -> dict:
 
     trait_names = ["energy", "waste", "boundary_integrity", "maturity", "generation"]
 
-    def _collect_orgs(results: list[dict], frame_idx: int
-                      ) -> dict[tuple[int, int], list[float]]:
-        """Collect per-organism traits from a specific snapshot frame index."""
-        orgs: dict[tuple[int, int], list[float]] = {}
-        for r in results:
-            seed = r.get("seed", 0)
-            frames = r.get("organism_snapshots", [])
-            if frame_idx >= len(frames):
-                continue
-            for org in frames[frame_idx]["organisms"]:
-                key = (seed, org["stable_id"])
-                orgs[key] = [
-                    org["energy"],
-                    org["waste"],
-                    org["boundary_integrity"],
-                    org["maturity"],
-                    float(org["generation"]),
-                ]
-        return orgs
-
     # Snapshot layout: [early_a, early_b, late_a, late_b]
     # Pair 1 (early): frames 0,1  —  Pair 2 (late): frames 2,3
-    early_a = _collect_orgs(results, 0)
-    early_b = _collect_orgs(results, 1)
-    late_a = _collect_orgs(results, 2)
-    late_b = _collect_orgs(results, 3)
+    early_a = _collect_organism_traits(results, 0, trait_names)
+    early_b = _collect_organism_traits(results, 1, trait_names)
+    late_a = _collect_organism_traits(results, 2, trait_names)
+    late_b = _collect_organism_traits(results, 3, trait_names)
 
     # Report frame steps
     frame_steps = []
@@ -295,66 +342,27 @@ def analyze_organism_level_persistence(exp_dir: Path) -> dict:
     log(f"  Snapshot steps: {frame_steps}")
 
     # Use early pair (a→b) for the main persistence analysis
-    early_orgs = early_a
-    late_orgs = early_b
+    shared_keys, early_traits, late_traits = _extract_shared_traits(early_a, early_b)
 
-    # Find organisms present in both windows
-    shared_keys = sorted(set(early_orgs.keys()) & set(late_orgs.keys()))
-    log(f"  Early organisms: {len(early_orgs)}, Late: {len(late_orgs)}, "
+    log(f"  Early organisms: {len(early_a)}, Late: {len(early_b)}, "
         f"Shared: {len(shared_keys)}")
 
-    if len(shared_keys) < 4:
+    if early_traits is None:
         return {
             "error": "insufficient shared organisms for temporal analysis",
-            "n_early": len(early_orgs),
-            "n_late": len(late_orgs),
+            "n_early": len(early_a),
+            "n_late": len(early_b),
             "n_shared": len(shared_keys),
         }
 
-    early_traits = np.array([early_orgs[k] for k in shared_keys])
-    late_traits = np.array([late_orgs[k] for k in shared_keys])
+    ari, early_labels, late_labels = _compute_clustering_ari(early_traits, late_traits)
 
-    k = 2
-    scaler = StandardScaler()
-
-    early_scaled = scaler.fit_transform(early_traits)
-    early_km = KMeans(n_clusters=k, n_init=10, random_state=42)
-    early_labels = early_km.fit_predict(early_scaled)
-
-    late_scaler = StandardScaler()
-    late_scaled = late_scaler.fit_transform(late_traits)
-    late_km = KMeans(n_clusters=k, n_init=10, random_state=42)
-    late_labels = late_km.fit_predict(late_scaled)
-
-    ari = adjusted_rand_score(early_labels, late_labels)
-
-    def _window_summary(labels, traits_raw, all_orgs_dict):
-        """Summarize clustering for a time window."""
-        n_total = len(all_orgs_dict)
-        profiles = []
-        proportions = []
-        sil = silhouette_score(
-            StandardScaler().fit_transform(traits_raw), labels
-        ) if len(traits_raw) > k else 0.0
-        for c in range(k):
-            mask = labels == c
-            count = int(mask.sum())
-            proportions.append(round(count / len(labels), 4))
-            profile = {"cluster_id": c, "count": count}
-            for i, name in enumerate(trait_names):
-                profile[f"mean_{name}"] = round(float(traits_raw[mask, i].mean()), 4)
-            profiles.append(profile)
-        return {
-            "n_total_organisms": n_total,
-            "n_shared_organisms": len(labels),
-            "n_clusters": k,
-            "silhouette_score": round(float(sil), 4),
-            "cluster_proportions": proportions,
-            "cluster_profiles": profiles,
-        }
-
-    early_summary = _window_summary(early_labels, early_traits, early_orgs)
-    late_summary = _window_summary(late_labels, late_traits, late_orgs)
+    early_summary = _summarize_window(
+        early_labels, early_traits, len(early_a), 2, trait_names, prefix="mean_"
+    )
+    late_summary = _summarize_window(
+        late_labels, late_traits, len(early_b), 2, trait_names, prefix="mean_"
+    )
 
     if ari > 0.6:
         interp = (
@@ -376,31 +384,21 @@ def analyze_organism_level_persistence(exp_dir: Path) -> dict:
     log(f"  Organism-level ARI (early pair, ~200 steps)={ari:.3f}")
 
     # Also compute late pair ARI and cross-pair ARI
-    late_pair_shared = sorted(set(late_a.keys()) & set(late_b.keys()))
+    _, lp_early, lp_late = _extract_shared_traits(late_a, late_b)
     late_pair_ari = None
-    if len(late_pair_shared) >= 4:
-        lp_early = np.array([late_a[k] for k in late_pair_shared])
-        lp_late = np.array([late_b[k] for k in late_pair_shared])
-        lp_e_labels = KMeans(n_clusters=k, n_init=10, random_state=42).fit_predict(
-            StandardScaler().fit_transform(lp_early))
-        lp_l_labels = KMeans(n_clusters=k, n_init=10, random_state=42).fit_predict(
-            StandardScaler().fit_transform(lp_late))
-        late_pair_ari = round(float(adjusted_rand_score(lp_e_labels, lp_l_labels)), 4)
+    if lp_early is not None:
+        late_pair_ari, _, _ = _compute_clustering_ari(lp_early, lp_late)
+        late_pair_ari = round(float(late_pair_ari), 4)
         log(f"  Late pair ARI (~200 steps)={late_pair_ari}")
 
-    cross_shared = sorted(set(early_a.keys()) & set(late_b.keys()))
+    cross_keys, cr_early, cr_late = _extract_shared_traits(early_a, late_b)
     cross_ari = None
-    if len(cross_shared) >= 4:
-        cr_early = np.array([early_a[k] for k in cross_shared])
-        cr_late = np.array([late_b[k] for k in cross_shared])
-        cr_e_labels = KMeans(n_clusters=k, n_init=10, random_state=42).fit_predict(
-            StandardScaler().fit_transform(cr_early))
-        cr_l_labels = KMeans(n_clusters=k, n_init=10, random_state=42).fit_predict(
-            StandardScaler().fit_transform(cr_late))
-        cross_ari = round(float(adjusted_rand_score(cr_e_labels, cr_l_labels)), 4)
-        log(f"  Cross-pair ARI (~2500 steps)={cross_ari}, n_shared={len(cross_shared)}")
+    if cr_early is not None:
+        cross_ari, _, _ = _compute_clustering_ari(cr_early, cr_late)
+        cross_ari = round(float(cross_ari), 4)
+        log(f"  Cross-pair ARI (~2500 steps)={cross_ari}, n_shared={len(cross_keys)}")
     else:
-        log(f"  Cross-pair: only {len(cross_shared)} shared organisms (insufficient)")
+        log(f"  Cross-pair: only {len(cross_keys)} shared organisms (insufficient)")
 
     # Also export per-organism traits for figure generation
     return {
@@ -411,7 +409,7 @@ def analyze_organism_level_persistence(exp_dir: Path) -> dict:
         "claim_gate_passed": persistence_claim_gate(float(ari)),
         "late_pair_ari": late_pair_ari,
         "cross_pair_ari": cross_ari,
-        "n_cross_pair_shared": len(cross_shared),
+        "n_cross_pair_shared": len(cross_keys),
         "frame_steps": frame_steps,
         "interpretation": interp,
         "trait_names": trait_names,
