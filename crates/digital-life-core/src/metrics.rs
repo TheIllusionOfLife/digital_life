@@ -252,8 +252,7 @@ pub fn collect_step_metrics(
         if vals.len() < 2 {
             return 0.0;
         }
-        let var =
-            vals.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / (vals.len() - 1) as f32;
+        let var = vals.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / (vals.len() - 1) as f32;
         var.sqrt()
     };
 
