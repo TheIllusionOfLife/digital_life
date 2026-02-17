@@ -1135,11 +1135,7 @@ impl World {
         for agent in agents {
             let org_idx = agent.organism_id as usize;
             // Manual lookup to avoid borrowing self methods
-            if !organisms
-                .get(org_idx)
-                .map(|o| o.alive)
-                .unwrap_or(false)
-            {
+            if !organisms.get(org_idx).map(|o| o.alive).unwrap_or(false) {
                 deltas.push([0.0; 4]);
                 continue;
             }
@@ -1229,10 +1225,10 @@ impl World {
                 agent.velocity[1] *= scale;
             }
 
-            agent.position[0] = (agent.position[0] + agent.velocity[0] * config.dt)
-                .rem_euclid(config.world_size);
-            agent.position[1] = (agent.position[1] + agent.velocity[1] * config.dt)
-                .rem_euclid(config.world_size);
+            agent.position[0] =
+                (agent.position[0] + agent.velocity[0] * config.dt).rem_euclid(config.world_size);
+            agent.position[1] =
+                (agent.position[1] + agent.velocity[1] * config.dt).rem_euclid(config.world_size);
 
             let h_decay = config.homeostasis_decay_rate * config.dt as f32;
             agent.internal_state[0] = (agent.internal_state[0] - h_decay).max(0.0);
@@ -3069,55 +3065,5 @@ mod tests {
                 SimConfigError::ConflictingEnvironmentFeatures
             ))
         ));
-    }
-}
-
-#[cfg(test)]
-mod benchmarks {
-    use super::*;
-
-    #[test]
-    fn benchmark_step_allocation_overhead() {
-        let num_agents = 5000;
-        let num_organisms = 5000;
-        let world_size = 1000.0;
-        let agents: Vec<Agent> = (0..num_agents)
-            .map(|i| Agent::new(i as u32, i as u16, [50.0, 50.0]))
-            .collect();
-        // Simple NN
-        let nn = NeuralNet::from_weights(std::iter::repeat_n(0.1f32, NeuralNet::WEIGHT_COUNT));
-        let nns = vec![nn; num_organisms];
-        let config = SimConfig {
-            world_size,
-            num_organisms,
-            agents_per_organism: 1,
-            ..SimConfig::default()
-        };
-        let mut world = World::new(agents, nns, config);
-
-        // Warmup
-        for _ in 0..10 {
-            world.step();
-        }
-
-        let start = Instant::now();
-        let iterations = 100;
-        let mut total_nn_query_us = 0;
-        let mut total_state_update_us = 0;
-        let mut total_step_us = 0;
-
-        for _ in 0..iterations {
-            let timings = world.step();
-            total_nn_query_us += timings.nn_query_us;
-            total_state_update_us += timings.state_update_us;
-            total_step_us += timings.total_us;
-        }
-        let elapsed = start.elapsed();
-
-        println!("Benchmark results ({} iterations, {} agents, {} organisms):", iterations, num_agents, num_organisms);
-        println!("  Avg Total Step Time: {:.2} us", total_step_us as f64 / iterations as f64);
-        println!("  Avg NN Query Time: {:.2} us", total_nn_query_us as f64 / iterations as f64);
-        println!("  Avg State Update Time: {:.2} us", total_state_update_us as f64 / iterations as f64);
-        println!("  Total Wall Time: {:?}", elapsed);
     }
 }
