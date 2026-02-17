@@ -1126,13 +1126,13 @@ def generate_coupling() -> None:
 
     # Draw nodes
     node_colors = [
-        "#56B4E9",
-        "#D55E00",
-        "#009E73",
-        "#CC79A7",
-        "#0072B2",
-        "#E69F00",
-        "#CC79A7",
+        "#56B4E9",  # Cellular Org.
+        "#E69F00",  # Metabolism
+        "#009E73",  # Homeostasis
+        "#F0E442",  # Growth/Dev.
+        "#0072B2",  # Reproduction
+        "#D55E00",  # Response
+        "#CC79A7",  # Evolution
     ]
     _draw_coupling_nodes(ax, positions, node_colors)
 
