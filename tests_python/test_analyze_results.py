@@ -1,9 +1,12 @@
 import json
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 import numpy as np
 import pytest
+
 from scripts import analyze_results
+
 
 def test_cohens_d():
     a = np.array([1, 2, 3, 4, 5])
@@ -43,11 +46,25 @@ def test_main_flow(mock_sham, mock_cyclic, mock_graded, mock_load, capsys):
     def side_effect(prefix, cond):
         if cond == "normal":
             return [
-                {"final_alive_count": 100, "lifespans": [1000], "samples": [{"step": 0, "alive_count": 10}, {"step": 500, "alive_count": 100}]}
+                {
+                    "final_alive_count": 100,
+                    "lifespans": [1000],
+                    "samples": [
+                        {"step": 0, "alive_count": 10},
+                        {"step": 500, "alive_count": 100},
+                    ],
+                }
             ] * 5
         else:
             return [
-                {"final_alive_count": 50, "lifespans": [500], "samples": [{"step": 0, "alive_count": 10}, {"step": 500, "alive_count": 50}]}
+                {
+                    "final_alive_count": 50,
+                    "lifespans": [500],
+                    "samples": [
+                        {"step": 0, "alive_count": 10},
+                        {"step": 500, "alive_count": 50},
+                    ],
+                }
             ] * 5
 
     mock_load.side_effect = side_effect
