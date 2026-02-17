@@ -12,6 +12,7 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use rstar::RTree;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::f64::consts::PI;
 use std::time::Instant;
 use std::{error::Error, fmt};
@@ -942,13 +943,14 @@ impl World {
         let births_before = self.total_births;
         let mut samples = Vec::with_capacity(estimated_samples);
         let mut snapshots = Vec::with_capacity(snapshot_steps.len());
+        let snapshot_steps_set: HashSet<usize> = snapshot_steps.iter().copied().collect();
 
         for step in 1..=steps {
             self.step();
             if step % sample_every == 0 || step == steps {
                 samples.push(self.collect_step_metrics(step));
             }
-            if snapshot_steps.contains(&step) {
+            if snapshot_steps_set.contains(&step) {
                 snapshots.push(self.collect_organism_snapshots(step));
             }
         }
