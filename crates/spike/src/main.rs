@@ -151,7 +151,11 @@ fn main() {
     match cli.command {
         Commands::DumpDefaultConfig => {
             let config = SimConfig::default();
-            println!("{}", serde_json::to_string_pretty(&config).unwrap());
+            let json = serde_json::to_string_pretty(&config).unwrap_or_else(|e| {
+                eprintln!("Failed to serialize default config: {}", e);
+                std::process::exit(1);
+            });
+            println!("{}", json);
         }
         Commands::Benchmark => {
             if cfg!(debug_assertions) {
