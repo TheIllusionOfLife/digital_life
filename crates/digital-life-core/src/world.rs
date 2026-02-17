@@ -516,10 +516,12 @@ impl World {
             }
             let theta_x = agent.position[0] * tau_over_world;
             let theta_y = agent.position[1] * tau_over_world;
-            sums[idx][0] += theta_x.sin();
-            sums[idx][1] += theta_x.cos();
-            sums[idx][2] += theta_y.sin();
-            sums[idx][3] += theta_y.cos();
+            let (sin_x, cos_x) = theta_x.sin_cos();
+            let (sin_y, cos_y) = theta_y.sin_cos();
+            sums[idx][0] += sin_x;
+            sums[idx][1] += cos_x;
+            sums[idx][2] += sin_y;
+            sums[idx][3] += cos_y;
             counts[idx] += 1;
         }
 
@@ -1072,9 +1074,10 @@ impl World {
         for _ in 0..child_agents {
             let theta = self.rng.random::<f64>() * 2.0 * PI;
             let radius = self.rng.random::<f64>().sqrt() * self.config.reproduction_spawn_radius;
+            let (sin_theta, cos_theta) = theta.sin_cos();
             let pos = [
-                (center[0] + radius * theta.cos()).rem_euclid(self.config.world_size),
-                (center[1] + radius * theta.sin()).rem_euclid(self.config.world_size),
+                (center[0] + radius * cos_theta).rem_euclid(self.config.world_size),
+                (center[1] + radius * sin_theta).rem_euclid(self.config.world_size),
             ];
             let Some(id) = self.next_agent_id_checked() else {
                 break;
@@ -1262,10 +1265,12 @@ impl World {
 
             let theta_x = agent.position[0] * tau_over_world;
             let theta_y = agent.position[1] * tau_over_world;
-            org_toroidal_sums[org_idx][0] += theta_x.sin();
-            org_toroidal_sums[org_idx][1] += theta_x.cos();
-            org_toroidal_sums[org_idx][2] += theta_y.sin();
-            org_toroidal_sums[org_idx][3] += theta_y.cos();
+            let (sin_x, cos_x) = theta_x.sin_cos();
+            let (sin_y, cos_y) = theta_y.sin_cos();
+            org_toroidal_sums[org_idx][0] += sin_x;
+            org_toroidal_sums[org_idx][1] += cos_x;
+            org_toroidal_sums[org_idx][2] += sin_y;
+            org_toroidal_sums[org_idx][3] += cos_y;
             org_counts[org_idx] += 1;
         }
     }
