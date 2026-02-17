@@ -3,10 +3,10 @@
 Use `experiment_common` as the single source of truth.
 """
 
-from experiment_common import CONDITIONS, log, make_config
+from experiment_common import CONDITIONS, log, make_config, safe_path
 from experiment_common import run_single as _run_single_common
 
-__all__ = ["CONDITIONS", "log", "make_config", "run_single"]
+__all__ = ["CONDITIONS", "log", "make_config", "run_single", "safe_path"]
 
 
 def run_single(seed: int, steps: int, sample_every: int, *override_dicts: dict) -> dict:
