@@ -420,6 +420,22 @@ impl SimConfig {
     pub const MAX_TOTAL_AGENTS: usize = 250_000;
 
     pub fn validate(&self) -> Result<(), SimConfigError> {
+        self.validate_agents()?;
+        self.validate_world_and_physics()?;
+        self.validate_metabolism()?;
+        self.validate_boundary()?;
+        self.validate_death()?;
+        self.validate_reproduction()?;
+        self.validate_crowding()?;
+        self.validate_simulation_steps()?;
+        self.validate_mutation()?;
+        self.validate_homeostasis()?;
+        self.validate_growth()?;
+        self.validate_environment()?;
+        Ok(())
+    }
+
+    fn validate_agents(&self) -> Result<(), SimConfigError> {
         if self.num_organisms == 0 {
             return Err(SimConfigError::InvalidNumOrganisms);
         }
@@ -436,6 +452,10 @@ impl SimConfig {
                 actual: total_agents,
             });
         }
+        Ok(())
+    }
+
+    fn validate_world_and_physics(&self) -> Result<(), SimConfigError> {
         if !(self.world_size.is_finite() && self.world_size > 0.0) {
             return Err(SimConfigError::InvalidWorldSize);
         }
@@ -457,9 +477,22 @@ impl SimConfig {
         if !(self.neighbor_norm.is_finite() && self.neighbor_norm > 0.0) {
             return Err(SimConfigError::InvalidNeighborNorm);
         }
+        Ok(())
+    }
+
+    fn validate_metabolism(&self) -> Result<(), SimConfigError> {
         if !(self.metabolic_viability_floor.is_finite() && self.metabolic_viability_floor >= 0.0) {
             return Err(SimConfigError::InvalidMetabolicViabilityFloor);
         }
+        if !(self.metabolism_efficiency_multiplier.is_finite()
+            && (0.0..=1.0).contains(&self.metabolism_efficiency_multiplier))
+        {
+            return Err(SimConfigError::InvalidMetabolismEfficiencyMultiplier);
+        }
+        Ok(())
+    }
+
+    fn validate_boundary(&self) -> Result<(), SimConfigError> {
         if !(self.boundary_decay_base_rate.is_finite() && self.boundary_decay_base_rate >= 0.0) {
             return Err(SimConfigError::InvalidBoundaryDecayBaseRate);
         }
@@ -486,6 +519,10 @@ impl SimConfig {
         {
             return Err(SimConfigError::InvalidBoundaryCollapseThreshold);
         }
+        Ok(())
+    }
+
+    fn validate_death(&self) -> Result<(), SimConfigError> {
         if !(self.death_energy_threshold.is_finite() && self.death_energy_threshold >= 0.0) {
             return Err(SimConfigError::InvalidDeathEnergyThreshold);
         }
@@ -494,6 +531,10 @@ impl SimConfig {
         {
             return Err(SimConfigError::InvalidDeathBoundaryThreshold);
         }
+        Ok(())
+    }
+
+    fn validate_reproduction(&self) -> Result<(), SimConfigError> {
         if !(self.reproduction_min_energy.is_finite() && self.reproduction_min_energy >= 0.0) {
             return Err(SimConfigError::InvalidReproductionMinEnergy);
         }
@@ -514,6 +555,10 @@ impl SimConfig {
         if !(self.reproduction_spawn_radius.is_finite() && self.reproduction_spawn_radius >= 0.0) {
             return Err(SimConfigError::InvalidReproductionSpawnRadius);
         }
+        Ok(())
+    }
+
+    fn validate_crowding(&self) -> Result<(), SimConfigError> {
         if !(self.crowding_neighbor_threshold.is_finite()
             && self.crowding_neighbor_threshold >= 0.0)
         {
@@ -522,12 +567,20 @@ impl SimConfig {
         if !(self.crowding_boundary_decay.is_finite() && self.crowding_boundary_decay >= 0.0) {
             return Err(SimConfigError::InvalidCrowdingBoundaryDecay);
         }
+        Ok(())
+    }
+
+    fn validate_simulation_steps(&self) -> Result<(), SimConfigError> {
         if self.max_organism_age_steps == 0 {
             return Err(SimConfigError::InvalidMaxOrganismAgeSteps);
         }
         if self.compaction_interval_steps == 0 {
             return Err(SimConfigError::InvalidCompactionIntervalSteps);
         }
+        Ok(())
+    }
+
+    fn validate_mutation(&self) -> Result<(), SimConfigError> {
         if !(self.mutation_point_rate.is_finite()
             && (0.0..=1.0).contains(&self.mutation_point_rate))
         {
@@ -562,9 +615,17 @@ impl SimConfig {
         if mutation_budget > 1.0 + f32::EPSILON {
             return Err(SimConfigError::InvalidMutationProbabilityBudget);
         }
+        Ok(())
+    }
+
+    fn validate_homeostasis(&self) -> Result<(), SimConfigError> {
         if !(self.homeostasis_decay_rate.is_finite() && self.homeostasis_decay_rate >= 0.0) {
             return Err(SimConfigError::InvalidHomeostasisDecayRate);
         }
+        Ok(())
+    }
+
+    fn validate_growth(&self) -> Result<(), SimConfigError> {
         if self.growth_maturation_steps == 0 {
             return Err(SimConfigError::InvalidGrowthMaturationSteps);
         }
@@ -573,6 +634,10 @@ impl SimConfig {
         {
             return Err(SimConfigError::InvalidGrowthImmatureMetabolicEfficiency);
         }
+        Ok(())
+    }
+
+    fn validate_environment(&self) -> Result<(), SimConfigError> {
         if !(self.resource_regeneration_rate.is_finite() && self.resource_regeneration_rate >= 0.0)
         {
             return Err(SimConfigError::InvalidResourceRegenerationRate);
@@ -581,11 +646,6 @@ impl SimConfig {
             && self.environment_shift_resource_rate >= 0.0)
         {
             return Err(SimConfigError::InvalidEnvironmentShiftResourceRate);
-        }
-        if !(self.metabolism_efficiency_multiplier.is_finite()
-            && (0.0..=1.0).contains(&self.metabolism_efficiency_multiplier))
-        {
-            return Err(SimConfigError::InvalidMetabolismEfficiencyMultiplier);
         }
         if !(self.environment_cycle_low_rate.is_finite() && self.environment_cycle_low_rate >= 0.0)
         {
