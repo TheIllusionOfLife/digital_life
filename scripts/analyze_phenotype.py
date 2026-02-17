@@ -157,9 +157,13 @@ def _collect_organism_traits(
         frames = r.get("organism_snapshots", [])
         if frame_idx >= len(frames):
             continue
-        for org in frames[frame_idx]["organisms"]:
-            key = (seed, org["stable_id"])
-            orgs[key] = [float(org[name]) for name in trait_names]
+        frame = frames[frame_idx]
+        for org in frame.get("organisms", []):
+            stable_id = org.get("stable_id")
+            if stable_id is None:
+                continue
+            key = (seed, stable_id)
+            orgs[key] = [float(org.get(name, 0.0)) for name in trait_names]
     return orgs
 
 
@@ -210,7 +214,8 @@ def _summarize_window(
         proportions.append(round(count / len(labels), 4))
         profile = {"cluster_id": c, "count": count}
         for i, name in enumerate(trait_names):
-            profile[f"{prefix}{name}"] = round(float(traits_raw[mask, i].mean()), 4)
+            mean_val = float(traits_raw[mask, i].mean()) if count > 0 else 0.0
+            profile[f"{prefix}{name}"] = round(mean_val, 4)
         profiles.append(profile)
 
     res = {
@@ -224,7 +229,7 @@ def _summarize_window(
             res["n_total_organisms"] = n_total
         res["n_shared_organisms"] = len(labels)
         # Silhouette score only if we have enough samples
-        if len(traits_raw) > k:
+        if len(traits_raw) > k and len(np.unique(labels)) > 1:
             scaled = StandardScaler().fit_transform(traits_raw)
             sil = silhouette_score(scaled, labels)
         else:
@@ -339,16 +344,17 @@ def analyze_organism_level_persistence(exp_dir: Path) -> dict:
     # Use early pair (a→b) for the main persistence analysis
     shared_keys, early_traits, late_traits = _extract_shared_traits(early_a, early_b)
 
+    log(f"  Early organisms: {len(early_a)}, Late: {len(early_b)}, Shared: {len(shared_keys)}")
+
     if early_traits is None:
         return {
             "error": "insufficient shared organisms for temporal analysis",
-            "n_early": len(early_a),
-            "n_late": len(early_b),
+            "n_early_a": len(early_a),
+            "n_early_b": len(early_b),
+            "n_late_a": len(late_a),
+            "n_late_b": len(late_b),
             "n_shared": len(shared_keys),
         }
-
-    log(f"  Early organisms: {len(early_a)}, Late: {len(early_b)}, "
-        f"Shared: {len(shared_keys)}")
 
     ari, early_labels, late_labels = _compute_clustering_ari(early_traits, late_traits)
 
@@ -437,10 +443,7 @@ def main():
 
     log("Clustering phenotypes...")
     analysis = cluster_phenotypes(traits)
-    log(
-        f"  Best k={analysis['n_clusters']}, "
-        f"silhouette={analysis.get('silhouette_score', 'N/A')}"
-    )
+    log(f"  Best k={analysis['n_clusters']}, silhouette={analysis.get('silhouette_score', 'N/A')}")
 
     for cp in analysis.get("cluster_profiles", []):
         log(
