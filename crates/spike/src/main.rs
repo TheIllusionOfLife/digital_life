@@ -182,8 +182,7 @@ fn main() -> Result<()> {
             }
         }
         Commands::Run { config, out, steps } => {
-            let file = File::open(&config)
-                .with_context(|| format!("failed to open config file '{}'", config.display()))?;
+            let file = File::open(&config).context("failed to open config file")?;
             let reader = BufReader::new(file);
             let sim_config: SimConfig =
                 serde_json::from_reader(reader).context("failed to parse config")?;
@@ -201,11 +200,9 @@ fn main() -> Result<()> {
             let summary = world.run_experiment(steps, 100);
 
             if let Some(out_dir) = out {
-                std::fs::create_dir_all(&out_dir)
-                    .with_context(|| format!("failed to create output directory '{}'", out_dir.display()))?;
+                std::fs::create_dir_all(&out_dir).context("failed to create output directory")?;
                 let summary_path = out_dir.join("summary.json");
-                let file = File::create(&summary_path)
-                    .with_context(|| format!("failed to create summary file '{}'", summary_path.display()))?;
+                let file = File::create(summary_path).context("failed to create summary file")?;
                 serde_json::to_writer_pretty(file, &summary).context("failed to write summary")?;
                 println!("Run complete. Results saved to {:?}", out_dir);
             } else {
