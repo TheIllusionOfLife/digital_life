@@ -55,7 +55,7 @@ fn step_once(
         config.sensing_radius,
     )
     .map_err(PyValueError::new_err)?;
-    let mut world = World::try_new(agents, nns, config)
+    let mut world = World::new(agents, nns, config)
         .map_err(|e| PyValueError::new_err(format!("invalid world configuration: {e}")))?;
     let timings = world.step();
     Ok((world.agents.len(), timings.total_us))
@@ -171,7 +171,7 @@ fn world_from_config_json(config_json: &str) -> Result<World, String> {
         config.sensing_radius,
     )
     .map_err(|e| format!("invalid world configuration: {e}"))?;
-    World::try_new(agents, nns, config).map_err(|e| format!("invalid world configuration: {e}"))
+    World::new(agents, nns, config).map_err(|e| format!("invalid world configuration: {e}"))
 }
 
 fn bootstrap_entities(

@@ -240,11 +240,7 @@ impl World {
     pub const MAX_EXPERIMENT_STEPS: usize = 1_000_000;
     pub const MAX_EXPERIMENT_SAMPLES: usize = 50_000;
 
-    pub fn new(agents: Vec<Agent>, nns: Vec<NeuralNet>, config: SimConfig) -> Self {
-        Self::try_new(agents, nns, config).unwrap_or_else(|e| panic!("{e}"))
-    }
-
-    pub fn try_new(
+    pub fn new(
         agents: Vec<Agent>,
         nns: Vec<NeuralNet>,
         config: SimConfig,
@@ -433,12 +429,7 @@ impl World {
         &mut self.resource_field
     }
 
-    pub fn metabolic_state(&self, organism_id: usize) -> &MetabolicState {
-        self.try_metabolic_state(organism_id)
-            .expect("organism_id out of range for metabolic_state")
-    }
-
-    pub fn try_metabolic_state(&self, organism_id: usize) -> Option<&MetabolicState> {
+    pub fn metabolic_state(&self, organism_id: usize) -> Option<&MetabolicState> {
         self.organisms.get(organism_id).map(|o| &o.metabolic_state)
     }
 
@@ -1482,7 +1473,7 @@ mod tests {
             agents_per_organism: num_agents,
             ..SimConfig::default()
         };
-        World::new(agents, vec![nn], config)
+        World::new(agents, vec![nn], config).unwrap()
     }
 
     fn make_config(world_size: f64, dt: f64) -> SimConfig {
@@ -1513,39 +1504,47 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "organism_ids must be valid")]
-    fn new_panics_on_invalid_organism_id() {
+    fn new_returns_err_on_invalid_organism_id() {
         let agents = vec![Agent::new(0, 5, [0.0, 0.0])];
         let nn = NeuralNet::from_weights(std::iter::repeat_n(0.0f32, NeuralNet::WEIGHT_COUNT));
-        World::new(agents, vec![nn], make_config(100.0, 0.1));
+        assert!(matches!(
+            World::new(agents, vec![nn], make_config(100.0, 0.1)),
+            Err(WorldInitError::InvalidOrganismId)
+        ));
     }
 
     #[test]
-    #[should_panic(expected = "world_size must be positive and finite")]
-    fn new_panics_on_non_positive_world_size() {
+    fn new_returns_err_on_non_positive_world_size() {
         let agents = vec![Agent::new(0, 0, [0.0, 0.0])];
         let nn = NeuralNet::from_weights(std::iter::repeat_n(0.0f32, NeuralNet::WEIGHT_COUNT));
-        World::new(agents, vec![nn], make_config(0.0, 0.1));
+        assert!(matches!(
+            World::new(agents, vec![nn], make_config(0.0, 0.1)),
+            Err(WorldInitError::Config(SimConfigError::InvalidWorldSize))
+        ));
     }
 
     #[test]
-    #[should_panic(expected = "world_size must be positive and finite")]
-    fn new_panics_on_non_finite_world_size() {
+    fn new_returns_err_on_non_finite_world_size() {
         let agents = vec![Agent::new(0, 0, [0.0, 0.0])];
         let nn = NeuralNet::from_weights(std::iter::repeat_n(0.0f32, NeuralNet::WEIGHT_COUNT));
-        World::new(agents, vec![nn], make_config(f64::NAN, 0.1));
+        assert!(matches!(
+            World::new(agents, vec![nn], make_config(f64::NAN, 0.1)),
+            Err(WorldInitError::Config(SimConfigError::InvalidWorldSize))
+        ));
     }
 
     #[test]
-    #[should_panic(expected = "exceeds supported maximum")]
-    fn new_panics_on_excessive_world_size() {
+    fn new_returns_err_on_excessive_world_size() {
         let agents = vec![Agent::new(0, 0, [0.0, 0.0])];
         let nn = NeuralNet::from_weights(std::iter::repeat_n(0.0f32, NeuralNet::WEIGHT_COUNT));
-        World::new(
-            agents,
-            vec![nn],
-            make_config(World::MAX_WORLD_SIZE + 1.0, 0.1),
-        );
+        assert!(matches!(
+            World::new(
+                agents,
+                vec![nn],
+                make_config(World::MAX_WORLD_SIZE + 1.0, 0.1),
+            ),
+            Err(WorldInitError::Config(SimConfigError::WorldSizeTooLarge { .. }))
+        ));
     }
 
     #[test]
@@ -1588,13 +1587,13 @@ mod tests {
             world.step();
         }
         assert!(world.organism_count() >= 1);
-        assert!(world.metabolic_state(0).energy > 0.0);
+        assert!(world.metabolic_state(0).unwrap().energy > 0.0);
     }
 
     #[test]
     fn try_metabolic_state_returns_none_for_out_of_range() {
         let world = make_world(1, 100.0);
-        assert!(world.try_metabolic_state(10).is_none());
+        assert!(world.metabolic_state(10).is_none());
     }
 
     #[test]
@@ -1604,7 +1603,7 @@ mod tests {
         let mut cfg = make_config(100.0, 0.1);
         cfg.num_organisms = 1;
         cfg.agents_per_organism = 2;
-        let result = World::try_new(agents, vec![nn], cfg);
+        let result = World::new(agents, vec![nn], cfg);
         assert!(matches!(
             result,
             Err(WorldInitError::AgentCountMismatch { .. })
@@ -1619,7 +1618,7 @@ mod tests {
             agents_per_organism: usize::MAX / 2 + 1,
             ..SimConfig::default()
         };
-        let result = World::try_new(Vec::new(), vec![nn.clone(), nn.clone(), nn], cfg);
+        let result = World::new(Vec::new(), vec![nn.clone(), nn.clone(), nn], cfg);
         assert!(matches!(
             result,
             Err(WorldInitError::Config(SimConfigError::AgentCountOverflow))
@@ -1634,7 +1633,7 @@ mod tests {
             agents_per_organism: SimConfig::MAX_TOTAL_AGENTS + 1,
             ..SimConfig::default()
         };
-        let result = World::try_new(Vec::new(), vec![nn], cfg);
+        let result = World::new(Vec::new(), vec![nn], cfg);
         assert!(matches!(
             result,
             Err(WorldInitError::Config(SimConfigError::TooManyAgents { .. }))
@@ -1765,7 +1764,7 @@ mod tests {
             metabolism_mode: MetabolismMode::Graph,
             ..SimConfig::default()
         };
-        let world = World::new(agents, vec![nn], config);
+        let world = World::new(agents, vec![nn], config).unwrap();
         assert!(matches!(world.metabolism, MetabolismEngine::Graph(_)));
     }
 
@@ -1779,7 +1778,7 @@ mod tests {
             boundary_decay_base_rate: -0.1,
             ..SimConfig::default()
         };
-        let result = World::try_new(agents, vec![nn], cfg);
+        let result = World::new(agents, vec![nn], cfg);
         assert!(matches!(
             result,
             Err(WorldInitError::Config(
@@ -1800,7 +1799,7 @@ mod tests {
             mutation_scale_rate: 0.1,
             ..SimConfig::default()
         };
-        let result = World::try_new(agents, vec![nn], cfg);
+        let result = World::new(agents, vec![nn], cfg);
         assert!(matches!(
             result,
             Err(WorldInitError::Config(
@@ -1820,7 +1819,7 @@ mod tests {
             reproduction_energy_cost: 0.3,
             ..SimConfig::default()
         };
-        let result = World::try_new(agents, vec![nn], cfg);
+        let result = World::new(agents, vec![nn], cfg);
         assert!(matches!(
             result,
             Err(WorldInitError::Config(
@@ -1944,8 +1943,8 @@ mod tests {
             agents_per_organism: 20,
             ..SimConfig::default()
         };
-        let mut a = World::new(agents.clone(), vec![nn.clone()], config.clone());
-        let mut b = World::new(agents, vec![nn], config);
+        let mut a = World::new(agents.clone(), vec![nn.clone()], config.clone()).unwrap();
+        let mut b = World::new(agents, vec![nn], config).unwrap();
 
         let ra = a.run_experiment(30, 1);
         let rb = b.run_experiment(30, 1);
@@ -2559,7 +2558,7 @@ mod tests {
             metabolism_mode: MetabolismMode::Graph,
             ..SimConfig::default()
         };
-        World::new(agents, vec![nn], config)
+        World::new(agents, vec![nn], config).unwrap()
     }
 
     #[test]
@@ -2575,7 +2574,7 @@ mod tests {
             metabolism_mode: MetabolismMode::Graph,
             ..SimConfig::default()
         };
-        let world = World::new(agents, vec![nn.clone(), nn], config);
+        let world = World::new(agents, vec![nn.clone(), nn], config).unwrap();
         assert!(world.organisms[0].metabolism_engine.is_some());
         assert!(world.organisms[1].metabolism_engine.is_some());
         // Different organisms should have different metabolic segments (seeded differently)
@@ -2635,7 +2634,7 @@ mod tests {
             boundary_collapse_threshold: 0.0,
             ..SimConfig::default()
         };
-        let mut world = World::new(agents, vec![nn], config);
+        let mut world = World::new(agents, vec![nn], config).unwrap();
         world.organisms[0].metabolic_state.energy = 1.0;
         world.organisms[0].boundary_integrity = 1.0;
         let parent_seg = world.organisms[0].genome.segment_data(1).to_vec();
@@ -2818,8 +2817,8 @@ mod tests {
             world_full.step();
             world_half.step();
         }
-        let e_full = world_full.metabolic_state(0).energy;
-        let e_half = world_half.metabolic_state(0).energy;
+        let e_full = world_full.metabolic_state(0).unwrap().energy;
+        let e_half = world_half.metabolic_state(0).unwrap().energy;
         assert!(
             e_half < e_full,
             "half-efficiency ({e_half}) should produce less energy than full ({e_full})"
@@ -2833,12 +2832,12 @@ mod tests {
         world.config.death_boundary_threshold = 0.0;
         world.config.boundary_collapse_threshold = 0.0;
         world.config.metabolism_efficiency_multiplier = 0.0;
-        let initial_energy = world.metabolic_state(0).energy;
+        let initial_energy = world.metabolic_state(0).unwrap().energy;
 
         for _ in 0..50 {
             world.step();
         }
-        let final_energy = world.metabolic_state(0).energy;
+        let final_energy = world.metabolic_state(0).unwrap().energy;
         assert!(
             final_energy <= initial_energy,
             "zero-efficiency should produce no net energy gain \
@@ -2865,8 +2864,8 @@ mod tests {
             world_a.step();
             world_b.step();
         }
-        let e_a = world_a.metabolic_state(0).energy;
-        let e_b = world_b.metabolic_state(0).energy;
+        let e_a = world_a.metabolic_state(0).unwrap().energy;
+        let e_b = world_b.metabolic_state(0).unwrap().energy;
         assert!(
             (e_a - e_b).abs() < f32::EPSILON,
             "multiplier=1.0 ({e_a}) should match default ({e_b})"
@@ -2975,8 +2974,8 @@ mod tests {
             world_on.step();
             world_off.step();
         }
-        let energy_on = world_on.metabolic_state(0).energy;
-        let energy_off = world_off.metabolic_state(0).energy;
+        let energy_on = world_on.metabolic_state(0).unwrap().energy;
+        let energy_off = world_off.metabolic_state(0).unwrap().energy;
         assert!(
             (energy_on - energy_off).abs() < f32::EPSILON,
             "sham process should have no effect on energy (on={energy_on}, off={energy_off})"
