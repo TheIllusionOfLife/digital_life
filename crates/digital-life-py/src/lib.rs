@@ -432,8 +432,10 @@ mod tests {
     #[test]
     fn run_experiment_json_impl_handles_zero_sensing_radius() {
         // This test reproduces the panic when sensing_radius is 0.0
-        let mut config = SimConfig::default();
-        config.sensing_radius = 0.0;
+        let config = SimConfig {
+            sensing_radius: 0.0,
+            ..SimConfig::default()
+        };
         let config_json = serde_json::to_string(&config).unwrap();
 
         // This should not panic
