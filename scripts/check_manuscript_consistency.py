@@ -63,6 +63,17 @@ def _check_files_exist(paths: dict[str, Path]) -> list[str]:
     return issues
 
 
+def _validate_project_paths(paths: dict[str, Path]) -> list[str]:
+    issues: list[str] = []
+    for name, path in paths.items():
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(PROJECT_ROOT)
+        except ValueError:
+            issues.append(f"{name} must be inside project root: {path}")
+    return issues
+
+
 def _check_timing(tex: str, manifest: dict) -> tuple[list[str], list[str]]:
     issues: list[str] = []
     checks: list[str] = []
@@ -227,12 +238,19 @@ def _load_documents(
 
 def run_checks(paper_path: Path, manifest_path: Path, registry_path: Path) -> dict:
     """Run consistency checks and return a machine-readable report."""
-    # 1. Check file existence
-    file_issues = _check_files_exist({
+    input_paths = {
         "paper file": paper_path,
         "manifest file": manifest_path,
         "bindings registry": registry_path,
-    })
+    }
+
+    # 0. Reject paths outside repository root
+    path_issues = _validate_project_paths(input_paths)
+    if path_issues:
+        return {"ok": False, "issues": path_issues, "checks": []}
+
+    # 1. Check file existence
+    file_issues = _check_files_exist(input_paths)
     if file_issues:
         return {"ok": False, "issues": file_issues, "checks": []}
 
