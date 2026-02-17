@@ -191,8 +191,14 @@ fn bootstrap_entities(
         let cy: f64 = rng.random_range(0.0..world_size);
         for a in 0..agents_per_organism {
             let global_id = org * agents_per_organism + a;
-            let dx = rng.random_range(-cluster_radius..cluster_radius);
-            let dy = rng.random_range(-cluster_radius..cluster_radius);
+            let (dx, dy) = if cluster_radius > f64::EPSILON {
+                (
+                    rng.random_range(-cluster_radius..cluster_radius),
+                    rng.random_range(-cluster_radius..cluster_radius),
+                )
+            } else {
+                (0.0, 0.0)
+            };
             let px = (cx + dx).rem_euclid(world_size);
             let py = (cy + dy).rem_euclid(world_size);
             agents.push(Agent::new(global_id as u32, org as u16, [px, py]));
@@ -421,5 +427,17 @@ mod tests {
         assert_eq!(snapshots.len(), 2);
         assert_eq!(snapshots[0]["step"].as_u64(), Some(5));
         assert!(snapshots[0]["organisms"].is_array());
+    }
+
+    #[test]
+    fn run_experiment_json_impl_handles_zero_sensing_radius() {
+        // This test reproduces the panic when sensing_radius is 0.0
+        let mut config = SimConfig::default();
+        config.sensing_radius = 0.0;
+        let config_json = serde_json::to_string(&config).unwrap();
+
+        // This should not panic
+        let result = run_experiment_json_impl(&config_json, 1, 1);
+        assert!(result.is_ok());
     }
 }
