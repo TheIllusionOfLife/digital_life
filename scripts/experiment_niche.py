@@ -27,6 +27,7 @@ SEEDS = list(range(100, 130))  # test set: seeds 100-129, n=30
 # Windows spaced ~200 steps apart (near median lifespan ~245 steps)
 # to ensure sufficient organism overlap for persistence analysis
 SNAPSHOT_STEPS = [2000, 2200, 4500, 4700]
+LONG_HORIZON_SNAPSHOT_STEPS = [2000, 2200, 4500, 4700, 7000, 7200, 9500, 9700]
 
 
 def parse_args():
@@ -51,19 +52,20 @@ def main():
     args = parse_args()
     steps = LONG_HORIZON_STEPS if args.long_horizon else STEPS
     default_name = "niche_normal_long.json" if args.long_horizon else "niche_normal.json"
+    snapshot_steps = LONG_HORIZON_SNAPSHOT_STEPS if args.long_horizon else SNAPSHOT_STEPS
 
     log(f"Digital Life v{digital_life.version()}")
     mode = "long-horizon sensitivity" if args.long_horizon else "standard robustness"
     log(f"Ecological niche experiment (per-organism snapshots, {mode})")
     log(f"  Steps: {steps}, sample_every: {SAMPLE_EVERY}")
     log(f"  Seeds: {SEEDS[0]}-{SEEDS[-1]} (n={len(SEEDS)})")
-    log(f"  Snapshot steps: {SNAPSHOT_STEPS}")
+    log(f"  Snapshot steps: {snapshot_steps}")
     log("")
 
     out_dir = Path(__file__).resolve().parent.parent / "experiments"
     out_dir.mkdir(exist_ok=True)
 
-    snapshot_steps_json = json.dumps(SNAPSHOT_STEPS)
+    snapshot_steps_json = json.dumps(snapshot_steps)
     results = []
     total_start = time.perf_counter()
 
@@ -91,6 +93,7 @@ def main():
     log(f"\nTotal experiment time: {total_elapsed:.1f}s")
 
     out_path = args.output if args.output is not None else out_dir / default_name
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)
     log(f"Saved: {out_path}")

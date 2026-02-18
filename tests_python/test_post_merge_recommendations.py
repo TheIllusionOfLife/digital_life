@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import json
 import sys
 import types
@@ -360,7 +361,7 @@ def test_experiment_niche_defaults_and_long_horizon_output(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     fake = types.SimpleNamespace()
-    calls: list[tuple[int, int]] = []
+    calls: list[tuple[int, int, list[int]]] = []
 
     def fake_version() -> str:
         return "test"
@@ -368,8 +369,8 @@ def test_experiment_niche_defaults_and_long_horizon_output(
     def fake_run_niche(
         config_json: str, steps: int, sample_every: int, snapshot_steps_json: str
     ) -> str:
-        _ = (config_json, sample_every, snapshot_steps_json)
-        calls.append((steps, sample_every))
+        _ = config_json
+        calls.append((steps, sample_every, json.loads(snapshot_steps_json)))
         payload = {"final_alive_count": 1, "organism_snapshots": [{"organisms": [{"id": 1}]}]}
         return json.dumps(payload)
 
@@ -391,10 +392,42 @@ def test_experiment_niche_defaults_and_long_horizon_output(
         ["experiment_niche.py", "--long-horizon", "--output", str(tmp_path / "custom_long.json")],
     )
     mod.main()
-    assert calls[-1] == (mod.LONG_HORIZON_STEPS, mod.SAMPLE_EVERY)
+    assert calls[-1][0] == mod.LONG_HORIZON_STEPS
+    assert calls[-1][1] == mod.SAMPLE_EVERY
+    assert calls[-1][2] == mod.LONG_HORIZON_SNAPSHOT_STEPS
     assert (tmp_path / "custom_long.json").exists()
 
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["experiment_niche.py", "--output", str(tmp_path / "niche_normal.json")],
+    )
+    mod.main()
+    assert calls[-1][0] == mod.STEPS
+    assert calls[-1][1] == mod.SAMPLE_EVERY
+    assert calls[-1][2] == mod.SNAPSHOT_STEPS
+    assert (tmp_path / "niche_normal.json").exists()
 
-def test_experiment_regimes_seed_count_is_n30() -> None:
-    text = Path("scripts/experiment_regimes.py").read_text()
-    assert "SEEDS = list(range(100, 130))" in text
+def test_experiment_regimes_seed_count_is_n30(monkeypatch: pytest.MonkeyPatch) -> None:
+    script_dir = Path(__file__).resolve().parents[1] / "scripts"
+    script_path = script_dir / "experiment_regimes.py"
+
+    fake_digital_life = types.SimpleNamespace(version=lambda: "test")
+    fake_utils = types.SimpleNamespace(
+        CONDITIONS={},
+        log=lambda *args, **kwargs: None,
+        run_single=lambda *args, **kwargs: {},
+        safe_path=lambda out_dir, name: out_dir / name,
+    )
+    monkeypatch.setitem(sys.modules, "digital_life", fake_digital_life)
+    monkeypatch.setitem(sys.modules, "experiment_utils", fake_utils)
+
+    spec = importlib.util.spec_from_file_location("experiment_regimes_under_test", script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert hasattr(module, "SEEDS")
+    assert len(module.SEEDS) == 30
+    assert module.SEEDS[0] == 100
+    assert module.SEEDS[-1] == 129
