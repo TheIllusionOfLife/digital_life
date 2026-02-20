@@ -351,9 +351,7 @@ def analyze_organism_level_persistence(exp_dir: Path, niche_path: Path | None = 
 
     trait_names = ["energy", "waste", "boundary_integrity", "maturity", "generation"]
 
-    frame_count = 0
-    if results:
-        frame_count = len(results[0].get("organism_snapshots", []))
+    frame_count = min((len(r.get("organism_snapshots", [])) for r in results), default=0)
     if frame_count < 4:
         return {"error": f"insufficient snapshots for persistence analysis: {frame_count}"}
 
@@ -375,11 +373,11 @@ def analyze_organism_level_persistence(exp_dir: Path, niche_path: Path | None = 
     log(f"  Snapshot steps: {frame_steps}")
 
     # Use early pair (a→b) for the main persistence analysis
-    shared_keys, early_traits, late_traits = _extract_shared_traits(early_a, early_b)
+    shared_keys, pair_traits_a, pair_traits_b = _extract_shared_traits(early_a, early_b)
 
     log(f"  Early organisms: {len(early_a)}, Late: {len(early_b)}, Shared: {len(shared_keys)}")
 
-    if early_traits is None:
+    if pair_traits_a is None:
         return {
             "error": "insufficient shared organisms for temporal analysis",
             "n_early_a": len(early_a),
@@ -389,13 +387,13 @@ def analyze_organism_level_persistence(exp_dir: Path, niche_path: Path | None = 
             "n_shared": len(shared_keys),
         }
 
-    ari, early_labels, late_labels = _compute_clustering_ari(early_traits, late_traits)
+    ari, early_labels, late_labels = _compute_clustering_ari(pair_traits_a, pair_traits_b)
 
     early_summary = _summarize_window(
-        early_labels, early_traits, len(early_a), 2, trait_names, prefix="mean_"
+        early_labels, pair_traits_a, len(early_a), 2, trait_names, prefix="mean_"
     )
     late_summary = _summarize_window(
-        late_labels, late_traits, len(early_b), 2, trait_names, prefix="mean_"
+        late_labels, pair_traits_b, len(early_b), 2, trait_names, prefix="mean_"
     )
 
     if ari > 0.6:
@@ -449,8 +447,8 @@ def analyze_organism_level_persistence(exp_dir: Path, niche_path: Path | None = 
         "frame_steps": frame_steps,
         "interpretation": interp,
         "trait_names": trait_names,
-        "early_traits": [[round(float(v), 4) for v in row] for row in early_traits],
-        "late_traits": [[round(float(v), 4) for v in row] for row in late_traits],
+        "early_traits": [[round(float(v), 4) for v in row] for row in pair_traits_a],
+        "late_traits": [[round(float(v), 4) for v in row] for row in pair_traits_b],
         "early_labels": [int(label) for label in early_labels],
         "late_labels": [int(label) for label in late_labels],
     }

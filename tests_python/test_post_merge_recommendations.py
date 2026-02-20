@@ -472,6 +472,36 @@ def test_experiment_niche_seed_range_batching(
     assert (tmp_path / "batch.json").exists()
 
 
+def test_experiment_niche_rejects_invalid_seed_ranges(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = types.SimpleNamespace()
+    fake.version = lambda: "test"
+    fake.run_niche_experiment_json = lambda *_args, **_kwargs: json.dumps(
+        {"final_alive_count": 1, "organism_snapshots": []}
+    )
+    monkeypatch.setitem(sys.modules, "digital_life", fake)
+    script_dir = Path(__file__).resolve().parents[1] / "scripts"
+    monkeypatch.syspath_prepend(str(script_dir))
+
+    mod = importlib.import_module("scripts.experiment_niche")
+    mod = importlib.reload(mod)
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["experiment_niche.py", "--seed-start", "110", "--seed-end", "109"],
+    )
+    with pytest.raises(SystemExit):
+        mod.main()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["experiment_niche.py", "--seed-start", "99", "--seed-end", "109"],
+    )
+    with pytest.raises(SystemExit):
+        mod.main()
+
+
 def test_analyze_phenotype_long_horizon_sensitivity(tmp_path: Path) -> None:
     from scripts.analyze_phenotype import analyze_long_horizon_sensitivity
 
@@ -536,3 +566,5 @@ def test_prepare_zenodo_metadata_builds_checksums(tmp_path: Path) -> None:
     assert payload["zenodo_doi"] == "10.5072/zenodo.123456"
     assert payload["artifacts"][0]["path"].endswith("niche_normal_long.json")
     assert len(payload["artifacts"][0]["sha256"]) == 64
+    assert "metadata_generation_argv" in payload
+    assert "argv" not in payload

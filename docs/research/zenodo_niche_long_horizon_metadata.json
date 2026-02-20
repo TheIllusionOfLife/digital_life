@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_at_utc": "2026-02-20T09:38:40.983601+00:00",
   "experiment_name": "niche_long_horizon",
-  "git_commit": "6994025",
-  "entrypoint": "uv run python scripts/experiment_niche.py --long-horizon",
-  "argv": [
+  "git_commit": "6994025dae5fd1c7a032ffc57dcd18b3c4c16a88",
+  "entrypoint": "uv run python scripts/experiment_niche.py --long-horizon --seed-start 100 --seed-end 129",
+  "metadata_generation_argv": [
     "experiments/niche_normal_long.json.gz",
     "--experiment-name",
     "niche_long_horizon",

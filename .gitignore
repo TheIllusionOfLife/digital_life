@@ -25,6 +25,7 @@ build/
 # Experiment output data
 /experiments/*.json
 /experiments/*.tsv
+/experiments/*.gz
 
 # LaTeX build artifacts
 paper/*.aux
@@ -40,5 +41,3 @@ paper/*.synctex.gz
 *.swp
 *.swo
 out/
-
-/experiments/*.gz

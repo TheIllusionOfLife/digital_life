@@ -32,7 +32,7 @@ def _sha256(path: Path) -> str:
 def _detect_git_commit() -> str | None:
     try:
         out = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
+            ["git", "rev-parse", "HEAD"],
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()
@@ -74,8 +74,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("docs/research/zenodo_niche_long_horizon_metadata.json"),
-        help="Output JSON path.",
+        default=Path("zenodo_metadata.json"),
+        help="Output JSON path (default: ./zenodo_metadata.json).",
     )
     return parser.parse_args()
 
@@ -108,7 +108,7 @@ def build_metadata(args: argparse.Namespace) -> dict:
         "experiment_name": args.experiment_name,
         "git_commit": _detect_git_commit(),
         "entrypoint": args.entrypoint,
-        "argv": list(sys.argv[1:]),
+        "metadata_generation_argv": list(sys.argv[1:]),
         "seed_range": {"start": args.seed_start, "end": args.seed_end},
         "steps": args.steps,
         "artifacts": artifact_entries,

@@ -58,16 +58,23 @@ def parse_args():
         default=SEEDS[-1],
         help=f"End seed (inclusive). Default: {SEEDS[-1]}",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.seed_end < args.seed_start:
+        parser.error(
+            "Invalid seed range: "
+            f"seed-end ({args.seed_end}) must be >= seed-start ({args.seed_start})"
+        )
+    if args.seed_start < 100:
+        parser.error(
+            "Invalid seed range: requested range "
+            f"{args.seed_start}-{args.seed_end} overlaps calibration seeds 0-99; "
+            "use seeds >=100 for test experiments."
+        )
+    return args
 
 
 def main():
     args = parse_args()
-    if args.seed_end < args.seed_start:
-        raise ValueError(
-            "Invalid seed range: "
-            f"seed-end ({args.seed_end}) must be >= seed-start ({args.seed_start})"
-        )
     seeds = list(range(args.seed_start, args.seed_end + 1))
     steps = LONG_HORIZON_STEPS if args.long_horizon else STEPS
     default_name = "niche_normal_long.json" if args.long_horizon else "niche_normal.json"
