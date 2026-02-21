@@ -53,6 +53,36 @@
         "experiments/pairwise_graph_statistics.json"
       ],
       "notes": "Pairwise intervention interaction summary."
+    },
+    {
+      "result_id": "midrun_ablation",
+      "paper_ref": "fig:protocol_extensions",
+      "manifest": "experiments/midrun_ablation_manifest.json",
+      "source_files": [
+        "experiments/midrun_ablation_data.tsv",
+        "experiments/midrun_ablation_statistics.json"
+      ],
+      "notes": "Step-0 versus delayed-ablation robustness protocol."
+    },
+    {
+      "result_id": "implementation_invariance",
+      "paper_ref": "fig:protocol_extensions",
+      "manifest": "experiments/invariance_manifest.json",
+      "source_files": [
+        "experiments/invariance_data.tsv",
+        "experiments/invariance_statistics.json"
+      ],
+      "notes": "Boundary/homeostasis implementation-invariance protocol."
+    },
+    {
+      "result_id": "ecology_stress",
+      "paper_ref": "fig:ecology_stress",
+      "manifest": "experiments/ecology_stress_manifest.json",
+      "source_files": [
+        "experiments/ecology_stress_data.tsv",
+        "experiments/ecology_stress_statistics.json"
+      ],
+      "notes": "Temporal ecology stress protocol with evolution comparison."
     }
   ]
 }

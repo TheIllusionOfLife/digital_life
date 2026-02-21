@@ -20,6 +20,9 @@ EXPERIMENT_SCRIPTS = [
     PROJECT_ROOT / "scripts" / "experiment_pairwise.py",
     PROJECT_ROOT / "scripts" / "experiment_cyclic.py",
     PROJECT_ROOT / "scripts" / "experiment_evolution.py",
+    PROJECT_ROOT / "scripts" / "experiment_midrun_ablation.py",
+    PROJECT_ROOT / "scripts" / "experiment_invariance.py",
+    PROJECT_ROOT / "scripts" / "experiment_ecology_stress.py",
 ]
 
 
@@ -106,11 +109,17 @@ def _check_base_config(manifest: dict) -> tuple[list[str], list[str]]:
     issues: list[str] = []
     checks: list[str] = []
     base_cfg = manifest.get("base_config", {})
-    for key in ["mutation_point_rate", "mutation_scale"]:
-        if key in base_cfg:
-            checks.append(f"manifest base_config {key}")
-        else:
-            issues.append(f"manifest missing base_config.{key}")
+    if "mutation_point_rate" in base_cfg:
+        checks.append("manifest base_config mutation_point_rate")
+    else:
+        issues.append("manifest missing base_config.mutation_point_rate")
+
+    if "mutation_scale" in base_cfg or "mutation_point_scale" in base_cfg:
+        checks.append("manifest base_config mutation_scale")
+    else:
+        issues.append(
+            "manifest missing base_config.mutation_scale (or mutation_point_scale)"
+        )
     return issues, checks
 
 
@@ -188,12 +197,40 @@ def _check_freshness(manifest: dict, manifest_path: Path) -> tuple[list[str], li
         if not base_cfg:
             issues.append("reference manifest missing or empty base_config")
         if generated_base_cfg and base_cfg:
-            generated_digest = _config_digest(generated_base_cfg)
-            reference_digest = _config_digest(base_cfg)
-            if generated_digest != reference_digest:
+            # Reference manifests may intentionally store a compact base_config.
+            # Compare only keys present in the reference manifest so freshness
+            # checks remain stable as config schema expands.
+            # Schema rename compatibility:
+            # reference may use mutation_scale while generated uses mutation_point_scale.
+            key_map = {
+                "mutation_scale": "mutation_point_scale",
+            }
+            missing = [
+                k
+                for k in base_cfg
+                if key_map.get(k, k) not in generated_base_cfg
+                and k not in generated_base_cfg
+            ]
+            if missing:
                 issues.append(
-                    "reference manifest base_config differs from generated manifest digest"
+                    "generated manifest missing reference base_config keys: "
+                    + ", ".join(sorted(missing))
                 )
+            else:
+                projected_generated = {}
+                for k in base_cfg:
+                    mapped = key_map.get(k, k)
+                    if mapped in generated_base_cfg:
+                        projected_generated[k] = generated_base_cfg[mapped]
+                    else:
+                        projected_generated[k] = generated_base_cfg[k]
+                generated_digest = _config_digest(projected_generated)
+                reference_digest = _config_digest(base_cfg)
+                if generated_digest != reference_digest:
+                    issues.append(
+                        "reference manifest base_config differs from generated manifest "
+                        "on shared keys"
+                    )
     elif should_check_freshness:
         checks.append("generated manifest not present (freshness check skipped)")
 

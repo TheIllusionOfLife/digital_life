@@ -7,6 +7,7 @@ experiment_pairwise.py, and experiment_evolution.py.
 
 import json
 import sys
+import time
 from pathlib import Path
 
 import digital_life
@@ -162,3 +163,35 @@ def load_json(path: Path) -> list[dict]:
 def extract_final_alive(results: list[dict]) -> list[int]:
     """Extract final_alive_count from each seed's result."""
     return [r["final_alive_count"] for r in results if "samples" in r]
+
+
+def run_condition_common(
+    cond_name: str,
+    overrides: dict,
+    out_dir: Path,
+    filename_prefix: str,
+    seeds: list[int],
+    steps: int,
+    sample_every: int,
+) -> None:
+    """Run one condition, stream samples to stdout, and write JSON results."""
+    log(f"--- Condition: {cond_name} ---")
+    start = time.perf_counter()
+    results = []
+
+    for seed in seeds:
+        t0 = time.perf_counter()
+        result = run_single(seed, overrides, steps=steps, sample_every=sample_every)
+        elapsed = time.perf_counter() - t0
+        results.append(result)
+
+        for sample in result["samples"]:
+            print_sample(cond_name, seed, sample)
+
+        log(f"  seed={seed:3d}  alive={result['final_alive_count']:4d}  {elapsed:.2f}s")
+
+    with open(out_dir / f"{filename_prefix}{cond_name}.json", "w") as f:
+        json.dump(results, f, indent=2)
+
+    log(f"  Condition time: {time.perf_counter() - start:.1f}s")
+    log("")

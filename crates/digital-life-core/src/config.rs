@@ -10,6 +10,34 @@ pub enum MetabolismMode {
     Counter,
 }
 
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BoundaryMode {
+    #[default]
+    ScalarRepair,
+    SpatialHullFeedback,
+}
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HomeostasisMode {
+    #[default]
+    NnRegulator,
+    SetpointPid,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AblationTarget {
+    Metabolism,
+    Boundary,
+    Homeostasis,
+    Response,
+    Reproduction,
+    Evolution,
+    Growth,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SimConfig {
@@ -43,6 +71,31 @@ pub struct SimConfig {
     pub enable_evolution: bool,
     /// Criterion-ablation toggle for growth/development (placeholder until developmental program).
     pub enable_growth: bool,
+    /// Simulation step at which scheduled criterion ablation should be applied (0 = disabled).
+    pub ablation_step: usize,
+    /// Criteria to ablate at `ablation_step` (subset of: metabolism, boundary, homeostasis,
+    /// response, reproduction, evolution, growth).
+    pub ablation_targets: Vec<AblationTarget>,
+    /// Boundary maintenance implementation mode.
+    pub boundary_mode: BoundaryMode,
+    /// Homeostasis implementation mode.
+    pub homeostasis_mode: HomeostasisMode,
+    /// Base internal-state setpoint used by `HomeostasisMode::SetpointPid`.
+    pub setpoint_pid_base: f32,
+    /// Additional setpoint scaling from metabolic energy in `SetpointPid`.
+    pub setpoint_pid_energy_scale: f32,
+    /// Proportional gain for `SetpointPid`.
+    pub setpoint_pid_kp: f32,
+    /// Base repair scale for `BoundaryMode::SpatialHullFeedback`.
+    pub spatial_hull_repair_base: f32,
+    /// Cohesion multiplier for repair in `SpatialHullFeedback`.
+    pub spatial_hull_repair_cohesion_scale: f32,
+    /// Base decay scale for `SpatialHullFeedback`.
+    pub spatial_hull_decay_base: f32,
+    /// Cohesion multiplier subtracted from decay in `SpatialHullFeedback`.
+    pub spatial_hull_decay_cohesion_scale: f32,
+    /// Lower clamp for decay scaling in `SpatialHullFeedback`.
+    pub spatial_hull_decay_min: f32,
     /// Minimum energy required for stable boundary maintenance.
     pub metabolic_viability_floor: f32,
     /// Baseline per-step boundary integrity decay rate.
@@ -136,6 +189,18 @@ impl Default for SimConfig {
             enable_reproduction: true,
             enable_evolution: true,
             enable_growth: true,
+            ablation_step: 0,
+            ablation_targets: Vec::new(),
+            boundary_mode: BoundaryMode::ScalarRepair,
+            homeostasis_mode: HomeostasisMode::NnRegulator,
+            setpoint_pid_base: 0.45,
+            setpoint_pid_energy_scale: 0.1,
+            setpoint_pid_kp: 0.5,
+            spatial_hull_repair_base: 0.6,
+            spatial_hull_repair_cohesion_scale: 0.8,
+            spatial_hull_decay_base: 1.2,
+            spatial_hull_decay_cohesion_scale: 0.5,
+            spatial_hull_decay_min: 0.5,
             metabolic_viability_floor: 0.2,
             boundary_decay_base_rate: 0.001,
             boundary_decay_energy_scale: 0.02,
@@ -212,6 +277,14 @@ define_sim_config_error! {
     InvalidSensingRadius => "sensing_radius must be non-negative and finite";
     InvalidNeighborNorm => "neighbor_norm must be positive and finite";
     InvalidMetabolicViabilityFloor => "metabolic_viability_floor must be finite and non-negative";
+    InvalidSetpointPidBase => "setpoint_pid_base must be finite and within [0,1]";
+    InvalidSetpointPidEnergyScale => "setpoint_pid_energy_scale must be finite and non-negative";
+    InvalidSetpointPidKp => "setpoint_pid_kp must be finite and non-negative";
+    InvalidSpatialHullRepairBase => "spatial_hull_repair_base must be finite and non-negative";
+    InvalidSpatialHullRepairCohesionScale => "spatial_hull_repair_cohesion_scale must be finite and non-negative";
+    InvalidSpatialHullDecayBase => "spatial_hull_decay_base must be finite and non-negative";
+    InvalidSpatialHullDecayCohesionScale => "spatial_hull_decay_cohesion_scale must be finite and non-negative";
+    InvalidSpatialHullDecayMin => "spatial_hull_decay_min must be finite and non-negative";
     InvalidBoundaryDecayBaseRate => "boundary_decay_base_rate must be finite and non-negative";
     InvalidBoundaryDecayEnergyScale => "boundary_decay_energy_scale must be finite and non-negative";
     InvalidBoundaryWastePressureScale => "boundary_waste_pressure_scale must be finite and non-negative";
@@ -324,6 +397,34 @@ impl SimConfig {
             && (0.0..=1.0).contains(&self.metabolism_efficiency_multiplier))
         {
             return Err(SimConfigError::InvalidMetabolismEfficiencyMultiplier);
+        }
+        if !(self.setpoint_pid_base.is_finite() && (0.0..=1.0).contains(&self.setpoint_pid_base)) {
+            return Err(SimConfigError::InvalidSetpointPidBase);
+        }
+        if !(self.setpoint_pid_energy_scale.is_finite() && self.setpoint_pid_energy_scale >= 0.0) {
+            return Err(SimConfigError::InvalidSetpointPidEnergyScale);
+        }
+        if !(self.setpoint_pid_kp.is_finite() && self.setpoint_pid_kp >= 0.0) {
+            return Err(SimConfigError::InvalidSetpointPidKp);
+        }
+        if !(self.spatial_hull_repair_base.is_finite() && self.spatial_hull_repair_base >= 0.0) {
+            return Err(SimConfigError::InvalidSpatialHullRepairBase);
+        }
+        if !(self.spatial_hull_repair_cohesion_scale.is_finite()
+            && self.spatial_hull_repair_cohesion_scale >= 0.0)
+        {
+            return Err(SimConfigError::InvalidSpatialHullRepairCohesionScale);
+        }
+        if !(self.spatial_hull_decay_base.is_finite() && self.spatial_hull_decay_base >= 0.0) {
+            return Err(SimConfigError::InvalidSpatialHullDecayBase);
+        }
+        if !(self.spatial_hull_decay_cohesion_scale.is_finite()
+            && self.spatial_hull_decay_cohesion_scale >= 0.0)
+        {
+            return Err(SimConfigError::InvalidSpatialHullDecayCohesionScale);
+        }
+        if !(self.spatial_hull_decay_min.is_finite() && self.spatial_hull_decay_min >= 0.0) {
+            return Err(SimConfigError::InvalidSpatialHullDecayMin);
         }
         Ok(())
     }
@@ -537,6 +638,19 @@ mod tests {
     }
 
     #[test]
+    fn deserialize_rejects_unknown_ablation_target() {
+        let invalid_json = r#"{
+            "ablation_step": 100,
+            "ablation_targets": ["unknown"]
+        }"#;
+        let result = serde_json::from_str::<SimConfig>(invalid_json);
+        assert!(
+            result.is_err(),
+            "unknown ablation target should fail during deserialization"
+        );
+    }
+
+    #[test]
     fn legacy_config_json_deserializes_with_defaults() {
         let legacy_json = r#"{
             "seed": 42,
@@ -563,6 +677,18 @@ mod tests {
         assert!(cfg.enable_reproduction);
         assert!(cfg.enable_evolution);
         assert!(cfg.enable_growth);
+        assert_eq!(cfg.ablation_step, 0);
+        assert!(cfg.ablation_targets.is_empty());
+        assert_eq!(cfg.boundary_mode, BoundaryMode::ScalarRepair);
+        assert_eq!(cfg.homeostasis_mode, HomeostasisMode::NnRegulator);
+        assert_eq!(cfg.setpoint_pid_base, 0.45);
+        assert_eq!(cfg.setpoint_pid_energy_scale, 0.1);
+        assert_eq!(cfg.setpoint_pid_kp, 0.5);
+        assert_eq!(cfg.spatial_hull_repair_base, 0.6);
+        assert_eq!(cfg.spatial_hull_repair_cohesion_scale, 0.8);
+        assert_eq!(cfg.spatial_hull_decay_base, 1.2);
+        assert_eq!(cfg.spatial_hull_decay_cohesion_scale, 0.5);
+        assert_eq!(cfg.spatial_hull_decay_min, 0.5);
     }
 
     #[test]

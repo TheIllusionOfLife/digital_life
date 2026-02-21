@@ -48,6 +48,19 @@ uv run python scripts/prepare_zenodo_metadata.py experiments/niche_normal_long.j
   --output docs/research/zenodo_niche_long_horizon_metadata.json
 ```
 
+### Artifact Publication Policy (Zenodo)
+
+- Commit code, manifests, compact summaries, and figure-ready outputs.
+- Do not commit large raw experiment outputs to git.
+- Publish heavy artifacts to Zenodo with checksums and commit provenance.
+- Detailed policy: `docs/research/artifact_publication_policy.md`
+
+### Config Compatibility Note
+
+- Scheduled ablation targets are enum-backed (`ablation_targets`) and must be one of:
+  `metabolism`, `boundary`, `homeostasis`, `response`, `reproduction`, `evolution`, `growth`.
+- Unknown target values now fail during config deserialization instead of later runtime validation.
+
 ### Run the Feasibility Spike
 
 ```bash

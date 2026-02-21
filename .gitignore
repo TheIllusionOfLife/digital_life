@@ -26,6 +26,7 @@ build/
 /experiments/*.json
 /experiments/*.tsv
 /experiments/*.gz
+/experiments/logs/
 
 # LaTeX build artifacts
 paper/*.aux
