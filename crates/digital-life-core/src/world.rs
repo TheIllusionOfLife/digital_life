@@ -1,5 +1,5 @@
 use crate::agent::Agent;
-use crate::config::{MetabolismMode, SimConfig, SimConfigError};
+use crate::config::{BoundaryMode, HomeostasisMode, MetabolismMode, SimConfig, SimConfigError};
 use crate::genome::{Genome, MutationRates};
 use crate::metabolism::{MetabolicState, MetabolismEngine};
 use crate::nn::NeuralNet;
@@ -144,6 +144,7 @@ pub struct World {
     rng: ChaCha12Rng,
     next_agent_id: u32,
     step_index: usize,
+    scheduled_ablation_applied: bool,
     births_last_step: usize,
     deaths_last_step: usize,
     total_births: usize,
@@ -361,6 +362,7 @@ impl World {
             rng: ChaCha12Rng::seed_from_u64(config.seed),
             next_agent_id: max_agent_id.saturating_add(1),
             step_index: 0,
+            scheduled_ablation_applied: false,
             births_last_step: 0,
             deaths_last_step: 0,
             total_births: 0,
@@ -420,6 +422,8 @@ impl World {
         }
         self.current_resource_rate = config.resource_regeneration_rate;
         self.config = config;
+        self.scheduled_ablation_applied =
+            self.config.ablation_step > 0 && self.step_index >= self.config.ablation_step;
         self.mutation_rates = Self::mutation_rates_from_config(&self.config);
         if mode_changed {
             self.metabolism = match self.config.metabolism_mode {
@@ -1264,10 +1268,27 @@ impl World {
             agent.internal_state[1] = (agent.internal_state[1] - h_decay).max(0.0);
 
             if config.enable_homeostasis {
-                agent.internal_state[0] =
-                    (agent.internal_state[0] + delta[2] * config.dt as f32).clamp(0.0, 1.0);
-                agent.internal_state[1] =
-                    (agent.internal_state[1] + delta[3] * config.dt as f32).clamp(0.0, 1.0);
+                match config.homeostasis_mode {
+                    HomeostasisMode::NnRegulator => {
+                        agent.internal_state[0] =
+                            (agent.internal_state[0] + delta[2] * config.dt as f32).clamp(0.0, 1.0);
+                        agent.internal_state[1] =
+                            (agent.internal_state[1] + delta[3] * config.dt as f32).clamp(0.0, 1.0);
+                    }
+                    HomeostasisMode::SetpointPid => {
+                        let metabolic_energy =
+                            organisms[org_idx].metabolic_state.energy.clamp(0.0, 1.0);
+                        let setpoint = 0.45 + 0.1 * metabolic_energy;
+                        let k_p = 0.5f32;
+                        let adjustment_scale = k_p * config.dt as f32;
+                        let err0 = setpoint - agent.internal_state[0];
+                        let err1 = setpoint - agent.internal_state[1];
+                        agent.internal_state[0] =
+                            (agent.internal_state[0] + err0 * adjustment_scale).clamp(0.0, 1.0);
+                        agent.internal_state[1] =
+                            (agent.internal_state[1] + err1 * adjustment_scale).clamp(0.0, 1.0);
+                    }
+                }
             }
 
             homeostasis_sums[org_idx] += agent.internal_state[0];
@@ -1320,6 +1341,28 @@ impl World {
                 } else {
                     1.0
                 };
+                let cohesion = if self.org_counts[org_idx] > 0 {
+                    let count = self.org_counts[org_idx] as f64;
+                    let x_mag = (self.org_toroidal_sums[org_idx][0].powi(2)
+                        + self.org_toroidal_sums[org_idx][1].powi(2))
+                    .sqrt()
+                        / count;
+                    let y_mag = (self.org_toroidal_sums[org_idx][2].powi(2)
+                        + self.org_toroidal_sums[org_idx][3].powi(2))
+                    .sqrt()
+                        / count;
+                    (0.5 * (x_mag + y_mag)).clamp(0.0, 1.0) as f32
+                } else {
+                    0.0
+                };
+                let (decay_mode_scale, repair_mode_scale) = match config.boundary_mode {
+                    BoundaryMode::ScalarRepair => (1.0, 1.0),
+                    BoundaryMode::SpatialHullFeedback => {
+                        let repair_scale = 0.6 + 0.8 * cohesion;
+                        let decay_scale = (1.2 - 0.5 * cohesion).max(0.5);
+                        (decay_scale, repair_scale)
+                    }
+                };
                 let repair = (org.metabolic_state.energy
                     - org.metabolic_state.waste
                         * config.boundary_waste_pressure_scale
@@ -1327,9 +1370,11 @@ impl World {
                     .max(0.0)
                     * config.boundary_repair_rate
                     * homeostasis_factor
-                    * dev_boundary;
-                org.boundary_integrity =
-                    (org.boundary_integrity - decay * dt + repair * dt).clamp(0.0, 1.0);
+                    * dev_boundary
+                    * repair_mode_scale;
+                org.boundary_integrity = (org.boundary_integrity - decay * decay_mode_scale * dt
+                    + repair * dt)
+                    .clamp(0.0, 1.0);
                 if org.boundary_integrity <= boundary_terminal_threshold {
                     to_kill.push(org_idx);
                 }
@@ -1489,9 +1534,32 @@ impl World {
         }
     }
 
+    fn apply_scheduled_ablation_if_due(&mut self) {
+        if self.scheduled_ablation_applied {
+            return;
+        }
+        if self.config.ablation_step == 0 || self.step_index != self.config.ablation_step {
+            return;
+        }
+        for target in &self.config.ablation_targets {
+            match target.as_str() {
+                "metabolism" => self.config.enable_metabolism = false,
+                "boundary" => self.config.enable_boundary_maintenance = false,
+                "homeostasis" => self.config.enable_homeostasis = false,
+                "response" => self.config.enable_response = false,
+                "reproduction" => self.config.enable_reproduction = false,
+                "evolution" => self.config.enable_evolution = false,
+                "growth" => self.config.enable_growth = false,
+                _ => {}
+            }
+        }
+        self.scheduled_ablation_applied = true;
+    }
+
     pub fn step(&mut self) -> StepTimings {
         let total_start = Instant::now();
         self.step_index = self.step_index.saturating_add(1);
+        self.apply_scheduled_ablation_if_due();
         self.births_last_step = 0;
         self.deaths_last_step = 0;
         self.agent_id_exhaustions_last_step = 0;
@@ -3118,5 +3186,95 @@ mod tests {
             result,
             Err(ExperimentError::TooManySnapshots { .. })
         ));
+    }
+
+    #[test]
+    fn scheduled_ablation_disables_targets_at_exact_step() {
+        let mut world = make_world(10, 100.0);
+        world.config.ablation_step = 3;
+        world.config.ablation_targets = vec!["metabolism".to_string(), "response".to_string()];
+        assert!(world.config.enable_metabolism);
+        assert!(world.config.enable_response);
+
+        world.step();
+        world.step();
+        assert!(
+            world.config.enable_metabolism && world.config.enable_response,
+            "scheduled ablation should not apply before ablation_step"
+        );
+
+        world.step();
+        assert!(
+            !world.config.enable_metabolism && !world.config.enable_response,
+            "scheduled ablation should apply exactly at ablation_step"
+        );
+    }
+
+    #[test]
+    fn boundary_mode_spatial_hull_feedback_changes_boundary_trajectory() {
+        let mut scalar = make_world(10, 100.0);
+        scalar.config.boundary_mode = BoundaryMode::ScalarRepair;
+        scalar.config.enable_metabolism = false;
+        scalar.config.enable_reproduction = false;
+        scalar.config.enable_response = false;
+        scalar.config.enable_homeostasis = false;
+        scalar.config.death_boundary_threshold = 0.0;
+        scalar.config.boundary_collapse_threshold = 0.0;
+        scalar.config.boundary_decay_base_rate = 0.05;
+        scalar.config.boundary_decay_energy_scale = 0.2;
+        for (i, agent) in scalar.agents.iter_mut().enumerate() {
+            agent.position = [10.0 + i as f64 * 7.0, 10.0 + i as f64 * 5.0];
+        }
+
+        let mut spatial = make_world(10, 100.0);
+        spatial.config.boundary_mode = BoundaryMode::SpatialHullFeedback;
+        spatial.config.enable_metabolism = false;
+        spatial.config.enable_reproduction = false;
+        spatial.config.enable_response = false;
+        spatial.config.enable_homeostasis = false;
+        spatial.config.death_boundary_threshold = 0.0;
+        spatial.config.boundary_collapse_threshold = 0.0;
+        spatial.config.boundary_decay_base_rate = 0.05;
+        spatial.config.boundary_decay_energy_scale = 0.2;
+        for (i, agent) in spatial.agents.iter_mut().enumerate() {
+            agent.position = [10.0 + i as f64 * 7.0, 10.0 + i as f64 * 5.0];
+        }
+
+        scalar.step();
+        spatial.step();
+
+        let b_scalar = scalar.organisms[0].boundary_integrity;
+        let b_spatial = spatial.organisms[0].boundary_integrity;
+        assert!(
+            (b_scalar - b_spatial).abs() > 1e-6,
+            "boundary modes should produce different boundary trajectories (scalar={b_scalar}, spatial={b_spatial})"
+        );
+    }
+
+    #[test]
+    fn setpoint_pid_mode_stabilizes_internal_state_toward_energy_scaled_setpoint() {
+        let mut world = make_world(1, 100.0);
+        world.config.homeostasis_mode = HomeostasisMode::SetpointPid;
+        world.config.enable_response = false;
+        world.config.enable_metabolism = false;
+        world.config.enable_boundary_maintenance = false;
+        world.config.enable_reproduction = false;
+        world.config.death_boundary_threshold = 0.0;
+        world.config.boundary_collapse_threshold = 0.0;
+        world.config.max_organism_age_steps = usize::MAX;
+        world.agents[0].internal_state[0] = 0.0;
+        world.agents[0].internal_state[1] = 1.0;
+
+        world.step();
+        let s0 = world.agents[0].internal_state[0];
+        let s1 = world.agents[0].internal_state[1];
+        assert!(
+            s0 > 0.0,
+            "setpoint controller should raise low state toward target"
+        );
+        assert!(
+            s1 < 1.0,
+            "setpoint controller should lower high state toward target"
+        );
     }
 }

@@ -328,8 +328,10 @@ For each of the seven criteria, we disable that criterion while keeping all
 others active, and compare the resulting population dynamics against the
 fully enabled baseline (``normal'' condition).
 This yields eight conditions: one normal baseline and seven single-criterion
-ablations. Ablations are applied at initialization (step~0), not mid-run;
-organisms never experience criterion loss after operating normally.
+ablations for the primary table. In addition, the repository includes a
+mid-run ablation protocol (\texttt{scripts/experiment\_midrun\_ablation.py})
+that applies criterion loss after stabilization (default step~1000) to test
+continuous necessity beyond initialization effects.
 
 \subsection{Outcome Measures}
 
@@ -688,8 +690,8 @@ growth's functional contribution extends beyond reproduction gating.
 The modest 2000-step evolution effect ($d$=0.58, $\delta$=0.34) grows
 substantially at longer timescales (Figure~\ref{fig:evolution}).
 At 10,000 steps ($n$=30), $d$=1.42, $\delta$=0.66 ($p < 0.001$);
-normal populations reach $\bar{x}$=436.3 vs.\ 381.8 for no-evolution
-($\Delta$=$-$12.5\%).
+normal populations reach $\bar{x}$=446.5 vs.\ 371.7 for no-evolution
+($\Delta$=$-$16.8\%).
 Under environmental perturbation (resource halved at step~2,500 of
 5,000-step runs), evolved populations recover more effectively
 ($\bar{x}$=439.5 vs.\ 413.5, $d$=0.86, $\delta$=0.50, $p < 0.001$).
@@ -704,13 +706,13 @@ monotonically between evolved and non-evolved populations over 10,000
 steps (Figure~\ref{fig:evo_evidence}A; Cliff's $\delta$=1.00,
 $p < 0.001$), with evolved populations accumulating drift at a steady
 rate ($\bar{d}_{10K} = 0.087$) while non-evolved populations remain at
-zero. Third, under cyclic resource stress (period=2,000 steps), evolved
-populations exhibit faster per-cycle recovery rates
-($\bar{r}_{\text{evo}} = 0.068$ vs.\
-$\bar{r}_{\text{no\text{-}evo}} = 0.037$; pooled $p = 0.010$;
-Figure~\ref{fig:evo_evidence}B), with the advantage persisting across
-successive cycles, consistent with adaptive tuning of resource
-acquisition strategies.
+zero. Third, under cyclic resource stress (period=2,000 steps), per-cycle
+recovery estimates are mixed across cycles and do not reach pooled
+significance in the current run
+($\bar{r}_{\text{evo}} = 0.045$ vs.\ 0.037 for cycle 4k--6k; 0.034 vs.\ 0.045
+for cycle 8k--10k; pooled $p = 0.341$;
+Figure~\ref{fig:evo_evidence}B). We therefore treat cyclic-recovery
+differences as suggestive rather than confirmatory.
 
 \begin{figure}[t]
 \centering
@@ -758,7 +760,7 @@ functional analogy.
 \caption{Left: graded metabolic ablation dose-response (median $\pm$ IQR,
 $n$=30 per level; $p < 0.001$, Jonckheere-Terpstra).
 Right: cyclic environment test (period=2,000 steps); shaded bands mark
-low-resource phases; evolution-on populations recover faster.}
+low-resource phases; recovery-rate differences are mixed in the refreshed run.}
 \label{fig:graded_cyclic}
 \end{figure}
 
@@ -768,10 +770,10 @@ To assess whether evolved populations exhibit adaptive resilience beyond
 static conditions, we subject organisms to periodic resource modulation
 (period~=~2,000 steps; high phase: 0.01, low phase: 0.005 resource
 per cell per step) over 10,000 steps ($n$=30).
-Evolved populations ($\bar{x}$=384.3) significantly outperform
-non-evolving populations ($\bar{x}$=340.6) across all cycles
-($d$=1.70, Cliff's $\delta$=0.74, $p < 0.001$; Figure~\ref{fig:graded_cyclic},
-right), showing faster recovery after each low-resource phase.
+Evolved populations remain viable under cyclic stress, and the long-run
+alive-count gap remains positive, but pooled per-cycle recovery-rate
+differences are not significant in the refreshed run
+($p = 0.341$; Figure~\ref{fig:graded_cyclic}, right).
 
 \paragraph{Sham ablation control.}
 To confirm that observed ablation effects are functional rather than
@@ -782,6 +784,57 @@ state or modifying simulation variables.
 Comparing sham-on versus sham-off ($n$=30, 1,000 steps) yields no
 significant difference (Mann-Whitney $U$, $p > 0.05$), validating
 that criterion ablation effects reflect genuine functional dependencies.
+
+\subsection{Mid-run and Invariance Protocol Extensions}
+
+To directly test continuous necessity, we include a delayed-ablation protocol
+that compares step-0 and step-1000 criterion removal on matched seeds
+(\texttt{scripts/experiment\_midrun\_ablation.py}; analysis via
+\texttt{scripts/analyze\_midrun.py}). We also include an
+implementation-invariance protocol for two criteria with alternate
+mechanisms---boundary maintenance (\texttt{scalar\_repair} vs.\
+\texttt{spatial\_hull\_feedback}) and homeostasis
+(\texttt{nn\_regulator} vs.\ \texttt{setpoint\_pid})---to test whether
+necessity conclusions are directionally stable across implementation choices
+(\texttt{scripts/experiment\_invariance.py};
+\texttt{scripts/analyze\_invariance.py}).
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/fig_midrun_ablation.pdf}%
+  {\includegraphics[width=0.48\columnwidth]{figures/fig_midrun_ablation.pdf}}%
+  {\fbox{\parbox{0.45\columnwidth}{%
+    \centering\vspace{2em}[midrun figure]\vspace{2em}}}}
+\hfill
+\IfFileExists{figures/fig_invariance.pdf}%
+  {\includegraphics[width=0.48\columnwidth]{figures/fig_invariance.pdf}}%
+  {\fbox{\parbox{0.45\columnwidth}{%
+    \centering\vspace{2em}[invariance figure]\vspace{2em}}}}
+\caption{Protocol extensions for reviewer-facing robustness checks.
+Left: step-0 vs.\ mid-run ablation comparison.
+Right: implementation-invariance comparison for boundary/homeostasis variants.}
+\label{fig:midrun_ablation}
+\label{fig:invariance}
+\end{figure}
+
+\subsection{Ecology Stressor Protocol Extension}
+
+Beyond static conditions, we add an ecology-stressor protocol with abrupt
+environment shifts and cyclic stress phases
+(\texttt{scripts/experiment\_ecology\_stress.py}) and a compact analysis
+pipeline (\texttt{scripts/analyze\_failure\_pathways.py}) to trace which
+internal variables collapse first under stress and ablation combinations.
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/fig_ecology_stress.pdf}%
+  {\includegraphics[width=\columnwidth]{figures/fig_ecology_stress.pdf}}%
+  {\fbox{\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule}{%
+    \centering\vspace{2em}[fig\_ecology\_stress.pdf]\vspace{2em}}}}
+\caption{Ecology stressor protocol extension: abrupt and cyclic resource
+stress conditions with optional evolution ablation for resilience analysis.}
+\label{fig:ecology_stress}
+\end{figure}
 
 \subsection{Additional Validation}
 
@@ -816,6 +869,10 @@ An explicit long-horizon sensitivity run (10,000 steps, $n$=30)
 also remains below the pre-registered ARI claim gate
 (early-pair ARI=0.020, late-pair ARI=0.039; threshold $\geq 0.30$),
 so the weak-persistence interpretation is robust to longer simulation horizons.
+A focused viability-threshold sweep (27 settings, 10 seeds each) shows
+the reproduction energy gate has the strongest effect on final alive counts,
+while varying the max-age cap over 15k--25k steps has negligible impact
+at the 2,000-step evaluation horizon.
 This suggests that ecological strategy differentiation in our system
 is a population-level rather than individual-level phenomenon:
 organisms continuously explore the trait space, with the population
@@ -892,8 +949,9 @@ while decreasing lifespan.}
 \caption{Evolution evidence. (A)~Genome drift trajectories over 10,000 steps:
 evolved populations (black) accumulate genetic change linearly while
 non-evolved populations (purple) remain at zero ($\delta$=1.00).
-(B)~Per-cycle recovery rates under cyclic resource stress: evolved
-populations recover faster after each low-resource phase (pooled $p$=0.010).}
+(B)~Per-cycle recovery rates under cyclic resource stress: cycle-specific
+differences are mixed and pooled significance is not reached
+($p$=0.341).}
 \label{fig:evo_evidence}
 \end{figure}
 
@@ -918,9 +976,9 @@ The modest 2000-step evolution effect ($d$=0.58, $\delta$=0.34) grows to
 $d$=1.42 ($\delta$=0.66) at 10,000 steps and $d$=0.86 ($\delta$=0.50)
 under environmental perturbation, confirming that evolutionary adaptation
 accumulates across generations.
-The cyclic environment test (Figure~\ref{fig:graded_cyclic}, right) further demonstrates
-that evolved populations recover more rapidly from recurring resource
-stress, indicating adaptive resilience beyond one-time environmental shifts.
+The cyclic environment test (Figure~\ref{fig:graded_cyclic}, right) yields
+mixed per-cycle recovery differences in the refreshed run and is therefore
+treated as supplemental rather than primary evidence for resilience.
 
 \paragraph{Are criteria merely engineered?}
 Four lines of evidence argue against this: (1)~proxy control shows
@@ -936,6 +994,13 @@ Six criteria reach Level~4 (multi-process interaction); evolution is
 Level~3 (heritable variation, differential survival).
 Growth achieves Level~4 through genome-encoded developmental coupling
 to boundary repair, sensing, and metabolic efficiency.
+
+\paragraph{What this does not show.}
+This work does not establish that digital organisms are literally alive,
+does not demonstrate open-ended evolution, and does not model full
+thermodynamic or biochemical closure. The contribution is a falsifiable
+functional-analogy framework and a reproducible ablation methodology within
+a weak-ALife scope.
 
 \subsection{Limitations}
 

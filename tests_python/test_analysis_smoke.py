@@ -6,6 +6,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from scripts.analyze_failure_pathways import first_drop_step
+from scripts.analyze_invariance import report as invariance_report
+from scripts.analyze_midrun import build_report as midrun_report
 from scripts.analyze_pairwise import compute_synergy
 from scripts.analyze_results import distribution_stats, holm_bonferroni
 from scripts.experiment_manifest import config_digest, load_manifest, write_manifest
@@ -73,3 +76,46 @@ def test_coupling_schema_v2_contains_nested_fields() -> None:
     assert "lagged_correlation" in first
     assert "best_pearson_r" in first["lagged_correlation"]
     assert "best_lag" in first["lagged_correlation"]
+
+
+def test_first_drop_step_detects_threshold_crossing() -> None:
+    series = [(0, 10.0), (50, 8.0), (100, 4.0)]
+    assert first_drop_step(series, frac=0.5) == 100
+
+
+def test_midrun_report_shape(tmp_path: Path) -> None:
+    exp = tmp_path
+    sample = [{"final_alive_count": 10, "samples": []}] * 3
+    (exp / "midrun_normal.json").write_text(json.dumps(sample))
+    for criterion in [
+        "metabolism",
+        "boundary",
+        "homeostasis",
+        "response",
+        "reproduction",
+        "evolution",
+        "growth",
+    ]:
+        (exp / f"midrun_no_{criterion}_step0.json").write_text(json.dumps(sample))
+        (exp / f"midrun_no_{criterion}_midrun.json").write_text(json.dumps(sample))
+    payload = midrun_report(exp)
+    assert payload["experiment"] == "midrun_ablation"
+    assert len(payload["criteria"]) == 7
+
+
+def test_invariance_report_shape(tmp_path: Path) -> None:
+    exp = tmp_path
+    sample = [{"final_alive_count": 10, "samples": []}] * 3
+    for name in [
+        "invariance_baseline_default.json",
+        "invariance_baseline_alt_modes.json",
+        "invariance_no_boundary_default.json",
+        "invariance_no_boundary_alt_mode.json",
+        "invariance_no_homeostasis_default.json",
+        "invariance_no_homeostasis_alt_mode.json",
+    ]:
+        (exp / name).write_text(json.dumps(sample))
+    payload = invariance_report(exp)
+    assert payload["experiment"] == "implementation_invariance"
+    assert "boundary" in payload
+    assert "homeostasis" in payload
