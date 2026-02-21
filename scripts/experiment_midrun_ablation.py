@@ -87,7 +87,7 @@ def main() -> None:
         report_bindings=[
             {
                 "result_id": "midrun_ablation",
-                "paper_ref": "fig:midrun_ablation",
+                "paper_ref": "fig:protocol_extensions",
                 "source_files": [
                     "experiments/midrun_ablation_data.tsv",
                     "experiments/midrun_ablation_statistics.json",

@@ -56,7 +56,7 @@
     },
     {
       "result_id": "midrun_ablation",
-      "paper_ref": "fig:midrun_ablation",
+      "paper_ref": "fig:protocol_extensions",
       "manifest": "experiments/midrun_ablation_manifest.json",
       "source_files": [
         "experiments/midrun_ablation_data.tsv",
@@ -66,7 +66,7 @@
     },
     {
       "result_id": "implementation_invariance",
-      "paper_ref": "fig:invariance",
+      "paper_ref": "fig:protocol_extensions",
       "manifest": "experiments/invariance_manifest.json",
       "source_files": [
         "experiments/invariance_data.tsv",

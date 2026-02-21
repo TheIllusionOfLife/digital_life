@@ -89,7 +89,7 @@ def main() -> None:
         report_bindings=[
             {
                 "result_id": "implementation_invariance",
-                "paper_ref": "fig:invariance",
+                "paper_ref": "fig:protocol_extensions",
                 "source_files": [
                     "experiments/invariance_data.tsv",
                     "experiments/invariance_statistics.json",

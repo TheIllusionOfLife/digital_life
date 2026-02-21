@@ -4,7 +4,7 @@ Sweeps death boundary threshold, reproduction gate energy, and max age limit.
 Outputs JSON with per-setting final alive counts.
 
 Usage:
-    uv run python scripts/param_sweep_thresholds.py > experiments/threshold_sensitivity.json
+    uv run python scripts/param_sweep_thresholds.py
 """
 
 from __future__ import annotations

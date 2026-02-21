@@ -27,16 +27,6 @@ fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
         .sqrt()
 }
 
-const SETPOINT_PID_BASE: f32 = 0.45;
-const SETPOINT_PID_ENERGY_SCALE: f32 = 0.1;
-const SETPOINT_PID_KP: f32 = 0.5;
-
-const HULL_REPAIR_BASE: f32 = 0.6;
-const HULL_REPAIR_COHESION_SCALE: f32 = 0.8;
-const HULL_DECAY_BASE: f32 = 1.2;
-const HULL_DECAY_COHESION_SCALE: f32 = 0.5;
-const HULL_DECAY_MIN: f32 = 0.5;
-
 /// Decode a genome's metabolic segment into a per-organism `MetabolismEngine`.
 ///
 /// Returns `Some(engine)` in Graph mode, `None` in Toy/Counter mode (uses shared engine).
@@ -1289,9 +1279,9 @@ impl World {
                     HomeostasisMode::SetpointPid => {
                         let metabolic_energy =
                             organisms[org_idx].metabolic_state.energy.clamp(0.0, 1.0);
-                        let setpoint =
-                            SETPOINT_PID_BASE + SETPOINT_PID_ENERGY_SCALE * metabolic_energy;
-                        let adjustment_scale = SETPOINT_PID_KP * config.dt as f32;
+                        let setpoint = config.setpoint_pid_base
+                            + config.setpoint_pid_energy_scale * metabolic_energy;
+                        let adjustment_scale = config.setpoint_pid_kp * config.dt as f32;
                         let err0 = setpoint - agent.internal_state[0];
                         let err1 = setpoint - agent.internal_state[1];
                         agent.internal_state[0] =
@@ -1352,26 +1342,28 @@ impl World {
                 } else {
                     1.0
                 };
-                let cohesion = if self.org_counts[org_idx] > 0 {
-                    let count = self.org_counts[org_idx] as f64;
-                    let x_mag = (self.org_toroidal_sums[org_idx][0].powi(2)
-                        + self.org_toroidal_sums[org_idx][1].powi(2))
-                    .sqrt()
-                        / count;
-                    let y_mag = (self.org_toroidal_sums[org_idx][2].powi(2)
-                        + self.org_toroidal_sums[org_idx][3].powi(2))
-                    .sqrt()
-                        / count;
-                    (0.5 * (x_mag + y_mag)).clamp(0.0, 1.0) as f32
-                } else {
-                    0.0
-                };
                 let (decay_mode_scale, repair_mode_scale) = match config.boundary_mode {
                     BoundaryMode::ScalarRepair => (1.0, 1.0),
                     BoundaryMode::SpatialHullFeedback => {
-                        let repair_scale = HULL_REPAIR_BASE + HULL_REPAIR_COHESION_SCALE * cohesion;
-                        let decay_scale = (HULL_DECAY_BASE - HULL_DECAY_COHESION_SCALE * cohesion)
-                            .max(HULL_DECAY_MIN);
+                        let cohesion = if self.org_counts[org_idx] > 0 {
+                            let count = self.org_counts[org_idx] as f64;
+                            let x_mag = (self.org_toroidal_sums[org_idx][0].powi(2)
+                                + self.org_toroidal_sums[org_idx][1].powi(2))
+                            .sqrt()
+                                / count;
+                            let y_mag = (self.org_toroidal_sums[org_idx][2].powi(2)
+                                + self.org_toroidal_sums[org_idx][3].powi(2))
+                            .sqrt()
+                                / count;
+                            (0.5 * (x_mag + y_mag)).clamp(0.0, 1.0) as f32
+                        } else {
+                            0.0
+                        };
+                        let repair_scale = config.spatial_hull_repair_base
+                            + config.spatial_hull_repair_cohesion_scale * cohesion;
+                        let decay_scale = (config.spatial_hull_decay_base
+                            - config.spatial_hull_decay_cohesion_scale * cohesion)
+                            .max(config.spatial_hull_decay_min);
                         (decay_scale, repair_scale)
                     }
                 };
