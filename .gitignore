@@ -23,10 +23,16 @@ build/
 /python/digital_life/*.dylib
 
 # Experiment output data
-/experiments/*.json
-/experiments/*.tsv
 /experiments/*.gz
 /experiments/logs/
+/experiments/*_part_*.json
+/experiments/*_normal*.json
+/experiments/*_no_*.json
+/experiments/*_off.json
+/experiments/*_on.json
+/experiments/*_sweep_*.json
+/experiments/*_step0.json
+/experiments/*_midrun.json
 
 # LaTeX build artifacts
 paper/*.aux
