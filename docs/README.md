@@ -18,3 +18,5 @@
 - `research/ecological_differentiation_policy.md`
 
 Research docs are historical/strategy artifacts for this project phase, with one explicit exception for conflicts: when conflicts arise, prioritize `docs/research/action-plan.md` as the authoritative source for technical decisions and implementation guidance. Operational development rules otherwise live in root-level docs.
+
+Heavy experiment outputs are published via Zenodo per `docs/research/artifact_publication_policy.md`; keep repository-tracked artifacts compact and reproducible.

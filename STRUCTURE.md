@@ -34,3 +34,5 @@
 
 - Root docs (`README.md`, `AGENTS.md`, `PRODUCT.md`, `TECH.md`, `STRUCTURE.md`) are canonical operational docs
 - `docs/research/` stores planning/review artifacts that inform but do not replace code-level source of truth
+- Zenodo artifact policy for heavy outputs: `docs/research/artifact_publication_policy.md`
+- Repository should keep heavy experiment artifacts out of git; track compact summaries + provenance manifests instead
