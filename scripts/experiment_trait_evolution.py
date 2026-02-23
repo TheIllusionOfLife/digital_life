@@ -48,7 +48,7 @@ def run_condition(cond_name: str, overrides: dict, out_dir: Path) -> None:
 
         snapshots = result.get("organism_snapshots") or []
         n_snapshots = len(snapshots)
-        total_orgs = sum(len(f["organisms"]) for f in snapshots)
+        total_orgs = sum(len(f.get("organisms") or []) for f in snapshots)
         log(
             f"  seed={seed:3d}  alive={result['final_alive_count']:4d}  "
             f"snapshots={n_snapshots}  total_orgs={total_orgs}  {elapsed:.2f}s"

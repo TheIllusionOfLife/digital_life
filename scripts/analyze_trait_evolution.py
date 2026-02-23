@@ -99,6 +99,7 @@ def mann_whitney_u(x: list[float], y: list[float]) -> tuple[float, float]:
 
     # Normal approximation
     mean_u = n1 * n2 / 2.0
+    # Standard tie-free variance; ties are negligible for continuous float energy values.
     std_u = math.sqrt(n1 * n2 * (n1 + n2 + 1) / 12.0)
     if std_u == 0:
         return u_stat, 1.0
@@ -153,7 +154,7 @@ def compute_selection_differential(results: list[dict], final_step: int) -> dict
             continue
 
         organisms = final_snap.get("organisms") or []
-        if len(organisms) < 8:  # Need at least 4 per quartile (25% of 8 = 2, but we need 5)
+        if len(organisms) < 20:  # Need at least 5 per quartile (q25 = n // 4, so n >= 20)
             continue
 
         # Sort by generation

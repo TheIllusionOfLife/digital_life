@@ -1713,7 +1713,7 @@ def generate_midrun_ablation() -> None:
 
     ax.set_xticks(x)
     ax.set_xticklabels(
-        [c.replace("_", "/").title() for c in criterion_names],
+        [c.replace("_", " ").title() for c in criterion_names],
         rotation=30, ha="right"
     )
     ax.set_ylabel("Final Alive Count ($N_T$)")
@@ -1798,7 +1798,7 @@ def generate_ecology_stress() -> None:
         path = exp_dir / f"ecology_stress_{cond}.json"
         if not path.exists():
             print(f"  SKIP: {path} not found")
-            return
+            continue
         results = load_json(path)
         step_vals: dict[int, list[float]] = defaultdict(list)
         for r in results:
@@ -1806,9 +1806,15 @@ def generate_ecology_stress() -> None:
                 step_vals[int(s["step"])].append(float(s["alive_count"]))
         cond_data[cond] = step_vals
 
+    if not cond_data:
+        print("  SKIP: no ecology stress data found")
+        return
+
     fig, ax = plt.subplots(figsize=(7, 3.2))
 
     for cond, (label, color, ls) in condition_specs.items():
+        if cond not in cond_data:
+            continue
         steps = sorted(cond_data[cond].keys())
         means = [np.mean(cond_data[cond][s]) for s in steps]
         sems = [
@@ -1927,7 +1933,7 @@ def generate_trait_evolution() -> None:
     n_seeds = sd_normal.get("n_seeds_used", 0)
     if delta is not None and p_val is not None:
         ax.text(0.98, 0.98,
-                f"Evolved: δ={delta:.2f}, p={p_val:.3f}\n(n={n_seeds} seeds)",
+                f"Evolved: δ={delta:.2f}, p={p_val:.3g}\n(n={n_seeds} seeds)",
                 transform=ax.transAxes, ha="right", va="top",
                 fontsize=6,
                 bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
