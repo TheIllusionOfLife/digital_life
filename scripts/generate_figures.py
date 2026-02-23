@@ -1677,6 +1677,280 @@ def generate_cyclic_sweep() -> None:
     print(f"  Saved {FIG_DIR / 'fig_cyclic_sweep.pdf'}")
 
 
+def generate_midrun_ablation() -> None:
+    """Figure 17: Mid-run vs step-0 ablation comparison — grouped bar chart."""
+    analysis_path = PROJECT_ROOT / "experiments" / "midrun_ablation_analysis.json"
+    if not analysis_path.exists():
+        print(f"  SKIP: {analysis_path} not found")
+        return
+
+    with open(analysis_path) as f:
+        data = json.load(f)
+
+    criteria_list = data.get("criteria", [])
+    if not criteria_list:
+        print("  SKIP: no criteria data in midrun_ablation_analysis.json")
+        return
+
+    criterion_names = [c["criterion"] for c in criteria_list]
+    step0_means = [c["step0_mean"] for c in criteria_list]
+    midrun_means = [c["midrun_mean"] for c in criteria_list]
+    normal_mean = criteria_list[0]["normal_mean"]
+
+    x = np.arange(len(criterion_names))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(7, 3.2))
+
+    ax.bar(x - width / 2, step0_means, width, label="Step-0 ablation",
+           color="#0072B2", alpha=0.7)
+    ax.bar(x + width / 2, midrun_means, width, label="Mid-run ablation",
+           color="#D55E00", alpha=0.7)
+
+    # Normal mean baseline
+    ax.axhline(y=normal_mean, color="#000000", linestyle=":", linewidth=1.0,
+               alpha=0.7, label=f"Normal mean ({normal_mean:.1f})")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(
+        [c.replace("_", " ").title() for c in criterion_names],
+        rotation=30, ha="right"
+    )
+    ax.set_ylabel("Final Alive Count ($N_T$)")
+    ax.set_title("Mid-run vs. Step-0 Ablation", fontsize=9)
+    ax.set_ylim(bottom=0)
+    ax.legend(loc="upper right", fontsize=7)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "fig_midrun_ablation.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_midrun_ablation.pdf'}")
+
+
+def generate_invariance() -> None:
+    """Figure 18: Implementation invariance — effect sizes for boundary/homeostasis."""
+    analysis_path = PROJECT_ROOT / "experiments" / "invariance_analysis.json"
+    if not analysis_path.exists():
+        print(f"  SKIP: {analysis_path} not found")
+        return
+
+    with open(analysis_path) as f:
+        data = json.load(f)
+
+    fig, axes = plt.subplots(1, 2, figsize=(7, 3.0))
+
+    for ax, criterion in zip(axes, ["boundary", "homeostasis"], strict=True):
+        effect_default = data[criterion]["effect_default"]
+        effect_alt = data[criterion]["effect_alt"]
+        direction_consistent = data[criterion]["direction_consistent"]
+
+        ax.bar(
+            ["Default\nmode", "Alt.\nmode"],
+            [effect_default, effect_alt],
+            color=["#0072B2", "#D55E00"],
+            alpha=0.7,
+            width=0.5,
+        )
+        ax.axhline(y=0, color="#888888", linewidth=0.8, linestyle="--")
+
+        if direction_consistent:
+            ax.text(0.5, 0.95, "[+] Direction consistent",
+                    transform=ax.transAxes, ha="center", va="top",
+                    fontsize=7, color="#009E73",
+                    bbox=dict(boxstyle="round,pad=0.2", facecolor="white",
+                              edgecolor="#009E73", alpha=0.9))
+
+        ax.set_title(f"({criterion.capitalize()})", fontsize=9)
+        ax.set_ylabel("Ablation effect (alive count drop)")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    # Shared baseline annotation
+    baseline_default = data["baseline"]["default_modes"]
+    baseline_alt = data["baseline"]["alt_modes"]
+    fig.text(0.5, -0.02,
+             f"Baseline: default modes={baseline_default:.1f}, alt. modes={baseline_alt:.1f}",
+             ha="center", fontsize=7, color="#666666")
+
+    fig.suptitle("Implementation Invariance: Boundary & Homeostasis", fontsize=9, y=1.02)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "fig_invariance.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_invariance.pdf'}")
+
+
+def generate_ecology_stress() -> None:
+    """Figure 19: Ecology stressor conditions — alive-count time series."""
+    exp_dir = PROJECT_ROOT / "experiments"
+
+    condition_specs = {
+        "normal": ("Normal", "#000000", "-"),
+        "resource_shift": ("Resource Shift", "#E69F00", "--"),
+        "cyclic_stress": ("Cyclic Stress", "#D55E00", "-."),
+        "cyclic_stress_no_evolution": ("Cyclic Stress (No Evo)", "#CC79A7", ":"),
+    }
+
+    # Load data for all conditions
+    cond_data: dict[str, dict[int, list[float]]] = {}
+    for cond in condition_specs:
+        path = exp_dir / f"ecology_stress_{cond}.json"
+        if not path.exists():
+            print(f"  SKIP: {path} not found")
+            continue
+        results = load_json(path)
+        step_vals: dict[int, list[float]] = defaultdict(list)
+        for r in results:
+            for s in r.get("samples", []):
+                step_vals[int(s["step"])].append(float(s["alive_count"]))
+        cond_data[cond] = step_vals
+
+    if not cond_data:
+        print("  SKIP: no ecology stress data found")
+        return
+
+    fig, ax = plt.subplots(figsize=(7, 3.2))
+
+    for cond, (label, color, ls) in condition_specs.items():
+        if cond not in cond_data:
+            continue
+        steps = sorted(cond_data[cond].keys())
+        means = [np.mean(cond_data[cond][s]) for s in steps]
+        sems = [
+            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
+            if len(cond_data[cond][s]) >= 2 else 0.0
+            for s in steps
+        ]
+        means_arr = np.array(means)
+        sems_arr = np.array(sems)
+        lw = 2.0 if cond == "normal" else 1.2
+        ax.plot(steps, means_arr, color=color, linewidth=lw, linestyle=ls, label=label)
+        ax.fill_between(steps, means_arr - sems_arr, means_arr + sems_arr,
+                        color=color, alpha=0.12)
+
+    # Mark resource-shift event at step 1000
+    ax.axvline(x=1000, color="#888888", linestyle=":", linewidth=1.0,
+               label="Resource shift (step 1000)")
+
+    ax.set_xlabel("Simulation Step")
+    ax.set_ylabel("Mean Alive Count ($n$=30)")
+    ax.set_xlim(0)
+    ax.set_ylim(bottom=0)
+    ax.legend(loc="upper right", ncol=2, fontsize=7, framealpha=0.9)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "fig_ecology_stress.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_ecology_stress.pdf'}")
+
+
+def generate_trait_evolution() -> None:
+    """Figure 20: Trait evolution / selection differential.
+
+    Panel A: Mean energy trajectory over snapshot steps (evolved vs no-evolution).
+    Panel B: Box plots of per-seed high-gen vs low-gen energy at step 10000.
+    """
+    analysis_path = PROJECT_ROOT / "experiments" / "trait_evolution_analysis.json"
+    if not analysis_path.exists():
+        print(f"  SKIP: {analysis_path} not found")
+        return
+
+    with open(analysis_path) as f:
+        data = json.load(f)
+
+    trajectory = data.get("trajectory", {})
+    sel_diff = data.get("selection_differential", {})
+
+    if not trajectory or not sel_diff:
+        print("  SKIP: missing trajectory or selection_differential data")
+        return
+
+    fig, axes = plt.subplots(1, 2, figsize=(7, 3.2))
+
+    # --- Panel A: Trajectory ---
+    ax = axes[0]
+    cond_styles = {
+        "normal": ("Evolved", "#000000", "-"),
+        "no_evo": ("No Evolution", "#CC79A7", "--"),
+    }
+    for cond, (label, color, ls) in cond_styles.items():
+        traj = trajectory.get(cond, {})
+        steps = traj.get("steps", [])
+        means = traj.get("energy_mean", [])
+        sems = traj.get("energy_sem", [])
+        if not steps:
+            continue
+        means_arr = np.array(means)
+        sems_arr = np.array(sems)
+        ax.plot(steps, means_arr, color=color, linestyle=ls, linewidth=1.5, label=label)
+        ax.fill_between(steps, means_arr - sems_arr, means_arr + sems_arr,
+                        color=color, alpha=0.15)
+
+    ax.set_xlabel("Simulation Step")
+    ax.set_ylabel("Mean Organism Energy")
+    ax.set_title("(A) Energy Trajectory", fontsize=9)
+    ax.legend(loc="best", fontsize=7)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # --- Panel B: Box plot of high vs low gen energy at step 10000 ---
+    ax = axes[1]
+
+    box_data = []
+    box_labels = []
+    box_colors = []
+
+    for cond, (label, color, _ls) in cond_styles.items():
+        sd = sel_diff.get(cond, {})
+        high = sd.get("per_seed_high_gen_energy", [])
+        low = sd.get("per_seed_low_gen_energy", [])
+        if high:
+            box_data.append(high)
+            box_labels.append(f"{label}\nHigh-gen")
+            box_colors.append(color)
+        if low:
+            box_data.append(low)
+            box_labels.append(f"{label}\nLow-gen")
+            box_colors.append(color)
+
+    if box_data:
+        bp = ax.boxplot(box_data, tick_labels=box_labels, patch_artist=True,
+                        widths=0.5)
+        for patch, color in zip(bp["boxes"], box_colors, strict=True):
+            patch.set_facecolor(color)
+            patch.set_alpha(0.35)
+        for median_line in bp["medians"]:
+            median_line.set_color("black")
+            median_line.set_linewidth(1.5)
+
+    # Annotate Cliff's delta and p-value for evolved condition
+    sd_normal = sel_diff.get("normal", {})
+    delta = sd_normal.get("cliff_delta", None)
+    p_val = sd_normal.get("p_value", None)
+    n_seeds = sd_normal.get("n_seeds_used", 0)
+    if delta is not None and p_val is not None:
+        ax.text(0.98, 0.98,
+                f"Evolved: δ={delta:.2f}, p={p_val:.3g}\n(n={n_seeds} seeds)",
+                transform=ax.transAxes, ha="right", va="top",
+                fontsize=6,
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
+                          edgecolor="0.8", alpha=0.9))
+
+    ax.set_ylabel("Mean Energy (per seed)")
+    ax.set_title("(B) Selection Differential (step 10k)", fontsize=9)
+    ax.tick_params(axis="x", labelsize=6)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "fig_trait_evolution.pdf", format="pdf")
+    plt.close(fig)
+    print(f"  Saved {FIG_DIR / 'fig_trait_evolution.pdf'}")
+
+
 if __name__ == "__main__":
     print("Generating paper figures...")
 
@@ -1729,5 +2003,17 @@ if __name__ == "__main__":
 
     print("Figure 16: Persistent clusters")
     generate_persistent_clusters()
+
+    print("Figure 17: Mid-run ablation")
+    generate_midrun_ablation()
+
+    print("Figure 18: Implementation invariance")
+    generate_invariance()
+
+    print("Figure 19: Ecology stressor")
+    generate_ecology_stress()
+
+    print("Figure 20: Trait evolution / selection differential")
+    generate_trait_evolution()
 
     print("Done.")

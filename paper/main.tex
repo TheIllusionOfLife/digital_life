@@ -83,6 +83,12 @@ counterpart, satisfying three conditions:
   \item \textbf{Feedback coupling}: the criterion forms at least one feedback
     loop with another criterion, precluding independent-module implementations.
 \end{enumerate}
+This definition is system-agnostic: the three conditions test whether a subsystem
+fulfills the \emph{functional role} of a life criterion, not whether it structurally
+resembles its biological counterpart.
+The same conditions can be applied to any ALife system with observable state variables
+and ablation toggles.
+
 This definition operationalizes the intuition behind autopoiesis
 \citep{maturana_1980_autopoiesis}, the chemoton model's integration
 of metabolic, boundary, and information subsystems
@@ -260,8 +266,12 @@ $\rightarrow$ 4 outputs with tanh; 212 weights) processes sensory inputs
 (normalized position $x,y$; velocity $v_x, v_y$; internal state
 $s_0, s_1, s_2$; neighbor density) and produces velocity
 adjustments and internal-state deltas.
-The internal state vector enables adaptive regulation: organisms that maintain
-internal variables within viable ranges survive longer.
+The internal-state component $s_0$ is actively maintained near 1.0 by the
+NN controller; when homeostasis is disabled, it decays at rate
+$r_d \cdot \Delta t = 0.001$ per simulation step toward zero.
+This creates a functional necessity: the NN must continuously counteract
+decay to sustain the state values that modulate repair efficacy and waste
+processing, distinguishing active regulation from static parameterization.
 
 \paragraph{Growth and development.}
 Organisms begin as minimal seeds (maturity $m = 0$) and progress through
@@ -346,6 +356,14 @@ trapezoidal rule) and median organism lifespan.
 We additionally report short-horizon viability at $T=500$ to separate
 individual survival from population replacement effects.
 
+We distinguish individual-level from population-level claims per criterion.
+Metabolism, homeostasis, cellular organization, and response to stimuli are
+individual-level criteria whose removal should impair individual organisms.
+Reproduction and evolution are inherently population-level: their necessity
+is demonstrated by $N_T$ and AUC, while individual viability DVs (median
+lifespan, $T{=}500$ survival) serve as orthogonal controls confirming the
+distinction.
+
 To address potential construct overlap between viability and criterion
 definitions, we supplement the primary outcome ($N_T$) with two
 criterion-orthogonal metrics: \emph{spatial cohesion} (mean pairwise
@@ -373,6 +391,12 @@ To prevent overfitting of thresholds, we separate data into:
     evaluation. All reported results use this set exclusively.
 \end{itemize}
 
+Calibration optimized boundary decay/repair rates, the reproduction energy
+threshold $e_{\min}$, growth maturation steps, and crowding parameters,
+using median alive count at $T{=}2000$ as the objective.
+No ablation-condition outcomes were observed during calibration; thresholds
+were set to produce stable baseline populations, not to maximize ablation
+effect sizes.
 Calibration confirmed that both metabolism engines produce viable populations
 (Toy: $\bar{x}$=328.1, Graph: $\bar{x}$=291.8 alive at step 2000).
 All final experiments use the Graph metabolism engine.
@@ -726,10 +750,49 @@ Lines: mean across 30 seeds; bands: $\pm$1 SEM.}
 \label{fig:evolution}
 \end{figure}
 
+\paragraph{Generation-stratified physiology.}
+To further characterize evolutionary dynamics, we track organism-level
+energy across lineage generations ($n$=15 seeds, 10,000 steps;
+Figure~\ref{fig:trait_evolution}).
+Organisms are stratified by generation quartile at the final step (step~10,000).
+In both evolved and no-evolution populations, high-generation organisms have
+significantly \emph{lower} energy than low-generation organisms
+(evolved: Cliff's $\delta$=$-1.00$, $p$=$3{\times}10^{-6}$;
+no-evolution: $\delta$=$-0.93$, $p$=$1.5{\times}10^{-5}$), with similar
+effect sizes across conditions.
+This result reflects a demographic property of the system: reproduction
+imposes an energy cost ($c_r=0.3$), so high-generation offspring are
+recently born and energy-depleted, while low-generation survivors have
+had time to accumulate resources.
+The generation proxy therefore captures birth-order structure rather than
+accumulated selective advantage; mean energy trajectories are indistinguishable
+between conditions over 10,000 steps
+(evolved: $\bar{e}_{10k}=0.885$; no-evolution: $\bar{e}_{10k}=0.890$;
+Figure~\ref{fig:trait_evolution}A).
+The primary evidence for directional adaptation in this system remains
+genome-drift divergence (Figure~\ref{fig:evo_evidence}A;
+$\delta$=1.00, $p<0.001$).
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/fig_trait_evolution.pdf}%
+  {\includegraphics[width=\columnwidth]{figures/fig_trait_evolution.pdf}}%
+  {\fbox{\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule}{%
+    \centering\vspace{2em}[fig\_trait\_evolution.pdf]\vspace{2em}}}}
+\caption{Generation-stratified physiology ($n$=15 seeds, 10,000 steps).
+(A)~Mean energy trajectory for evolved (solid) and no-evolution (dashed)
+conditions, $\pm$1 SEM (seed-level); trajectories are indistinguishable.
+(B)~Per-seed high-generation vs.\ low-generation organism energy at
+step 10,000: high-generation (recently born) organisms have lower energy
+in both conditions, reflecting reproduction cost rather than
+accumulated selective advantage.}
+\label{fig:trait_evolution}
+\end{figure}
+
 \paragraph{Homeostatic regulation.}
 Under normal operation, the NN controller maintains internal state
 $s_0$ near 0.99; disabling homeostasis causes monotonic decay
-($h_{\text{decay}} = 0.01$/step) with high inter-organism variance,
+($h_{\text{decay}} = 0.001$/step) with high inter-organism variance,
 confirming active regulation rather than static parameterization.
 
 \subsection{Graded Metabolic Ablation}
@@ -810,9 +873,15 @@ necessity conclusions are directionally stable across implementation choices
   {\includegraphics[width=0.48\columnwidth]{figures/fig_invariance.pdf}}%
   {\fbox{\parbox{0.45\columnwidth}{%
     \centering\vspace{2em}[invariance figure]\vspace{2em}}}}
-\caption{Protocol extensions for reviewer-facing robustness checks.
-Left: step-0 vs.\ mid-run ablation comparison.
-Right: implementation-invariance comparison for boundary/homeostasis variants.}
+\caption{Protocol extensions for robustness.
+Left: step-0 vs.\ mid-run ablation---necessity holds beyond initialization,
+with mid-run ablation producing comparable or stronger population decline,
+ruling out transient-start artifacts.
+Right: implementation-invariance comparison for boundary/homeostasis
+variants---ablation effects are direction-consistent across both
+\texttt{scalar\_repair}/\texttt{spatial\_hull\_feedback} and
+\texttt{nn\_regulator}/\texttt{setpoint\_pid} implementations,
+confirming results are not implementation-specific.}
 \label{fig:protocol_extensions}
 \end{figure}
 
@@ -830,8 +899,13 @@ internal variables collapse first under stress and ablation combinations.
   {\includegraphics[width=\columnwidth]{figures/fig_ecology_stress.pdf}}%
   {\fbox{\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule}{%
     \centering\vspace{2em}[fig\_ecology\_stress.pdf]\vspace{2em}}}}
-\caption{Ecology stressor protocol extension: abrupt and cyclic resource
-stress conditions with optional evolution ablation for resilience analysis.}
+\caption{Ecology stressor conditions ($n$=30 seeds, 2,000 steps).
+Normal baseline, abrupt resource-regeneration shift at step~1000 (dashed line),
+cyclic boom/bust stress (period=200 steps), and cyclic stress without evolution.
+Mean alive count $\pm$1 SEM. Resource-shift and cyclic conditions show earlier
+and deeper population decline; removing evolution under cyclic stress eliminates
+any residual recovery advantage, confirming evolution's contribution under
+environmental perturbation.}
 \label{fig:ecology_stress}
 \end{figure}
 
@@ -962,9 +1036,12 @@ Single ablations reveal a hierarchy: reproduction, response, and metabolism
 form an essential triad ($>$86\% decline), while growth and homeostasis
 occupy a middle tier ($\sim$46\%), followed by boundary ($\sim$31\%).
 Pairwise ablations show uniformly sub-additive interactions
-(Table~\ref{tab:pairwise}), consistent with \emph{shared failure pathways}
-rather than independent modules---criteria converge on overlapping viability
-subsystems.
+(Table~\ref{tab:pairwise}), consistent with criteria converging on a
+\emph{shared viability attractor}---boundary collapse---reachable via
+multiple independent failure routes rather than independent kill switches.
+This attractor interpretation separates emergent integration from
+by-construction necessity: if criteria were merely hardwired dependencies,
+ablation effects would be additive.
 The proxy control comparison further demonstrates that the specific
 implementation of a criterion shapes ecological dynamics (more complex
 metabolism sustains fewer organisms with distinct diversity profiles),
@@ -1031,6 +1108,10 @@ The functional-analogy framework---requiring dynamic operation, measurable
 degradation upon removal, and feedback coupling---provides a rigorous
 standard distinguishing genuine criteria implementations from simplified
 proxies.
+The framework and criterion-ablation methodology are \emph{portable}: any
+ALife system with observable state variables and ablation toggles can be
+subjected to the same three-condition test, making this a reusable
+evaluation protocol for the field.
 
 Our results demonstrate that no criterion is decorative: removing any one
 causes statistically significant population decline ($p \leq 0.004728$, Holm-Bonferroni
