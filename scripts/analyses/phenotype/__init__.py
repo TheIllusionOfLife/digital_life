@@ -13,6 +13,8 @@ import json
 import sys
 from pathlib import Path
 
+from _project_root import PROJECT_ROOT
+
 from .clustering import (
     PERSISTENCE_CLAIM_THRESHOLD,
     _compute_clustering_ari,
@@ -43,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--exp-dir",
         type=Path,
-        default=Path(__file__).resolve().parent.parent.parent.parent / "experiments",
+        default=PROJECT_ROOT / "experiments",
         help="Experiments directory containing JSON inputs.",
     )
     parser.add_argument(

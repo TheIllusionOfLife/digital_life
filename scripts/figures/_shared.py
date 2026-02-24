@@ -5,11 +5,11 @@ from pathlib import Path
 
 import matplotlib.patches as mpatches  # noqa: F401  (re-exported via * for figure modules)
 import matplotlib.pyplot as plt
+from _project_root import PROJECT_ROOT
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_TSV = PROJECT_ROOT / "experiments" / "final_graph_data.tsv"
 FIG_DIR = PROJECT_ROOT / "paper" / "figures"
 

@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 
 import numpy as np
+from _project_root import PROJECT_ROOT
 
 from .granger import best_granger_with_lag_correction
 from .lagged import (
@@ -29,8 +29,6 @@ try:
     from ..results.statistics import holm_bonferroni
 except ImportError:
     from analyses.results.statistics import holm_bonferroni
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 DATA_PATH = PROJECT_ROOT / "experiments" / "final_graph_normal.json"
 OUTPUT_PATH = PROJECT_ROOT / "experiments" / "coupling_analysis.json"
 
