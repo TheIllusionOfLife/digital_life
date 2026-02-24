@@ -60,3 +60,23 @@ See `configs/README.md` for provenance of each file.
 - `docs/research/unified-review.md` and `docs/research/functional-analogy-definition.md` are historical reference — do not delete
 - Zenodo artifact policy for heavy outputs: `docs/research/artifact_publication_policy.md`
 - Repository should keep heavy experiment artifacts out of git; track compact summaries + provenance manifests instead
+
+## Experiment Execution Order
+
+Run scripts in this order; each stage depends on outputs from the prior stage.
+
+| Stage | Script | Key output files |
+|-------|--------|-----------------|
+| 1. Core ablation | `experiment_final_graph.py` | `experiments/final_graph_{condition}.json` |
+| 1. Core ablation | `experiment_final.py` | `experiments/final_{condition}.json` |
+| 1. Evolution | `experiment_evolution.py` | `experiments/evolution_{variant}.json` |
+| 1. Cyclic | `experiment_cyclic.py` | `experiments/cyclic_{condition}.json` |
+| 1. Niche | `experiment_niche.py` | `experiments/niche_{condition}.json` |
+| 2. Analysis | `analyze_results.py` | `experiments/final_graph_statistics.json`, `experiments/final_statistics.json` |
+| 2. Analysis | `analyze_coupling.py` | `experiments/coupling_analysis.json` |
+| 2. Analysis | `analyze_phenotype.py` | `experiments/phenotype_analysis.json` |
+| 2. Analysis | `analyze_evolution_evidence.py` | `experiments/evolution_evidence.json` |
+| 3. Figures | `generate_figures.py` | `paper/figures/fig_*.pdf` |
+
+Most analysis scripts require `experiments/final_graph_normal.json` (produced by
+`experiment_final_graph.py`) as their primary input. Run Stage 1 first in a fresh clone.
