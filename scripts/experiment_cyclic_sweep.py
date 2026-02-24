@@ -7,7 +7,7 @@ Usage:
     uv run python scripts/experiment_cyclic_sweep.py > experiments/cyclic_sweep_data.tsv
 
 Output: TSV data to stdout + summary to stderr.
-        Raw JSON saved to experiments/cyclic_sweep_{condition}.json.
+        Raw JSON saved to experiments/cyclic_sweep_p{period}_{evo_label}.json.
 """
 
 import digital_life
@@ -22,7 +22,7 @@ NORMAL_RATE = 0.01  # matches config default; not passed as override
 LOW_RATE = 0.005
 
 CONDITIONS = {
-    f"sweep_p{period}_{evo_label}": {
+    f"p{period}_{evo_label}": {
         "metabolism_mode": "graph",
         "environment_cycle_period": period,
         "environment_cycle_low_rate": LOW_RATE,

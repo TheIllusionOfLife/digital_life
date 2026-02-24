@@ -85,10 +85,10 @@ def generate_evolution_evidence() -> None:
         ax.set_xticks(x)
         ax.set_xticklabels(cycle_labels)
         ax.set_xlabel("Cycle Window (steps)")
+        ax.legend(loc="upper right", fontsize=7)
     ax.set_ylabel("Recovery Rate")
     ax.set_title("(B) Per-Cycle Recovery Rates", fontsize=9)
     ax.set_ylim(bottom=0)
-    ax.legend(loc="upper right", fontsize=7)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 

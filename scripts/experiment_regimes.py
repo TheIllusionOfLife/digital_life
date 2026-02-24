@@ -51,7 +51,7 @@ def main():
                 t0 = time.perf_counter()
                 result = run_single(
                     seed,
-                    {**GRAPH_OVERRIDES, **regime_overrides, **cond_overrides},
+                    {**regime_overrides, **cond_overrides, **GRAPH_OVERRIDES},
                     steps=STEPS,
                     sample_every=SAMPLE_EVERY,
                 )

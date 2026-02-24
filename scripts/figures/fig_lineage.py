@@ -1,5 +1,7 @@
 """Figure 12: Phylogenetic depth plot."""
 
+import json
+
 from figures._shared import *
 
 
@@ -10,9 +12,7 @@ def generate_lineage() -> None:
         print(f"  SKIP: {analysis_path} not found")
         return
 
-    with open(analysis_path) as f:
-        import json
-
+    with open(analysis_path, encoding="utf-8") as f:
         analysis = json.load(f)
 
     events = analysis.get("events", [])

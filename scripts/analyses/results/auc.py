@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import numpy as np
 
+# np.trapezoid was added in NumPy 2.0; np.trapz was removed in NumPy 2.0.
+# Support both to satisfy the project's numpy>=1.24 minimum.
+_trapezoid = getattr(np, "trapezoid", None) or getattr(np, "trapz")
+
 
 def extract_final_alive(results: list[dict]) -> np.ndarray:
     """Extract final_alive_count from each seed's result."""
-    return np.array([r["final_alive_count"] for r in results if "samples" in r])
+    return np.array(
+        [r["final_alive_count"] for r in results if "samples" in r and "final_alive_count" in r]
+    )
 
 
 def extract_auc(results: list[dict]) -> np.ndarray:
@@ -19,7 +25,7 @@ def extract_auc(results: list[dict]) -> np.ndarray:
         steps = [s["step"] for s in r["samples"]]
         counts = [s["alive_count"] for s in r["samples"]]
         if len(steps) >= 2:
-            aucs.append(float(np.trapezoid(counts, steps)))
+            aucs.append(float(_trapezoid(counts, steps)))
         else:
             aucs.append(0.0)
     return np.array(aucs)

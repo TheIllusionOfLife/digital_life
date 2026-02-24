@@ -12,7 +12,6 @@ Usage:
     uv run python scripts/experiment_proxy.py > experiments/proxy_data.tsv
 
 Output: TSV data to stdout + summary report to stderr.
-        Raw JSON saved to experiments/proxy_{condition}.json.
 """
 
 import digital_life

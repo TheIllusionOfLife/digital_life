@@ -40,7 +40,10 @@ def generate_evolution() -> None:
         steps = sorted(cond_data[cond].keys())
         means = [np.mean(cond_data[cond][s]) for s in steps]
         sems = [
-            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s])) for s in steps
+            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
+            if len(cond_data[cond][s]) > 1
+            else 0.0
+            for s in steps
         ]
         means, sems = np.array(means), np.array(sems)
         ls = "-" if "normal" in cond and "no_" not in cond else "--"
@@ -60,7 +63,10 @@ def generate_evolution() -> None:
         steps = sorted(cond_data[cond].keys())
         means = [np.mean(cond_data[cond][s]) for s in steps]
         sems = [
-            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s])) for s in steps
+            np.std(cond_data[cond][s], ddof=1) / np.sqrt(len(cond_data[cond][s]))
+            if len(cond_data[cond][s]) > 1
+            else 0.0
+            for s in steps
         ]
         means, sems = np.array(means), np.array(sems)
         ls = "-" if "normal" in cond and "no_" not in cond else "--"

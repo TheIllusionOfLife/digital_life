@@ -89,6 +89,6 @@ def generate_ablation_distributions() -> None:
     ax.spines["right"].set_visible(False)
 
     fig.tight_layout()
-    fig.savefig(FIG_DIR / "fig_distributions.pdf", format="pdf")
+    fig.savefig(FIG_DIR / "fig_ablation_distributions.pdf", format="pdf")
     plt.close(fig)
-    print(f"  Saved {FIG_DIR / 'fig_distributions.pdf'}")
+    print(f"  Saved {FIG_DIR / 'fig_ablation_distributions.pdf'}")

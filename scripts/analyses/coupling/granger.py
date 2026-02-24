@@ -56,7 +56,7 @@ def granger_f_test(x: np.ndarray, y: np.ndarray, lag: int) -> tuple[float, float
 
 
 def best_granger_with_lag_correction(x: np.ndarray, y: np.ndarray, max_lag: int) -> dict | None:
-    """Evaluate lags 1..max_lag and pick best lag with Bonferroni over lags."""
+    """Evaluate lags 1..max_lag and pick best lag with Holm-Bonferroni correction over lags."""
     lag_rows = []
     for lag in range(1, max_lag + 1):
         test = granger_f_test(x, y, lag)
@@ -75,7 +75,7 @@ def best_granger_with_lag_correction(x: np.ndarray, y: np.ndarray, max_lag: int)
     best = min(lag_rows, key=lambda row: row["p_corrected"])
     return {
         "best_lag": int(best["lag"]),
-        "best_f_stat": float(best["f_stat"]),
+        "best_f_stat": round(float(best["f_stat"]), 6),
         "best_p_corrected": float(best["p_corrected"]),
         "lags": [
             {

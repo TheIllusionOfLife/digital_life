@@ -17,7 +17,7 @@ from analyses.phenotype import (
     analyze_long_horizon_sensitivity,  # noqa: F401  (re-export for back-compat)
     main,
 )
-from analyses.phenotype.clustering import (  # noqa: F401
+from analyses.phenotype.clustering import (  # noqa: F401  (re-export for back-compat)
     persistence_claim_gate,
 )
 

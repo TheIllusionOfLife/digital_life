@@ -117,7 +117,7 @@ def parse_tsv(path: Path) -> list[dict]:
     rows = []
     header = None
     n_fields = 0
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.rstrip("\n")
             if not line or line.startswith(" ") or line.startswith("---"):
@@ -152,5 +152,5 @@ def get_coupling_best(pair: dict) -> tuple[float | None, int | None]:
 
 def load_json(path: Path) -> list[dict]:
     """Load experiment results from a JSON file."""
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
