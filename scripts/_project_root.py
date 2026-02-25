@@ -14,8 +14,8 @@ def _find_project_root() -> Path:
     for parent in here.parents:
         if (parent / "pyproject.toml").exists():
             return parent
-    # Fallback: two hops from scripts/ (original assumption)
-    return here.parent
+    # Fallback: _project_root.py lives in scripts/, so two hops up reaches the repo root.
+    return here.parents[1]
 
 
 PROJECT_ROOT: Path = _find_project_root()
